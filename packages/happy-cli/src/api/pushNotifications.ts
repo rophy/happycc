@@ -3,6 +3,7 @@ import { logger } from '@/ui/logger'
 import { Expo, ExpoPushMessage } from 'expo-server-sdk'
 import type { Metadata } from './types'
 import { configuration } from '@/configuration'
+import { type AccessTokenSource, resolveAccessToken } from './tokenSource'
 
 export interface PushToken {
     id: string
@@ -72,12 +73,15 @@ export function getSessionNotificationCopy(
 }
 
 export class PushNotificationClient {
-    private readonly token: string
+    private readonly tokenSource: AccessTokenSource
+    private get token(): string {
+        return resolveAccessToken(this.tokenSource)
+    }
     private readonly baseUrl: string
     private readonly expo: Expo
 
-    constructor(token: string, baseUrl: string = 'https://api.cluster-fluster.com') {
-        this.token = token
+    constructor(token: AccessTokenSource, baseUrl: string = 'https://api.cluster-fluster.com') {
+        this.tokenSource = token
         this.baseUrl = baseUrl
         this.expo = new Expo()
     }

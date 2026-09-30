@@ -9,6 +9,7 @@ import { configuration } from '@/configuration';
 import chalk from 'chalk';
 import { Credentials } from '@/persistence';
 import { connectionState, isNetworkError } from '@/utils/serverConnectionErrors';
+import { tokenStore } from './tokenStore';
 
 export class ApiClient {
 
@@ -19,9 +20,14 @@ export class ApiClient {
   private readonly credential: Credentials;
   private readonly pushClient: PushNotificationClient;
 
+  private get token(): string {
+    return tokenStore.current();
+  }
+
   private constructor(credential: Credentials) {
     this.credential = credential
-    this.pushClient = new PushNotificationClient(credential.token, configuration.serverUrl)
+    tokenStore.init(credential);
+    this.pushClient = new PushNotificationClient(() => tokenStore.current(), configuration.serverUrl)
   }
 
   /**
@@ -67,7 +73,7 @@ export class ApiClient {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.credential.token}`,
+            'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'application/json',
             'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`
           },
@@ -188,7 +194,7 @@ export class ApiClient {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.credential.token}`,
+            'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'application/json',
             'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`
           },
@@ -276,11 +282,11 @@ export class ApiClient {
   }
 
   sessionSyncClient(session: Session): ApiSessionClient {
-    return new ApiSessionClient(this.credential.token, session);
+    return new ApiSessionClient(() => tokenStore.current(), session);
   }
 
   machineSyncClient(machine: Machine): ApiMachineClient {
-    return new ApiMachineClient(this.credential.token, machine);
+    return new ApiMachineClient(() => tokenStore.current(), machine);
   }
 
   push(): PushNotificationClient {
@@ -300,7 +306,7 @@ export class ApiClient {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.credential.token}`,
+            'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'application/json',
             'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`
           },
@@ -329,7 +335,7 @@ export class ApiClient {
         `${configuration.serverUrl}/v1/connect/${vendor}/token`,
         {
           headers: {
-            'Authorization': `Bearer ${this.credential.token}`,
+            'Authorization': `Bearer ${this.token}`,
             'Content-Type': 'application/json',
             'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`
           },
@@ -421,7 +427,7 @@ export class ApiClient {
         {},
         {
           headers: {
-            'Authorization': `Bearer ${this.credential.token}`,
+            'Authorization': `Bearer ${this.token}`,
             'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`,
           },
           timeout: 3000,

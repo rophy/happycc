@@ -18,6 +18,10 @@ vi.mock('@/configuration', () => ({
     },
 }));
 
+vi.mock('@/ui/logger', () => ({
+    logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn() },
+}));
+
 import { LocalResumeSessionError, resolveLocalReconnectableSession } from './localResumeStore';
 
 describe('resolveLocalReconnectableSession', () => {

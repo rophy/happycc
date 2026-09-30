@@ -127,6 +127,21 @@ describe('ApiMachineClient socket reconnection', () => {
         vi.restoreAllMocks();
     });
 
+    it('reads the current token on every (re)connect', async () => {
+        let current = 'token-1';
+        const client = new ApiMachineClient(() => current, makeMachine());
+        client.connect();
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        expect(typeof options.auth).toBe('function');
+        const first = await new Promise<any>((resolve) => options.auth(resolve));
+        current = 'token-2';
+        const second = await new Promise<any>((resolve) => options.auth(resolve));
+        expect(first.token).toBe('token-1');
+        expect(second.token).toBe('token-2');
+        expect(second.clientType).toBe('machine-scoped');
+    });
+
     it('retries after initial socket connection error', async () => {
         vi.useFakeTimers();
 

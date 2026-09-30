@@ -4,6 +4,7 @@ import * as tmp from 'tmp';
 import axios from 'axios';
 
 import { ApiClient } from '@/api/api';
+import { LoggedOutError, tokenStore } from '@/api/tokenStore';
 import { TrackedSession, SessionEncryptionData } from './types';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
@@ -708,7 +709,7 @@ export async function startDaemon(): Promise<void> {
     const fetchServerSessionMetadata = async (sessionId: string, encryptionKey: Uint8Array, encryptionVariant: 'legacy' | 'dataKey'): Promise<Metadata | null> => {
       try {
         const response = await axios.get(`${configuration.serverUrl}/v1/sessions`, {
-          headers: { Authorization: `Bearer ${credentials.token}` },
+          headers: { Authorization: `Bearer ${await tokenStore.getAccessToken()}` },
           timeout: 10_000,
         });
         const sessions = (response.data as { sessions: { id: string; metadata: string }[] }).sessions;
@@ -1009,6 +1010,12 @@ export async function startDaemon(): Promise<void> {
 
     // Create API client
     const api = await ApiClient.create(credentials);
+
+    tokenStore.onLoggedOut((error) => {
+      logger.debug('[DAEMON RUN] Credentials rejected by the server; shutting down');
+      console.error(error.message);
+      requestShutdown('exception', error.message);
+    });
 
     // Get or create machine
     const machine = await api.getOrCreateMachine({

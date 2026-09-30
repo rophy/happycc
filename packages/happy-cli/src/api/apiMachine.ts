@@ -14,6 +14,7 @@ import { backoff } from '@/utils/time';
 import { RpcHandlerManager } from './rpc/RpcHandlerManager';
 import { detectCLIAvailability, CLIAvailability } from '@/utils/detectCLI';
 import { detectResumeSupport, type ResumeSupport } from '@/resume/localHappyAgentAuth';
+import { type AccessTokenSource, resolveAccessToken } from './tokenSource';
 import {
     releaseReconnectCapabilityMonitor,
     retainReconnectCapabilityMonitor,
@@ -155,11 +156,16 @@ export class ApiMachineClient {
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private reconnectCapabilityHeld = false;
     private shutdownRequested = false;
+    private readonly tokenSource: AccessTokenSource;
+    private get token(): string {
+        return resolveAccessToken(this.tokenSource);
+    }
 
     constructor(
-        private token: string,
+        token: AccessTokenSource,
         private machine: Machine
     ) {
+        this.tokenSource = token;
         // Initialize RPC handler manager
         this.rpcHandlerManager = new RpcHandlerManager({
             scopePrefix: this.machine.id,
@@ -491,12 +497,12 @@ export class ApiMachineClient {
 
         this.socket = io(serverUrl, {
             transports: ['websocket'],
-            auth: {
+            auth: (cb: (data: object) => void) => cb({
                 token: this.token,
                 clientType: 'machine-scoped' as const,
                 machineId: this.machine.id,
                 happyClient: `cli-daemon/${configuration.currentCliVersion}`
-            },
+            }),
             path: '/v1/updates',
             reconnection: false,
         });

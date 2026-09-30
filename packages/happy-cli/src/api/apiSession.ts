@@ -18,6 +18,7 @@ import {
     shouldReconnect,
 } from '@/utils/lidState';
 import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope, type SessionTurnEndStatus } from '@slopus/happy-wire';
+import { type AccessTokenSource, resolveAccessToken } from './tokenSource';
 import {
     closeClaudeTurnWithStatus,
     mapClaudeLogMessageToSessionEnvelopes,
@@ -190,7 +191,10 @@ function buildMultipartUploadBody(
 }
 
 export class ApiSessionClient extends EventEmitter {
-    private readonly token: string;
+    private readonly tokenSource: AccessTokenSource;
+    private get token(): string {
+        return resolveAccessToken(this.tokenSource);
+    }
     readonly sessionId: string;
     private metadata: Metadata | null;
     private metadataVersion: number;
@@ -247,9 +251,9 @@ export class ApiSessionClient extends EventEmitter {
     private readonly receiveSync: InvalidateSync;
     private reconnectCapabilityHeld = false;
 
-    constructor(token: string, session: Session) {
+    constructor(token: AccessTokenSource, session: Session) {
         super()
-        this.token = token;
+        this.tokenSource = token;
         this.sessionId = session.id;
         this.metadata = session.metadata;
         this.metadataVersion = session.metadataVersion;
@@ -274,12 +278,12 @@ export class ApiSessionClient extends EventEmitter {
         //
 
         this.socket = io(configuration.serverUrl, {
-            auth: {
+            auth: (cb: (data: object) => void) => cb({
                 token: this.token,
                 clientType: 'session-scoped' as const,
                 sessionId: this.sessionId,
                 happyClient: `cli-coding-session/${configuration.currentCliVersion}`
-            },
+            }),
             path: '/v1/updates',
             reconnection: false,
             transports: ['websocket'],

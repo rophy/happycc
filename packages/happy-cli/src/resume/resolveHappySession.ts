@@ -3,6 +3,7 @@ import tweetnacl from 'tweetnacl';
 import { z } from 'zod';
 
 import { decodeBase64, decryptLegacy, decryptWithDataKey } from '@/api/encryption';
+import { LoggedOutError, tokenStore } from '@/api/tokenStore';
 import type { Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
 import {
@@ -131,14 +132,18 @@ function decryptSessionMetadata(session: RawSession, credentials: LocalHappyAgen
 
 async function fetchSessions(credentials: LocalHappyAgentCredentials): Promise<RawSession[]> {
     try {
+        const token = await tokenStore.getAccessToken();
         const response = await axios.get(`${configuration.serverUrl}/v1/sessions`, {
             headers: {
-                Authorization: `Bearer ${credentials.token}`,
+                Authorization: `Bearer ${token}`,
                 'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`,
             },
         });
         return (response.data as { sessions: RawSession[] }).sessions;
     } catch (error) {
+        if (error instanceof LoggedOutError) {
+            throw new Error('Happy session lookup authentication expired for legacy account credentials.');
+        }
         if (error instanceof AxiosError) {
             if (error.response?.status === 401) {
                 throw new Error('Happy session lookup authentication expired for legacy account credentials.');

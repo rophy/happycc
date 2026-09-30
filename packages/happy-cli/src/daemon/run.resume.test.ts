@@ -37,6 +37,10 @@ vi.mock('@/persistence', () => ({
   persistSession: mocks.persistSession, markSessionStopped: vi.fn(), writeDaemonState: vi.fn(), readDaemonState: vi.fn(),
   acquireDaemonLock: async () => ({}), releaseDaemonLock: vi.fn(),
 }));
+vi.mock('@/api/tokenStore', () => ({
+  tokenStore: { getAccessToken: async () => 'test-token', onLoggedOut: () => () => {} },
+  LoggedOutError: class LoggedOutError extends Error {},
+}));
 vi.mock('./controlClient', () => ({
   isDaemonRunningCurrentlyInstalledHappyVersion: async () => false,
   stopDaemon: vi.fn(), cleanupDaemonState: vi.fn(),

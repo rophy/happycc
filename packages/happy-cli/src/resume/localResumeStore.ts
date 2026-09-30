@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 import { decodeBase64, decrypt } from '@/api/encryption';
 import type { Metadata } from '@/api/types';
+import { LoggedOutError, tokenStore } from '@/api/tokenStore';
 import { configuration } from '@/configuration';
 import { readCredentials, readPersistedSessions, type PersistedSession } from '@/persistence';
 
@@ -46,9 +47,10 @@ async function fetchServerMetadata(
     }
 
     try {
+        const token = await tokenStore.getAccessToken();
         const response = await axios.get(`${configuration.serverUrl}/v1/sessions`, {
             headers: {
-                Authorization: `Bearer ${credentials.token}`,
+                Authorization: `Bearer ${token}`,
                 'X-Happy-Client': `cli-coding-session/${configuration.currentCliVersion}`,
             },
             timeout: 10_000,
@@ -62,6 +64,9 @@ async function fetchServerMetadata(
         const decrypted = decrypt(encryptionKey, encryptionVariant, decodeBase64(matched.metadata));
         return parseResumableMetadata(sessionId, decrypted);
     } catch (error) {
+        if (error instanceof LoggedOutError) {
+            return null;
+        }
         if (error instanceof AxiosError && error.response?.status === 401) {
             throw new LocalResumeSessionError(
                 'Happy session lookup authentication expired. Run `happy auth login --force` in this environment.',

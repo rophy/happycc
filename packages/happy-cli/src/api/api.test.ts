@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiClient } from './api';
 import axios from 'axios';
 import { connectionState } from '@/utils/serverConnectionErrors';
+import { tokenStore } from './tokenStore';
 
 // Use vi.hoisted to ensure mock functions are available when vi.mock factory runs
 const { mockPost, mockIsAxiosError } = vi.hoisted(() => ({
@@ -80,6 +81,10 @@ describe('Api server error handling', () => {
         };
 
         api = await ApiClient.create(mockCredential);
+    });
+
+    afterEach(() => {
+        tokenStore.resetForTests();
     });
 
     describe('getOrCreateSession', () => {
