@@ -52,8 +52,8 @@ class Configuration {
 
     // URL precedence (both): HAPPY_*_URL env > settings.<key> > default.
     // Settings are read sync here (avoid circular import with persistence.ts).
-    // webappUrl must follow the same chain as serverUrl, otherwise `happy server`
-    // self-host points the API at localhost but auth still opens the prod webapp.
+    // webappUrl must follow the same chain as serverUrl to ensure consistency
+    // when serverUrl is overridden via env or settings.
     this.serverUrl =
       process.env.HAPPY_SERVER_URL ||
       readSettingsStringSync(this.settingsFile, 'serverUrl') ||
