@@ -5,6 +5,7 @@
  * - File output location: ~/.handy/logs/<date time in local timezone>.log
  */
 
+import axios from 'axios'
 import chalk from 'chalk'
 import { appendFileSync } from 'fs'
 import { inspect } from 'node:util'
@@ -13,6 +14,27 @@ import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, basename } from 'node:path'
 // Note: readDaemonState is imported lazily inside listDaemonLogFiles() to avoid
 // circular dependency: logger.ts ↔ persistence.ts
+
+/**
+ * Raw AxiosErrors carry the request's Authorization header and, on the
+ * request/response bodies, refresh tokens — `inspect()` on the error (or on
+ * an Axios instance-shaped mock with `isAxiosError: true`) prints all of it.
+ * Replace it with a plain summary before anything is logged, so the leak
+ * class can't come back through a new call site. Never pass through headers,
+ * config.data or response.data.
+ */
+function sanitizeLogArg(arg: unknown): unknown {
+  if (!axios.isAxiosError(arg)) {
+    return arg
+  }
+  return {
+    message: arg.message,
+    code: arg.code,
+    status: arg.response?.status,
+    method: arg.config?.method,
+    url: arg.config?.url,
+  }
+}
 
 /**
  * Consistent date/time formatting functions
@@ -46,7 +68,7 @@ function getSessionLogPath(): string {
   return join(configuration.logsDir, filename)
 }
 
-class Logger {
+export class Logger {
   private dangerouslyUnencryptedServerLoggingUrl: string | undefined
 
   constructor(
@@ -202,10 +224,11 @@ class Logger {
   }
 
   private logToFile(prefix: string, message: string, ...args: unknown[]): void {
-    const logLine = `${prefix} ${message} ${args.map(arg =>
+    const sanitizedArgs = args.map(sanitizeLogArg)
+    const logLine = `${prefix} ${message} ${sanitizedArgs.map(arg =>
       typeof arg === 'string' ? arg : inspect(arg, { depth: 5, breakLength: 120 })
     ).join(' ')}\n`
-    
+
     // Send to remote server if configured
     if (this.dangerouslyUnencryptedServerLoggingUrl) {
       // Determine log level from prefix
@@ -214,7 +237,7 @@ class Logger {
         level = 'debug'
       }
       // Fire and forget, with explicit .catch to prevent unhandled rejection
-      this.sendToRemoteServer(level, message, ...args).catch(() => {
+      this.sendToRemoteServer(level, message, ...sanitizedArgs).catch(() => {
         // Silently ignore remote logging errors to prevent loops
       })
     }
