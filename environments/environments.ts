@@ -422,10 +422,12 @@ export async function startEnvironmentServices(name: string): Promise<void> {
 
     try {
         await waitFor(() => isPortInUse(config.expoPort), 30_000, "web");
+        console.log(`  Web is listening.`);
     } catch {
-        throw new Error(`Web failed to start. Check logs: ${webLogFile}`);
+        // The web app (Expo) is not required for CLI/daemon integration testing or for
+        // OIDC device-flow seeding; do not block those on it. Warn instead of throwing.
+        console.warn(`  Warning: web did not start within 30s. Check logs: ${webLogFile}`);
     }
-    console.log(`  Web is listening.`);
 }
 
 export async function seedEnvironment(name: string): Promise<void> {
