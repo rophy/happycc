@@ -1,0 +1,217 @@
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { configuration } from '@/configuration';
+import { clearCredentialsIfRefreshToken, readCredentials, writeCredentials, type Credentials } from '@/persistence';
+import { withFileLock } from '@/utils/fileLock';
+import { logger } from '@/ui/logger';
+import { decodeJwtExpiry } from './jwt';
+
+const REFRESH_MARGIN_MS = 2 * 60 * 1000;
+const RETRY_AFTER_ERROR_MS = 30_000;
+const MIN_TIMER_MS = 5_000;
+
+export class LoggedOutError extends Error {
+    constructor() {
+        super('Logged out: run "happy auth login" to sign in again');
+        this.name = 'LoggedOutError';
+    }
+}
+
+export function credentialsLockFile(): string {
+    return configuration.privateKeyFile + '.lock';
+}
+
+function isFresh(token: string): boolean {
+    const exp = decodeJwtExpiry(token);
+    return exp !== null && exp - Date.now() > REFRESH_MARGIN_MS;
+}
+
+type RetriableConfig = InternalAxiosRequestConfig & { _happyAuthRetried?: boolean };
+
+/** Same origin as the configured Happy server (a prefix check would match :4000 vs :40001). */
+function isHappyServerUrl(url: string): boolean {
+    try {
+        return new URL(url).origin === new URL(configuration.serverUrl).origin;
+    } catch {
+        return false;
+    }
+}
+
+function readAuthorization(config: RetriableConfig): string | undefined {
+    const headers: any = config.headers;
+    const value = headers?.get?.('Authorization') ?? headers?.Authorization ?? headers?.authorization;
+    return typeof value === 'string' ? value : undefined;
+}
+
+function writeAuthorization(config: RetriableConfig, value: string): void {
+    const headers: any = config.headers;
+    if (typeof headers?.set === 'function') {
+        headers.set('Authorization', value);
+    } else {
+        config.headers = { ...(headers ?? {}), Authorization: value } as any;
+    }
+}
+
+class TokenStore {
+    private token: string | null = null;
+    private timer: NodeJS.Timeout | null = null;
+    private inflight: Promise<string> | null = null;
+    private interceptorId: number | null = null;
+    private readonly listeners = new Set<(error: LoggedOutError) => void>();
+
+    init(credentials: Credentials): void {
+        if (this.token !== null) {
+            return;
+        }
+        this.token = credentials.token;
+        this.schedule();
+        this.installInterceptor();
+    }
+
+    current(): string {
+        if (this.token === null) {
+            throw new Error('Token store is not initialized');
+        }
+        return this.token;
+    }
+
+    async getAccessToken(): Promise<string> {
+        if (this.token === null) {
+            const credentials = await readCredentials();
+            if (!credentials) {
+                throw new LoggedOutError();
+            }
+            this.init(credentials);
+        }
+        const token = this.token!;
+        return isFresh(token) ? token : this.refresh(token);
+    }
+
+    refresh(rejectedToken: string): Promise<string> {
+        if (!this.inflight) {
+            this.inflight = this.adoptOrRefresh(rejectedToken)
+                .then((token) => {
+                    this.token = token;
+                    this.schedule();
+                    return token;
+                })
+                .catch((error) => {
+                    if (error instanceof LoggedOutError) {
+                        this.notifyLoggedOut(error);
+                    }
+                    throw error;
+                })
+                .finally(() => {
+                    this.inflight = null;
+                });
+        }
+        return this.inflight;
+    }
+
+    onLoggedOut(listener: (error: LoggedOutError) => void): () => void {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    }
+
+    resetForTests(): void {
+        if (this.timer) clearTimeout(this.timer);
+        if (this.interceptorId !== null && axios.interceptors) {
+            axios.interceptors.response.eject(this.interceptorId);
+        }
+        this.token = null;
+        this.timer = null;
+        this.inflight = null;
+        this.interceptorId = null;
+        this.listeners.clear();
+    }
+
+    private async adoptOrRefresh(rejectedToken: string): Promise<string> {
+        return withFileLock(credentialsLockFile(), async () => {
+            const credentials = await readCredentials();
+            if (!credentials) {
+                throw new LoggedOutError();
+            }
+            if (credentials.token !== rejectedToken && isFresh(credentials.token)) {
+                logger.debug('[AUTH] Adopted access token rotated by another process');
+                return credentials.token;
+            }
+            let data: { accessToken: string; refreshToken: string };
+            try {
+                const response = await axios.post(
+                    `${configuration.serverUrl}/v1/auth/refresh`,
+                    { refreshToken: credentials.refreshToken },
+                    { timeout: 15_000, headers: { 'X-Happy-Client': `cli/${configuration.currentCliVersion}` } },
+                );
+                data = response.data;
+            } catch (error) {
+                if (axios.isAxiosError(error) && error.response?.status === 401) {
+                    await clearCredentialsIfRefreshToken(credentials.refreshToken);
+                    throw new LoggedOutError();
+                }
+                throw error;
+            }
+            await writeCredentials({ ...credentials, token: data.accessToken, refreshToken: data.refreshToken });
+            logger.debug('[AUTH] Access token refreshed');
+            return data.accessToken;
+        });
+    }
+
+    private schedule(delayOverrideMs?: number): void {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+        const token = this.token;
+        const exp = token ? decodeJwtExpiry(token) : null;
+        if (!token || exp === null) {
+            return;
+        }
+        const delay = delayOverrideMs ?? Math.max(MIN_TIMER_MS, exp - Date.now() - REFRESH_MARGIN_MS);
+        this.timer = setTimeout(() => {
+            this.refresh(token).catch((error) => {
+                if (!(error instanceof LoggedOutError)) {
+                    logger.debug('[AUTH] Background refresh failed; retrying', error instanceof Error ? error.message : error);
+                    this.schedule(RETRY_AFTER_ERROR_MS);
+                }
+            });
+        }, delay);
+        this.timer.unref?.();
+    }
+
+    private installInterceptor(): void {
+        if (this.interceptorId !== null || !axios.interceptors) {
+            return;
+        }
+        this.interceptorId = axios.interceptors.response.use(undefined, async (error: AxiosError) => {
+            const config = error.config as RetriableConfig | undefined;
+            const authorization = config ? readAuthorization(config) : undefined;
+            const url = String(config?.url ?? '');
+            if (
+                !config ||
+                config._happyAuthRetried ||
+                error.response?.status !== 401 ||
+                !authorization?.startsWith('Bearer ') ||
+                !isHappyServerUrl(url)
+            ) {
+                throw error;
+            }
+            config._happyAuthRetried = true;
+            const fresh = await this.refresh(authorization.slice('Bearer '.length));
+            writeAuthorization(config, `Bearer ${fresh}`);
+            return axios.request(config);
+        });
+    }
+
+    private notifyLoggedOut(error: LoggedOutError): void {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+        for (const listener of this.listeners) {
+            try {
+                listener(error);
+            } catch { }
+        }
+    }
+}
+
+export const tokenStore = new TokenStore();
