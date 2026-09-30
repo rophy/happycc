@@ -1,3 +1,15 @@
+import type { FastifyReply } from 'fastify';
+
+/** Sends a server-rendered HTML page with anti-framing (clickjacking) headers. */
+export function sendHtml(reply: FastifyReply, statusCode: number, html: string) {
+    return reply
+        .code(statusCode)
+        .header('content-type', 'text/html; charset=utf-8')
+        .header('X-Frame-Options', 'DENY')
+        .header('Content-Security-Policy', "frame-ancestors 'none'")
+        .send(html);
+}
+
 export function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
