@@ -89,12 +89,17 @@ model Device {
 }
 
 model RetiredRefreshToken {
-    tokenHash String   @id
-    deviceId  String
-    device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-    retiredAt DateTime @default(now())
+    tokenHash     String   @id
+    deviceId      String
+    device        Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+    retiredAt     DateTime @default(now())
+    /// Insertion order; "most recently retired" is decided by this, not by retiredAt.
+    seq           Int      @default(autoincrement())
+    /// False for tokens retired by a grace rotation, so the reuse window never chains.
+    graceEligible Boolean  @default(true)
 
     @@index([deviceId])
+    @@index([deviceId, seq])
 }
 
 model DeviceAuthRequest {

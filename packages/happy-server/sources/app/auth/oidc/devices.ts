@@ -62,42 +62,39 @@ export async function refreshDevice(refreshToken: string, opts: RefreshOptions):
     const hash = hashToken(refreshToken);
     const device = await findDeviceWithAccount({ refreshTokenHash: hash });
     if (device) {
-        return rotate(device, opts, now);
+        return rotate(device, opts, now, null);
     }
 
     const retired = await db.retiredRefreshToken.findUnique({ where: { tokenHash: hash } });
     if (!retired) {
         return { ok: false, reason: 'invalid' };
     }
-    if (await isWithinReuseGrace(retired, opts.reuseGraceSec ?? 0, now)) {
+    const graceMs = (opts.reuseGraceSec ?? 0) * 1000;
+    if (retired.graceEligible && graceMs > 0 && now.getTime() - retired.retiredAt.getTime() <= graceMs) {
         const current = await findDeviceWithAccount({ id: retired.deviceId });
         if (current) {
-            return rotate(current, opts, now);
+            return rotate(current, opts, now, retired.tokenHash);
         }
     }
     await revokeDevice(retired.deviceId);
     return { ok: false, reason: 'reused' };
 }
 
-/** Only the device's most recently retired token, and only within the window. */
-async function isWithinReuseGrace(
-    retired: { tokenHash: string; deviceId: string; retiredAt: Date },
-    graceSec: number,
+/**
+ * Validates the device and replaces its current refresh token with a new one.
+ *
+ * `graceFrom` is the retired token hash a lost-response retry presented. The
+ * rotation then only proceeds if that token is still the device's most
+ * recently retired one (checked inside the transaction), and the token it
+ * retires is not itself eligible for another grace retry. A rotation that
+ * loses a race means two holders used the same chain: the device is revoked.
+ */
+async function rotate(
+    device: DeviceWithAccount,
+    opts: RefreshOptions,
     now: Date,
-): Promise<boolean> {
-    if (graceSec <= 0 || now.getTime() - retired.retiredAt.getTime() > graceSec * 1000) {
-        return false;
-    }
-    const latest = await db.retiredRefreshToken.findFirst({
-        where: { deviceId: retired.deviceId },
-        orderBy: { retiredAt: 'desc' },
-        select: { tokenHash: true },
-    });
-    return latest?.tokenHash === retired.tokenHash;
-}
-
-/** Validates the device and replaces its current refresh token with a new one. */
-async function rotate(device: DeviceWithAccount, opts: RefreshOptions, now: Date): Promise<RefreshResult> {
+    graceFrom: string | null,
+): Promise<RefreshResult> {
     if (device.revokedAt) {
         return { ok: false, reason: 'revoked' };
     }
@@ -114,8 +111,17 @@ async function rotate(device: DeviceWithAccount, opts: RefreshOptions, now: Date
 
     const currentHash = device.refreshTokenHash;
     const next = generateOpaqueToken();
-    // Conditional update: a concurrent refresh of the same token loses and gets 'invalid'.
     const rotated = await db.$transaction(async (tx) => {
+        if (graceFrom) {
+            const latest = await tx.retiredRefreshToken.findFirst({
+                where: { deviceId: device.id },
+                orderBy: { seq: 'desc' },
+                select: { tokenHash: true },
+            });
+            if (latest?.tokenHash !== graceFrom) {
+                return false;
+            }
+        }
         const updated = await tx.device.updateMany({
             where: { id: device.id, refreshTokenHash: currentHash, revokedAt: null },
             data: { refreshTokenHash: hashToken(next), lastSeenAt: now },
@@ -123,11 +129,14 @@ async function rotate(device: DeviceWithAccount, opts: RefreshOptions, now: Date
         if (updated.count !== 1) {
             return false;
         }
-        await tx.retiredRefreshToken.create({ data: { tokenHash: currentHash, deviceId: device.id, retiredAt: now } });
+        await tx.retiredRefreshToken.create({
+            data: { tokenHash: currentHash, deviceId: device.id, retiredAt: now, graceEligible: graceFrom === null },
+        });
         return true;
     });
     if (!rotated) {
-        return { ok: false, reason: 'invalid' };
+        await revokeDevice(device.id);
+        return { ok: false, reason: 'reused' };
     }
     return {
         ok: true,

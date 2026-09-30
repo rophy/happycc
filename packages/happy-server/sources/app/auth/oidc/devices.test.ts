@@ -134,6 +134,75 @@ describe('devices', () => {
                 .toEqual({ ok: false, reason: 'reused' });
         });
 
+        it('does not extend the window to the pair issued by the lost response', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            if (!first.ok) return;
+            const retry = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) });
+            expect(retry.ok).toBe(true);
+            if (!retry.ok) return;
+
+            // Someone else holding the lost pair shows up: the chain has forked.
+            expect(await devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(2_000) }))
+                .toEqual({ ok: false, reason: 'reused' });
+            expect(await devices.refreshDevice(retry.tokens.refreshToken, { ...GRACE, now: at(3_000) }))
+                .toEqual({ ok: false, reason: 'revoked' });
+        });
+
+        it('revokes when a grace replay races the holder of the new token', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            if (!first.ok) return;
+
+            const results = await Promise.all([
+                devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(1_000) }),
+                devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) }),
+            ]);
+            // Whatever the interleaving, the fork is detected and the device ends up revoked.
+            expect(results.some((r) => !r.ok)).toBe(true);
+            const device = await db.device.findUniqueOrThrow({ where: { id: created.deviceId } });
+            expect(device.revokedAt).not.toBeNull();
+        });
+
+        it('lets only one of two concurrent grace replays through and revokes', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+
+            const results = await Promise.all([
+                devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) }),
+                devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) }),
+            ]);
+            expect(results.filter((r) => r.ok).length).toBeLessThanOrEqual(1);
+            const device = await db.device.findUniqueOrThrow({ where: { id: created.deviceId } });
+            expect(device.revokedAt).not.toBeNull();
+        });
+
+        it('keeps strict reuse detection when the window is 0', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { maxSessionAgeSec: MAX_AGE, reuseGraceSec: 0, now: at(0) });
+            expect(first.ok).toBe(true);
+            expect(await devices.refreshDevice(created.refreshToken, { maxSessionAgeSec: MAX_AGE, reuseGraceSec: 0, now: at(1) }))
+                .toEqual({ ok: false, reason: 'reused' });
+        });
+
+        it('applies the IdP check and max age within the window', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            expect(await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000), checkIdp: async () => false }))
+                .toEqual({ ok: false, reason: 'disabled' });
+            expect(await devices.refreshDevice(created.refreshToken, { ...GRACE, maxSessionAgeSec: 1, now: at(2_000) }))
+                .toEqual({ ok: false, reason: 'expired' });
+        });
+
         it('still rejects a revoked device within the window', async () => {
             const account = await newAccount();
             const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
