@@ -199,9 +199,12 @@ rotated refresh token revokes the device.
 Lost responses: if a client never receives the rotated pair (timeout, reset
 connection) it retries with the old token. Within `AUTH_REFRESH_REUSE_GRACE`
 of the rotation, the device's most recently retired token is accepted once
-more and triggers a fresh rotation (the pair issued by the lost response is
-retired in turn). Any older token, a second replay of the same token, or a
-replay after the window still revokes the device.
+more and triggers a fresh rotation. The pair issued by the lost response is
+retired without a grace window of its own, so there is one retry per
+rotation. Any older token, a second replay of the same token, a replay after
+the window, or a rotation that loses a race with another holder of the same
+chain revokes the device. Browser and mobile clients must therefore also
+serialize refresh (e.g. across tabs).
 
 The daemon refreshes in the background. On refresh failure it stops
 syncing, logs out, and reports that `happy auth login` is required.
