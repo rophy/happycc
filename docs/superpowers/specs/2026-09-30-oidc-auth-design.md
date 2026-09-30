@@ -236,17 +236,19 @@ Rules:
 
 ### Local deployment
 
-Root `docker-compose.yaml`: server, web app, Postgres, and Keycloak (dev
-realm with test users) for local development and integration tests.
+Root `docker-compose.yaml`: server, web app, Postgres, and
+[oidc-mock](https://github.com/rophy/oidc-mock) (`ghcr.io/rophy/oidc-mock`,
+pinned by date tag, test users in `deploy/oidc-mock/config.yaml`) for local
+development and integration tests.
 
 ## 4. Testing
 
 | Level | What |
 |---|---|
-| Unit (server) | `oidcClient` token validation (bad iss/aud/nonce/signature/expiry), `keyVault` wrap/unwrap, `deviceAuth` state machine and RFC 8628 errors, refresh rotation + reuse detection, max session age, disabled account. Mock IdP via `oauth2-mock-server` or local JWKS. |
+| Unit (server) | `oidcClient` token validation (bad iss/aud/nonce/signature/expiry), `keyVault` wrap/unwrap, `deviceAuth` state machine and RFC 8628 errors, refresh rotation + reuse detection, max session age, disabled account. Mock IdP via the in-process `oauth2-mock-server` npm package. |
 | Unit (CLI) | Device flow client: polling/backoff, error rendering, credential persistence, background refresh and logout-on-failure. |
 | Unit (app) | Callback parsing, exchange, token storage, refresh; `app.config.js` fails fast without required env. |
-| Integration | Real server + Keycloak via compose: CLI `auth login` → Playwright approves `/activate` → credentials written → CLI creates a session → web app (logged in via OIDC) decrypts and displays it. Revoke device → CLI refresh fails. Disable user in Keycloak → access lost within one access-token TTL. |
+| Integration | Real server + oidc-mock via compose: CLI `auth login` → Playwright approves `/activate` → credentials written → CLI creates a session → web app (logged in via OIDC) decrypts and displays it. Revoke device → CLI refresh fails. Revoke the user's IdP refresh token at oidc-mock (`/revoke`) → the next due IdP check revokes all of the account's devices. |
 | E2E (web) | Playwright: login, logout, expired session redirect. |
 | Mobile | Manual verification in v1 (login via system browser, push delivery). |
 

@@ -6,7 +6,7 @@
 
 **Architecture:** The server is the only OIDC client (confidential, auth code + PKCE via `openid-client`). On first login it generates the user's 32-byte root secret, stores it wrapped with a KeyTree key, and later hands key material to clients boxed to a client-supplied ephemeral key, in the exact byte formats upstream clients already consume. All new logic lives in `sources/app/auth/oidc/`; routes live in three new route files; legacy auth routes and tables are deleted.
 
-**Tech Stack:** Fastify 5 + zod type provider, Prisma 6 (Postgres / PGlite), `openid-client` 6, `jsonwebtoken`, `tweetnacl`, `privacy-kit` KeyTree, Vitest 3, `oauth2-mock-server` 8 (tests), Keycloak 26 (integration).
+**Tech Stack:** Fastify 5 + zod type provider, Prisma 6 (Postgres / PGlite), `openid-client` 6, `jsonwebtoken`, `tweetnacl`, `privacy-kit` KeyTree, Vitest 3, `oauth2-mock-server` 8 (unit tests), `ghcr.io/rophy/oidc-mock` (integration / local compose).
 
 **Spec:** `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`
 
@@ -53,7 +53,7 @@ packages/happy-server/
   sources/app/auth/oidc/deviceAuth.ts (+.test.ts)        device flow state machine
   sources/app/auth/oidc/pages.ts                         server-rendered HTML
   sources/app/auth/oidc/oidcRuntime.ts                   init + singleton
-  sources/app/auth/oidc/oidc.integration.test.ts         Keycloak end-to-end
+  sources/app/auth/oidc/oidc.integration.test.ts         oidc-mock end-to-end
   sources/app/api/types.ts                               (modify) request.deviceId
   sources/app/api/utils/enableAuthentication.ts          (modify)
   sources/app/api/socket.ts                              (modify) device rooms
@@ -62,8 +62,8 @@ packages/happy-server/
   sources/app/api/routes/tokenRoutes.ts (+.spec.ts)      refresh, logout
   sources/app/api/routes/authRoutes.ts                   (delete)
   sources/app/api/api.ts, sources/main.ts, sources/index.ts (modify) wiring
-docker-compose.yaml                                      (create) keycloak + postgres + server
-deploy/keycloak/happy-realm.json                         (create)
+docker-compose.yaml                                      (create) oidc-mock + postgres + server
+deploy/oidc-mock/config.yaml                             (create)
 .github/workflows/server.yml                             (modify) integration job
 docs/user-identity.md                                    (modify) auth flow
 ```
@@ -3461,101 +3461,71 @@ Note for plan 2: `happy server` in the CLI and the `cli-smoke-test.yml` "start s
 
 ---
 
-### Task 13: Keycloak compose, end-to-end integration test, CI, docs
+### Task 13: oidc-mock compose, end-to-end integration test, CI, docs
 
 **Files:**
 - Create: `docker-compose.yaml`
-- Create: `deploy/keycloak/happy-realm.json`
+- Create: `deploy/oidc-mock/config.yaml`
 - Create: `packages/happy-server/sources/testing/httpBrowser.ts`
 - Create: `packages/happy-server/sources/app/auth/oidc/oidc.integration.test.ts`
 - Modify: `.github/workflows/server.yml`
 - Modify: `docs/user-identity.md`
 
 **Interfaces:**
-- Consumes: `startServer` (`sources/index.ts`), `runMigrations`, all endpoints above.
-- Produces: `HttpBrowser` class — `get(url, opts?: { stopAt?: (url: string) => boolean })`, `postForm(url, fields, opts?)` returning `{ url: string; status: number; body: string; location: string | null }`; keeps cookies per host and follows redirects.
+- Consumes: `startServer` (`sources/index.ts`), `runMigrations`, `db`, `openIdpRefreshToken` (Task 4), all endpoints above.
+- Produces: `HttpBrowser` class — `get(url, opts?: { stopAt?: (url: string) => boolean })`, `postForm(url, fields, opts?)` returning `{ url: string; status: number; body: string; location: string | null }`; keeps cookies per host and follows redirects. `pickerFields(html: string, sub: string): Record<string, string>` — hidden fields of the oidc-mock user-picker form for `sub`.
 
-- [ ] **Step 1: Create the Keycloak realm**
+Background — `ghcr.io/rophy/oidc-mock` (https://github.com/rophy/oidc-mock):
+- Configured with YAML (`OIDC_CONFIG_FILE`); issuer must have no path.
+- `GET /authorize` renders a user picker: one `<form method="POST" action="/authorize/callback">` per user, with hidden inputs `sub`, `client_id`, `redirect_uri`, `state`, `nonce`, `scope`, `code_challenge`, `code_challenge_method`, `response_mode`. Users without `password` sign in with one click. There is no IdP session, so every login shows the picker.
+- `offline_access` scope yields a refresh token. `POST /revoke` (confidential client auth) removes a refresh token; refreshing it afterwards returns `invalid_grant`.
+- The image is `FROM scratch` (no shell, no healthcheck possible) and starts in milliseconds.
+- Pin the image by date tag. Latest at time of writing: `20260913-34fdbaf`.
 
-Create `deploy/keycloak/happy-realm.json`:
+- [ ] **Step 1: Create the oidc-mock config**
 
-```json
-{
-  "realm": "happy",
-  "enabled": true,
-  "sslRequired": "none",
-  "registrationAllowed": false,
-  "clients": [
-    {
-      "clientId": "happy-server",
-      "name": "Happy server",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": false,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "happy-dev-secret",
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3005/v1/auth/oidc/callback",
-        "http://localhost:3999/v1/auth/oidc/callback"
-      ],
-      "webOrigins": ["+"],
-      "attributes": { "pkce.code.challenge.method": "S256" }
-    }
-  ],
-  "users": [
-    {
-      "username": "alice",
-      "enabled": true,
-      "email": "alice@example.com",
-      "emailVerified": true,
-      "firstName": "Alice",
-      "lastName": "Example",
-      "credentials": [{ "type": "password", "value": "alice", "temporary": false }]
-    },
-    {
-      "username": "bob",
-      "enabled": true,
-      "email": "bob@example.com",
-      "emailVerified": true,
-      "firstName": "Bob",
-      "lastName": "Example",
-      "credentials": [{ "type": "password", "value": "bob", "temporary": false }]
-    }
-  ]
-}
+Create `deploy/oidc-mock/config.yaml`:
+
+```yaml
+port: 8180
+issuer: http://localhost:8180
+clients:
+  - id: happy-server
+    secret: happy-dev-secret
+    redirect_uris:
+      # loopback redirects accept any port (RFC 8252), so this also covers the test port 3999
+      - http://localhost:3005/v1/auth/oidc/callback
+users:
+  - sub: alice
+    email: alice@example.com
+    name: Alice Example
+  - sub: bob
+    email: bob@example.com
+    name: Bob Example
 ```
 
 - [ ] **Step 2: Create `docker-compose.yaml` at the repo root**
 
 ```yaml
-# Local corporate deployment: Keycloak (IdP) + Postgres + happy-server.
-# The server shares Keycloak's network namespace so that "localhost:8180" is the
+# Local corporate deployment: oidc-mock (IdP) + Postgres + happy-server.
+# The server shares oidc-mock's network namespace so that "localhost:8180" is the
 # same issuer URL for the server and for the browser on the host.
 #
-#   docker compose up -d keycloak          # IdP only (for integration tests)
+#   docker compose up -d oidc-mock         # IdP only (for integration tests)
 #   docker compose up -d --build           # full stack; open http://localhost:3005/activate
 #
-# Test users: alice/alice, bob/bob. Keycloak admin: admin/admin.
+# Users (no password, pick in the UI): alice, bob.
 services:
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.4.0
-    command: ["start-dev", "--import-realm", "--http-port=8180"]
+  oidc-mock:
+    image: ghcr.io/rophy/oidc-mock:20260913-34fdbaf
+    command: ["serve"]
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-      KC_HEALTH_ENABLED: "true"
+      OIDC_CONFIG_FILE: /config.yaml
     volumes:
-      - ./deploy/keycloak:/opt/keycloak/data/import:ro
+      - ./deploy/oidc-mock/config.yaml:/config.yaml:ro
     ports:
-      - "8180:8180"   # Keycloak
+      - "8180:8180"   # oidc-mock
       - "3005:3005"   # happy-server (shares this network namespace)
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
 
   postgres:
     image: postgres:16
@@ -3575,9 +3545,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.server
-    network_mode: "service:keycloak"
+    network_mode: "service:oidc-mock"
     depends_on:
-      keycloak: { condition: service_healthy }
+      oidc-mock: { condition: service_started }
       postgres: { condition: service_healthy }
     environment:
       PORT: "3005"
@@ -3585,7 +3555,7 @@ services:
       HANDY_MASTER_SECRET: local-dev-master-secret-change-me-0000000000
       PUBLIC_URL: http://localhost:3005
       WEBAPP_URL: http://localhost:8080
-      OIDC_ISSUER: http://localhost:8180/realms/happy
+      OIDC_ISSUER: http://localhost:8180
       OIDC_CLIENT_ID: happy-server
       OIDC_CLIENT_SECRET: happy-dev-secret
       OIDC_ALLOW_INSECURE_ISSUER: "true"
@@ -3598,11 +3568,11 @@ volumes:
 - [ ] **Step 3: Verify the IdP comes up**
 
 ```bash
-docker compose up -d keycloak
-until curl -sf http://localhost:8180/realms/happy/.well-known/openid-configuration >/dev/null; do sleep 2; done
-curl -s http://localhost:8180/realms/happy/.well-known/openid-configuration | grep -o '"issuer":"[^"]*"'
+docker compose up -d oidc-mock
+until curl -sf http://localhost:8180/.well-known/openid-configuration >/dev/null; do sleep 1; done
+curl -s http://localhost:8180/.well-known/openid-configuration | grep -o '"issuer":"[^"]*"'
 ```
-Expected: `"issuer":"http://localhost:8180/realms/happy"`.
+Expected: `"issuer":"http://localhost:8180"`.
 
 - [ ] **Step 4: Create the cookie-jar HTTP browser**
 
@@ -3679,14 +3649,27 @@ export class HttpBrowser {
 }
 
 export function htmlUnescape(value: string): string {
-    return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    return value
+        .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
 }
 
-export function formAction(html: string, formId: string): string {
-    const match = new RegExp(`<form[^>]*id="${formId}"[^>]*action="([^"]+)"`).exec(html)
-        ?? new RegExp(`<form[^>]*action="([^"]+)"[^>]*id="${formId}"`).exec(html);
-    if (!match) throw new Error(`form #${formId} not found`);
-    return htmlUnescape(match[1]);
+/** Hidden fields of the oidc-mock user-picker form whose `sub` input equals `sub`. */
+export function pickerFields(html: string, sub: string): Record<string, string> {
+    for (const chunk of html.split('<form').slice(1)) {
+        const form = chunk.split('</form>')[0];
+        const fields: Record<string, string> = {};
+        for (const match of form.matchAll(/<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"/g)) {
+            fields[match[1]] = htmlUnescape(match[2]);
+        }
+        if (fields.sub === sub) {
+            return fields;
+        }
+    }
+    throw new Error(`oidc-mock picker has no user with sub=${sub}`);
 }
 ```
 
@@ -3696,7 +3679,7 @@ Create `packages/happy-server/sources/app/auth/oidc/oidc.integration.test.ts`:
 
 ```ts
 /**
- * Requires Keycloak from the repo docker-compose:  docker compose up -d keycloak
+ * Requires oidc-mock from the repo docker-compose:  docker compose up -d oidc-mock
  * Run with:  pnpm --filter happy-server test:integration
  */
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -3707,11 +3690,13 @@ import { fileURLToPath } from 'url';
 import { createHash, randomBytes } from 'crypto';
 import tweetnacl from 'tweetnacl';
 import * as privacyKit from 'privacy-kit';
-import { HttpBrowser, formAction } from '@/testing/httpBrowser';
+import { HttpBrowser, pickerFields } from '@/testing/httpBrowser';
 
 const PORT = 3999;
 const BASE = `http://localhost:${PORT}`;
-const ISSUER = process.env.IT_OIDC_ISSUER ?? 'http://localhost:8180/realms/happy';
+const ISSUER = process.env.IT_OIDC_ISSUER ?? 'http://localhost:8180';
+const CLIENT_ID = 'happy-server';
+const CLIENT_SECRET = 'happy-dev-secret';
 
 let deriveContentPublicKey: (root: Uint8Array) => Uint8Array;
 
@@ -3719,8 +3704,8 @@ beforeAll(async () => {
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'happy-oidc-it-'));
     Object.assign(process.env, {
         OIDC_ISSUER: ISSUER,
-        OIDC_CLIENT_ID: 'happy-server',
-        OIDC_CLIENT_SECRET: 'happy-dev-secret',
+        OIDC_CLIENT_ID: CLIENT_ID,
+        OIDC_CLIENT_SECRET: CLIENT_SECRET,
         OIDC_ALLOW_INSECURE_ISSUER: 'true',
         PUBLIC_URL: BASE,
         WEBAPP_URL: BASE,
@@ -3734,10 +3719,11 @@ beforeAll(async () => {
     ({ deriveContentPublicKey } = await import('./accountKeys'));
 });
 
-async function keycloakLogin(browser: HttpBrowser, startUrl: string, user: string, stopAt?: (url: string) => boolean) {
-    const loginPage = await browser.get(startUrl, { stopAt });
-    if (!loginPage.body.includes('kc-form-login')) return loginPage; // SSO session already present
-    return browser.postForm(formAction(loginPage.body, 'kc-form-login'), { username: user, password: user }, { stopAt });
+/** Follows startUrl to the oidc-mock picker, picks `sub`, and follows the redirects back. */
+async function idpLogin(browser: HttpBrowser, startUrl: string, sub: string, stopAt?: (url: string) => boolean) {
+    const picker = await browser.get(startUrl);
+    expect(picker.url.startsWith(`${ISSUER}/authorize`)).toBe(true);
+    return browser.postForm(`${ISSUER}/authorize/callback`, pickerFields(picker.body, sub), { stopAt });
 }
 
 function openBox(bundleBase64: string, secretKey: Uint8Array): Uint8Array {
@@ -3756,12 +3742,30 @@ async function post(pathname: string, body: unknown, token?: string) {
     return { status: res.status, json: await res.json() as any };
 }
 
-describe('OIDC against Keycloak', () => {
-    const browser = new HttpBrowser();
+async function webLogin(browser: HttpBrowser, sub: string) {
+    const verifier = randomBytes(32).toString('base64url');
+    const challenge = createHash('sha256').update(verifier).digest('base64url');
+    const result = await idpLogin(
+        browser,
+        `${BASE}/v1/auth/oidc/login?client=web&code_challenge=${challenge}`,
+        sub,
+        (url) => url.startsWith(`${BASE}/auth/callback`),
+    );
+    const code = new URLSearchParams(new URL(result.location!).hash.slice(1)).get('code')!;
+    const ephemeral = tweetnacl.box.keyPair();
+    const exchange = await post('/v1/auth/oidc/exchange', {
+        code, codeVerifier: verifier, ephemeralPublicKey: privacyKit.encodeBase64(ephemeral.publicKey),
+    });
+    expect(exchange.status).toBe(200);
+    return { ...exchange.json, root: openBox(exchange.json.keyBundle, ephemeral.secretKey) };
+}
+
+describe('OIDC against oidc-mock', () => {
     let cliAccountId = '';
     let cliContentKey = new Uint8Array();
 
-    it('CLI device flow: start → Keycloak login → approve → token', async () => {
+    it('CLI device flow: start → IdP login → approve → token', async () => {
+        const browser = new HttpBrowser();
         const ephemeral = tweetnacl.box.keyPair();
         const start = await post('/v1/auth/device/start', {
             ephemeralPublicKey: privacyKit.encodeBase64(ephemeral.publicKey),
@@ -3769,7 +3773,7 @@ describe('OIDC against Keycloak', () => {
         });
         expect(start.status).toBe(200);
 
-        const confirm = await keycloakLogin(browser, start.json.verifyUrlComplete, 'alice');
+        const confirm = await idpLogin(browser, start.json.verifyUrlComplete, 'alice');
         expect(confirm.status).toBe(200);
         expect(confirm.body).toContain('it-host');
         const csrf = /name="csrf" value="([^"]+)"/.exec(confirm.body)![1];
@@ -3797,47 +3801,46 @@ describe('OIDC against Keycloak', () => {
     });
 
     it('web exchange: same account, root secret matches the CLI content key', async () => {
-        const verifier = randomBytes(32).toString('base64url');
-        const challenge = createHash('sha256').update(verifier).digest('base64url');
-        const result = await keycloakLogin(
-            browser,
-            `${BASE}/v1/auth/oidc/login?client=web&code_challenge=${challenge}`,
-            'alice',
-            (url) => url.startsWith(`${BASE}/auth/callback`),
-        );
-        const code = new URLSearchParams(new URL(result.location!).hash.slice(1)).get('code')!;
+        const web = await webLogin(new HttpBrowser(), 'alice');
+        expect(web.accountId).toBe(cliAccountId);
+        expect(Buffer.from(deriveContentPublicKey(web.root)).equals(Buffer.from(cliContentKey))).toBe(true);
 
-        const ephemeral = tweetnacl.box.keyPair();
-        const exchange = await post('/v1/auth/oidc/exchange', {
-            code, codeVerifier: verifier, ephemeralPublicKey: privacyKit.encodeBase64(ephemeral.publicKey),
-        });
-        expect(exchange.status).toBe(200);
-        expect(exchange.json.accountId).toBe(cliAccountId);
-        const root = openBox(exchange.json.keyBundle, ephemeral.secretKey);
-        expect(Buffer.from(deriveContentPublicKey(root)).equals(Buffer.from(cliContentKey))).toBe(true);
-
-        const logout = await post('/v1/auth/logout', {}, exchange.json.accessToken);
+        const logout = await post('/v1/auth/logout', {}, web.accessToken);
         expect(logout.status).toBe(200);
-        const refresh = await post('/v1/auth/refresh', { refreshToken: exchange.json.refreshToken });
+        const refresh = await post('/v1/auth/refresh', { refreshToken: web.refreshToken });
         expect(refresh.json.reason).toBe('revoked');
     });
 
     it('a different user gets a different account', async () => {
-        const other = new HttpBrowser();
-        const verifier = randomBytes(32).toString('base64url');
-        const challenge = createHash('sha256').update(verifier).digest('base64url');
-        const result = await keycloakLogin(
-            other,
-            `${BASE}/v1/auth/oidc/login?client=web&code_challenge=${challenge}`,
-            'bob',
-            (url) => url.startsWith(`${BASE}/auth/callback`),
-        );
-        const code = new URLSearchParams(new URL(result.location!).hash.slice(1)).get('code')!;
-        const exchange = await post('/v1/auth/oidc/exchange', {
-            code, codeVerifier: verifier, ephemeralPublicKey: privacyKit.encodeBase64(tweetnacl.box.keyPair().publicKey),
+        const web = await webLogin(new HttpBrowser(), 'bob');
+        expect(web.accountId).not.toBe(cliAccountId);
+    });
+
+    it('revoking the IdP refresh token revokes the account devices at the next check', async () => {
+        const web = await webLogin(new HttpBrowser(), 'alice');
+        const { db } = await import('@/storage/db');
+        const { openIdpRefreshToken } = await import('./keyVault');
+        const account = await db.account.findUniqueOrThrow({ where: { id: web.accountId } });
+        expect(account.idpRefreshToken).not.toBeNull();
+
+        // Revoke at the IdP, then make the server's 15-minute check due.
+        const revoke = await fetch(`${ISSUER}/revoke`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                token: openIdpRefreshToken(account.idpRefreshToken!),
+                token_type_hint: 'refresh_token',
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+            }).toString(),
         });
-        expect(exchange.status).toBe(200);
-        expect(exchange.json.accountId).not.toBe(cliAccountId);
+        expect(revoke.status).toBe(200);
+        await db.account.update({ where: { id: web.accountId }, data: { idpCheckedAt: new Date(0) } });
+
+        const refresh = await post('/v1/auth/refresh', { refreshToken: web.refreshToken });
+        expect(refresh.json).toEqual({ error: 'invalid_grant', reason: 'disabled' });
+        const active = await db.device.count({ where: { accountId: web.accountId, revokedAt: null } });
+        expect(active).toBe(0);
     });
 });
 ```
@@ -3845,10 +3848,10 @@ describe('OIDC against Keycloak', () => {
 - [ ] **Step 6: Run the integration test**
 
 ```bash
-docker compose up -d keycloak
+docker compose up -d oidc-mock
 pnpm --filter happy-server test:integration
 ```
-Expected: 3 tests PASS. If the Keycloak login page is not found, dump `loginPage.body` and adjust `formAction`'s form id (Keycloak 26 uses `id="kc-form-login"`).
+Expected: 4 tests PASS. If `pickerFields` throws, dump `picker.body` and compare with oidc-mock's `templates/picker.html`.
 
 - [ ] **Step 7: Verify the full compose stack by hand**
 
@@ -3858,35 +3861,35 @@ docker compose logs server | grep "OIDC auth ready"
 curl -s -X POST http://localhost:3005/v1/auth/device/start -H 'content-type: application/json' \
   -d '{"ephemeralPublicKey":"'"$(head -c32 /dev/urandom | base64)"'","clientInfo":{"host":"manual","os":"linux","cliVersion":"0"}}'
 ```
-Expected: log line present; JSON with `userCode` and `verifyUrlComplete`. Open `verifyUrlComplete` in a browser, log in as alice/alice, see the confirm page with host `manual`. Then `docker compose down`.
+Expected: log line present; JSON with `userCode` and `verifyUrlComplete`. Open `verifyUrlComplete` in a browser, pick alice, see the confirm page with host `manual`. Then `docker compose down`.
 
 - [ ] **Step 8: Add the CI job**
 
-In `.github/workflows/server.yml`, add a job next to the existing test job (copy its checkout / pnpm / node 20 setup steps verbatim), with these steps after `pnpm install --frozen-lockfile`:
+In `.github/workflows/server.yml`, add a job `oidc-integration` next to the existing test job (copy its checkout / pnpm / node 20 setup steps verbatim), with these steps after `pnpm install --frozen-lockfile`:
 
 ```yaml
       - name: Build wire package
         run: pnpm --filter @slopus/happy-wire --fail-if-no-match build
 
-      - name: Start Keycloak
+      - name: Start oidc-mock
         run: |
-          docker compose up -d keycloak
-          for i in $(seq 1 90); do
-            curl -sf http://localhost:8180/realms/happy/.well-known/openid-configuration >/dev/null && exit 0
-            sleep 2
+          docker compose up -d oidc-mock
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8180/.well-known/openid-configuration >/dev/null && exit 0
+            sleep 1
           done
-          docker compose logs keycloak
+          docker compose logs oidc-mock
           exit 1
 
       - name: OIDC integration tests
         run: pnpm --filter happy-server --fail-if-no-match test:integration
 
-      - name: Keycloak logs on failure
+      - name: oidc-mock logs on failure
         if: failure()
-        run: docker compose logs keycloak
+        run: docker compose logs oidc-mock
 ```
 
-Name the job `oidc-integration` and give it the same `on:` path filters as the server job (add `deploy/keycloak/**` and `docker-compose.yaml`).
+Give it the same `on:` path filters as the server job, plus `deploy/oidc-mock/**` and `docker-compose.yaml`.
 
 - [ ] **Step 9: Update identity docs**
 
@@ -3909,6 +3912,7 @@ All:  POST /v1/auth/refresh (rotating refresh tokens, reuse → device revoked)
 ```
 
 Access tokens are 15-minute JWTs `{ sub: accountId, did: deviceId }`.
+Local IdP for development and tests: `docker compose up -d oidc-mock` (users alice, bob).
 See `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 ````
 
@@ -3917,9 +3921,9 @@ Also update the `Account.upsert by publicKey` line under "Primary ID" to `Accoun
 - [ ] **Step 10: Commit**
 
 ```bash
-git add docker-compose.yaml deploy/keycloak packages/happy-server/sources/testing/httpBrowser.ts \
+git add docker-compose.yaml deploy/oidc-mock packages/happy-server/sources/testing/httpBrowser.ts \
   packages/happy-server/sources/app/auth/oidc/oidc.integration.test.ts .github/workflows/server.yml docs/user-identity.md
-git commit -m "test: add Keycloak compose stack and OIDC integration tests"
+git commit -m "test: add oidc-mock compose stack and OIDC integration tests"
 ```
 
 ---
@@ -3937,7 +3941,7 @@ git commit -m "test: add Keycloak compose stack and OIDC integration tests"
 - Refresh rejection rules incl. max session age and account-level IdP check → Tasks 6, 8, 11.
 - Logout → Task 11. Socket disconnect on revoke → Tasks 5, 6.
 - Security list: code alphabet/TTL, RFC 8628 errors, state/nonce, no IdP error forwarding, reuse detection, boxed root secret, unwrap failure → 500 alert → Tasks 7, 9, 10, 6.
-- Local deployment compose with Keycloak → Task 13. Integration tests → Task 13.
+- Local deployment compose with oidc-mock → Task 13. Integration tests incl. IdP rejection via `/revoke` → Task 13.
 - Out of this plan (by design): CLI/app client changes, removal of app QR code, mobile build identity, third-party integrations, push payloads, web Playwright e2e → plans 2–4.
 
 **Known follow-ups recorded in the plan:** `happy server` / CLI smoke test need OIDC env (plan 2); clients must serialize refresh calls because a concurrent refresh with the same token returns `invalid` (plans 2, 3).
