@@ -455,7 +455,14 @@ export async function seedEnvironment(name: string): Promise<void> {
     delete cliEnv.CLAUDECODE;
     const happyBin = path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs");
 
-    const login = spawn("node", [happyBin, "auth", "login"], { env: cliEnv, stdio: ["ignore", "pipe", "pipe"] });
+    // --force: on an already-seeded environment, valid credentials + the missing
+    // machineId (settings.json above is written without one) send plain
+    // `auth login` down the "fixing missing machine ID" branch, which never
+    // prints a sign-in URL and the 30s wait below times out. --force stops
+    // this env's daemon, clears credentials and machineId, and revokes the
+    // old device server-side before running the normal device-login flow, so
+    // seeding is safe to re-run against the same env.
+    const login = spawn("node", [happyBin, "auth", "login", "--force"], { env: cliEnv, stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     login.stdout.on("data", (chunk) => { output += chunk.toString(); });
     login.stderr.on("data", (chunk) => { output += chunk.toString(); });
