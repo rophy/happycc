@@ -471,25 +471,29 @@ export async function seedEnvironment(name: string): Promise<void> {
         throw new Error(`happy auth login did not print a sign-in URL:\n${output}`);
     });
 
-    const { HttpBrowser, pickerFields } = await import("../packages/happy-server/sources/testing/httpBrowser");
-    const browser = new HttpBrowser();
-    const picker = await browser.get(verifyUrl);
-    const confirm = await browser.postForm(`${OIDC_ISSUER}/authorize/callback`, pickerFields(picker.body, OIDC_USER));
-    const csrf = /name="csrf" value="([^"]+)"/.exec(confirm.body)?.[1];
-    if (!csrf) {
-        login.kill();
-        throw new Error(`Activation page did not render a confirmation form (status ${confirm.status})`);
-    }
-    const userCode = new URL(verifyUrl).searchParams.get("code")!;
-    await browser.postForm(`${serverUrl}/activate`, { code: userCode, csrf, decision: "approve" });
+    try {
+        const { HttpBrowser, pickerFields } = await import("../packages/happy-server/sources/testing/httpBrowser");
+        const browser = new HttpBrowser();
+        const picker = await browser.get(verifyUrl);
+        const confirm = await browser.postForm(`${OIDC_ISSUER}/authorize/callback`, pickerFields(picker.body, OIDC_USER));
+        const csrf = /name="csrf" value="([^"]+)"/.exec(confirm.body)?.[1];
+        if (!csrf) {
+            throw new Error(`Activation page did not render a confirmation form (status ${confirm.status})`);
+        }
+        const userCode = new URL(verifyUrl).searchParams.get("code")!;
+        await browser.postForm(`${serverUrl}/activate`, { code: userCode, csrf, decision: "approve" });
 
-    const exitCode = await Promise.race([
-        exited,
-        new Promise<number | null>((resolve) => setTimeout(() => resolve(-1), 60_000)),
-    ]);
-    if (exitCode !== 0) {
+        let timer: NodeJS.Timeout | undefined;
+        const exitCode = await Promise.race([
+            exited,
+            new Promise<number | null>((resolve) => { timer = setTimeout(() => resolve(-1), 60_000); }),
+        ]).finally(() => clearTimeout(timer));
+        if (exitCode !== 0) {
+            throw new Error(`happy auth login failed (exit ${exitCode}):\n${output}`);
+        }
+    } catch (error) {
         login.kill();
-        throw new Error(`happy auth login failed (exit ${exitCode}):\n${output}`);
+        throw error;
     }
     const { token } = JSON.parse(fs.readFileSync(path.join(cliHome, "access.key"), "utf-8")) as { token: string };
 
