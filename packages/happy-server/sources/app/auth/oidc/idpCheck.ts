@@ -60,8 +60,9 @@ export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: 
             return true;
         }
         if (result.refreshToken) {
-            await db.account.update({
-                where: { id: accountId },
+            // Only replace the token we used: a concurrent login may have stored a fresher one.
+            await db.account.updateMany({
+                where: { id: accountId, idpRefreshToken: account.idpRefreshToken },
                 data: { idpRefreshToken: sealIdpRefreshToken(result.refreshToken) },
             });
         }

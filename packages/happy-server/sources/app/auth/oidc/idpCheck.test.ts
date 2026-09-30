@@ -61,6 +61,20 @@ describe('createIdpCheck', () => {
         expect(account.idpCheckedAt?.toISOString()).toBe(now.toISOString());
     });
 
+    it('does not overwrite a fresher IdP token stored by a concurrent login', async () => {
+        const accountId = await accountWithIdpToken('i-concurrent-login', stale);
+        const oidc = {
+            refresh: async () => {
+                // A login completes while the IdP check is in flight.
+                await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: vault.sealIdpRefreshToken('idp-rt-login') } });
+                return { status: 'ok' as const, refreshToken: 'idp-rt-check' };
+            },
+        };
+        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
+        const account = await db.account.findUniqueOrThrow({ where: { id: accountId } });
+        expect(vault.openIdpRefreshToken(account.idpRefreshToken!)).toBe('idp-rt-login');
+    });
+
     it('revokes all devices when the IdP rejects the account', async () => {
         const accountId = await accountWithIdpToken('i-rejected', stale);
         const device = await devices.createDevice({ accountId, kind: 'cli', name: 'x' });
