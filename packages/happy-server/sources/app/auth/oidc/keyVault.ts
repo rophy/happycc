@@ -39,9 +39,9 @@ export function sealIdpRefreshToken(token: string): string {
 }
 
 export function openIdpRefreshToken(sealed: string): string {
-    const result = decryptString(IDP_REFRESH_TOKEN_PATH, toBytes(sealed));
-    if (result === null || result === undefined) {
+    try {
+        return decryptString(IDP_REFRESH_TOKEN_PATH, toBytes(sealed));
+    } catch {
         throw new KeyVaultError('Failed to open IdP refresh token');
     }
-    return result;
 }

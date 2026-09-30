@@ -28,4 +28,11 @@ describe('keyVault', () => {
         expect(sealed).not.toContain('idp-refresh-token');
         expect(openIdpRefreshToken(sealed)).toBe('idp-refresh-token');
     });
+
+    it('throws KeyVaultError on a tampered IdP refresh token', () => {
+        const sealed = sealIdpRefreshToken('idp-refresh-token');
+        const bytes = Buffer.from(sealed, 'base64');
+        bytes[bytes.length - 1] ^= 0xff;
+        expect(() => openIdpRefreshToken(bytes.toString('base64'))).toThrow(KeyVaultError);
+    });
 });
