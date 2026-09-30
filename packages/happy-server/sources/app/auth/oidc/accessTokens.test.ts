@@ -8,8 +8,13 @@ beforeAll(() => initAccessTokens({ masterSecret, ttlSec: 900 }));
 
 describe('accessTokens', () => {
     it('round-trips user and device', () => {
+        const before = Math.floor(Date.now() / 1000) * 1000;
         const token = createAccessToken({ userId: 'acc_1', deviceId: 'dev_1' });
-        expect(verifyAccessToken(token)).toEqual({ userId: 'acc_1', deviceId: 'dev_1' });
+        const verified = verifyAccessToken(token);
+        expect(verified).toEqual({ userId: 'acc_1', deviceId: 'dev_1', expiresAt: expect.any(Number) });
+        // exp is in whole seconds: TTL 900 s after issuance.
+        expect(verified!.expiresAt).toBeGreaterThanOrEqual(before + 900_000);
+        expect(verified!.expiresAt).toBeLessThanOrEqual(Date.now() + 900_000);
     });
 
     it('rejects expired tokens', () => {

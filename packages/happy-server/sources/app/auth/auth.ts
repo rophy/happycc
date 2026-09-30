@@ -1,6 +1,6 @@
 import * as privacyKit from "privacy-kit";
 import { debug, log } from "@/utils/log";
-import { AccessTokenClaims, verifyAccessToken } from "./oidc/accessTokens";
+import { VerifiedAccessToken, verifyAccessToken } from "./oidc/accessTokens";
 
 interface AuthTokens {
     githubVerifier: Awaited<ReturnType<typeof privacyKit.createEphemeralTokenVerifier>>;
@@ -34,7 +34,7 @@ class AuthModule {
         log({ module: 'auth' }, 'Auth module initialized');
     }
 
-    async verifyToken(token: string): Promise<AccessTokenClaims | null> {
+    async verifyToken(token: string): Promise<VerifiedAccessToken | null> {
         return verifyAccessToken(token);
     }
 

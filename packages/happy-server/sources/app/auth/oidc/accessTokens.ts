@@ -6,6 +6,11 @@ export interface AccessTokenClaims {
     deviceId: string;
 }
 
+export interface VerifiedAccessToken extends AccessTokenClaims {
+    /** Token expiry, epoch milliseconds. */
+    expiresAt: number;
+}
+
 let signingKey: Buffer | null = null;
 let accessTokenTtlSec = 900;
 
@@ -29,16 +34,16 @@ export function createAccessToken(claims: AccessTokenClaims): string {
     });
 }
 
-export function verifyAccessToken(token: string): AccessTokenClaims | null {
+export function verifyAccessToken(token: string): VerifiedAccessToken | null {
     try {
         const payload = jwt.verify(token, key(), { algorithms: ['HS256'] });
         if (typeof payload !== 'object' || payload.typ !== 'access') {
             return null;
         }
-        if (typeof payload.sub !== 'string' || typeof payload.did !== 'string') {
+        if (typeof payload.sub !== 'string' || typeof payload.did !== 'string' || typeof payload.exp !== 'number') {
             return null;
         }
-        return { userId: payload.sub, deviceId: payload.did };
+        return { userId: payload.sub, deviceId: payload.did, expiresAt: payload.exp * 1000 };
     } catch {
         return null;
     }

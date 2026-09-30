@@ -7,6 +7,8 @@ import { Redis } from "ioredis";
 import { log } from "@/utils/log";
 import { auth } from "@/app/auth/auth";
 import { deviceRoom, setSocketServer } from "@/app/auth/oidc/deviceSockets";
+import { isDeviceActive } from "@/app/auth/oidc/devices";
+import { getOidcRuntime } from "@/app/auth/oidc/oidcRuntime";
 import { getMetricsLabelsFromSocket, redisStreamLagMsGauge, websocketConnectionsGauge, websocketEventsCounter } from "../monitoring/metrics2";
 import { usageHandler } from "./socket/usageHandler";
 import { rpcHandler } from "./socket/rpcHandler";
@@ -16,6 +18,11 @@ import { machineUpdateHandler } from "./socket/machineUpdateHandler";
 import { artifactUpdateHandler } from "./socket/artifactUpdateHandler";
 import { accessKeyHandler } from "./socket/accessKeyHandler";
 import { socketServerOptions } from "./socketConfig";
+
+/** Sockets outlive their access token by this much, then are disconnected; clients reconnect with a fresh token. */
+const TOKEN_EXPIRY_GRACE_MS = 60_000;
+/** setTimeout's maximum delay. */
+const MAX_TIMER_MS = 2_147_483_647;
 
 export function startSocket(app: Fastify) {
     const io = new Server(app.server, socketServerOptions);
@@ -85,8 +92,26 @@ export function startSocket(app: Fastify) {
             return;
         }
 
+        // The access token alone does not reflect revocation, account disabling or
+        // max session age; check the device before accepting the socket.
+        let active: boolean;
+        try {
+            active = await isDeviceActive(verified.deviceId, verified.userId, {
+                maxSessionAgeSec: getOidcRuntime().config.maxSessionAgeSec,
+            });
+        } catch (error) {
+            log({ module: 'websocket', level: 'error' }, `Device check failed: ${error}`);
+            active = false;
+        }
+        if (!active) {
+            log({ module: 'websocket' }, `Inactive device for token`);
+            next(new Error('Invalid authentication token'));
+            return;
+        }
+
         socket.data.userId = verified.userId;
         socket.data.deviceId = verified.deviceId;
+        socket.data.tokenExpiresAt = verified.expiresAt;
         socket.data.clientType = clientType;
         socket.data.sessionId = sessionId;
         socket.data.machineId = machineId;
@@ -98,6 +123,16 @@ export function startSocket(app: Fastify) {
 
     io.on("connection", (socket) => {
         socket.join(deviceRoom(socket.data.deviceId as string));
+
+        // Bound the socket by its access token's lifetime.
+        const expiryDelay = Math.min(
+            Math.max(0, (socket.data.tokenExpiresAt as number) + TOKEN_EXPIRY_GRACE_MS - Date.now()),
+            MAX_TIMER_MS,
+        );
+        const expiryTimer = setTimeout(() => {
+            log({ module: 'websocket' }, `Access token expired, disconnecting socket ${socket.id}`);
+            socket.disconnect(true);
+        }, expiryDelay);
 
         const userId = socket.data.userId as string;
         const clientType = socket.data.clientType as 'session-scoped' | 'user-scoped' | 'machine-scoped' | undefined;
@@ -163,6 +198,7 @@ export function startSocket(app: Fastify) {
         });
 
         socket.on('disconnect', () => {
+            clearTimeout(expiryTimer);
             websocketEventsCounter.inc({ event_type: 'disconnect', ...labels });
 
             // Cleanup connections

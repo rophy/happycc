@@ -93,6 +93,27 @@ export async function refreshDevice(
     };
 }
 
+/**
+ * Whether a device may keep using its access token (socket handshake): the device
+ * exists, belongs to the user, is not revoked, its account is not disabled and its
+ * session is within the max session age.
+ */
+export async function isDeviceActive(
+    deviceId: string,
+    userId: string,
+    opts: { maxSessionAgeSec: number; now?: Date },
+): Promise<boolean> {
+    const now = opts.now ?? new Date();
+    const device = await db.device.findUnique({ where: { id: deviceId }, include: { account: true } });
+    if (!device || device.accountId !== userId) {
+        return false;
+    }
+    if (device.revokedAt || device.account.disabledAt) {
+        return false;
+    }
+    return now.getTime() - device.sessionStartedAt.getTime() <= opts.maxSessionAgeSec * 1000;
+}
+
 export async function revokeDevice(deviceId: string): Promise<void> {
     await db.device.updateMany({ where: { id: deviceId, revokedAt: null }, data: { revokedAt: new Date() } });
     disconnectDeviceSockets(deviceId);

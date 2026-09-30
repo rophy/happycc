@@ -25,7 +25,7 @@ describe('devices', () => {
     it('creates a device with working tokens', async () => {
         const account = await newAccount();
         const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'dev-42', host: 'dev-42' });
-        expect(tokens.verifyAccessToken(created.accessToken)).toEqual({ userId: account.id, deviceId: created.deviceId });
+        expect(tokens.verifyAccessToken(created.accessToken)).toEqual({ userId: account.id, deviceId: created.deviceId, expiresAt: expect.any(Number) });
         const row = await db.device.findUniqueOrThrow({ where: { id: created.deviceId } });
         expect(row.refreshTokenHash).toBe(tokens.hashToken(created.refreshToken));
         expect(row.kind).toBe('cli');
@@ -119,5 +119,48 @@ describe('devices', () => {
             expect(await devices.refreshDevice(d.refreshToken, { maxSessionAgeSec: MAX_AGE }))
                 .toEqual({ ok: false, reason: 'revoked' });
         }
+    });
+
+    describe('isDeviceActive', () => {
+        it('accepts an active device of the user', async () => {
+            const account = await newAccount();
+            const d = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'x' });
+            expect(await devices.isDeviceActive(d.deviceId, account.id, { maxSessionAgeSec: MAX_AGE })).toBe(true);
+        });
+
+        it('rejects a missing device', async () => {
+            const account = await newAccount();
+            expect(await devices.isDeviceActive('no-such-device', account.id, { maxSessionAgeSec: MAX_AGE })).toBe(false);
+        });
+
+        it('rejects a device that belongs to another user', async () => {
+            const owner = await newAccount();
+            const other = await newAccount();
+            const d = await devices.createDevice({ accountId: owner.id, kind: 'cli', name: 'x' });
+            expect(await devices.isDeviceActive(d.deviceId, other.id, { maxSessionAgeSec: MAX_AGE })).toBe(false);
+        });
+
+        it('rejects a revoked device', async () => {
+            const account = await newAccount();
+            const d = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'x' });
+            await devices.revokeDevice(d.deviceId);
+            expect(await devices.isDeviceActive(d.deviceId, account.id, { maxSessionAgeSec: MAX_AGE })).toBe(false);
+        });
+
+        it('rejects a disabled account', async () => {
+            const account = await newAccount({ disabledAt: new Date() });
+            const d = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'x' });
+            expect(await devices.isDeviceActive(d.deviceId, account.id, { maxSessionAgeSec: MAX_AGE })).toBe(false);
+        });
+
+        it('rejects a session older than the max age', async () => {
+            const account = await newAccount();
+            const start = new Date('2026-01-01T00:00:00Z');
+            const d = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'x', now: start });
+            const within = new Date(start.getTime() + MAX_AGE * 1000);
+            const later = new Date(start.getTime() + (MAX_AGE + 1) * 1000);
+            expect(await devices.isDeviceActive(d.deviceId, account.id, { maxSessionAgeSec: MAX_AGE, now: within })).toBe(true);
+            expect(await devices.isDeviceActive(d.deviceId, account.id, { maxSessionAgeSec: MAX_AGE, now: later })).toBe(false);
+        });
     });
 });
