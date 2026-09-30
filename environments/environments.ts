@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as net from "net";
-import * as crypto from "crypto";
 import { execSync, spawn, spawnSync } from "child_process";
 import { pathToFileURL } from "url";
 
@@ -15,6 +14,9 @@ const ENVIRONMENTS_DATA_DIR = path.join(ENVIRONMENTS_ROOT, "data");
 const ENVIRONMENTS_DIR = path.join(ENVIRONMENTS_DATA_DIR, "envs");
 const CURRENT_ENV_PATH = path.join(ENVIRONMENTS_DATA_DIR, "current.json");
 const LAB_RAT_PROJECT_TEMPLATE_DIR = path.join(ENVIRONMENTS_ROOT, "lab-rat-todo-project");
+
+const OIDC_ISSUER = process.env.HAPPY_ENV_OIDC_ISSUER ?? "http://localhost:8180";
+const OIDC_USER = process.env.HAPPY_ENV_OIDC_USER ?? "alice";
 
 // ============================================================================
 // Name generation (expanded from packages/happy-app/sources/utils/generateWorktreeName.ts)
@@ -171,31 +173,6 @@ function isPortInUse(port: number): boolean {
         return result.trim().length > 0;
     } catch {
         return false;
-    }
-}
-
-function readDevAuth(envDir: string): { secret: string; token: string } | null {
-    const accessKeyPath = path.join(envDir, "cli", "home", "access.key");
-    if (!fs.existsSync(accessKeyPath)) {
-        return null;
-    }
-
-    try {
-        const credentials = JSON.parse(fs.readFileSync(accessKeyPath, "utf-8")) as {
-            secret?: string;
-            token?: string;
-        };
-
-        if (!credentials.secret || !credentials.token) {
-            return null;
-        }
-
-        return {
-            token: credentials.token,
-            secret: Buffer.from(credentials.secret, "base64").toString("base64url"),
-        };
-    } catch {
-        return null;
     }
 }
 
@@ -397,10 +374,19 @@ export async function createEnvironment(opts?: {
     return name;
 }
 
+async function ensureOidcIssuerReachable(): Promise<void> {
+    try {
+        const res = await fetch(`${OIDC_ISSUER}/.well-known/openid-configuration`);
+        if (res.ok) return;
+    } catch {}
+    throw new Error(`OIDC issuer ${OIDC_ISSUER} is not reachable. Start it with: docker compose up -d oidc-mock`);
+}
+
 export async function startEnvironmentServices(name: string): Promise<void> {
     const envDir = getEnvironmentDir(name);
     const config = readEnvironmentConfig(name);
     assertGenericEnvironment(config, "service startup");
+    await ensureOidcIssuerReachable();
     const envVars = buildEnvVars(envDir, config.serverPort, config.expoPort);
     const mergedEnv: Record<string, string | undefined> = { ...process.env, ...envVars };
 
@@ -455,57 +441,57 @@ export async function seedEnvironment(name: string): Promise<void> {
         throw new Error(`Server not reachable at ${serverUrl}. Start it first: pnpm env:server`);
     }
 
-    const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
-    const jwk = publicKey.export({ format: "jwk" }) as { x?: string };
-    const rawPublicKey = Buffer.from(jwk.x || "", "base64url");
-
-    const challenge = crypto.randomBytes(32);
-    const signature = crypto.sign(null, challenge, privateKey);
-
-    const toBase64 = (buf: Buffer | Uint8Array) => Buffer.from(buf).toString("base64");
-    const toBase64Url = (buf: Buffer | Uint8Array) =>
-        Buffer.from(buf).toString("base64url");
-
-    const authRes = await fetch(`${serverUrl}/v1/auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            publicKey: toBase64(rawPublicKey),
-            challenge: toBase64(challenge),
-            signature: toBase64(signature),
-        }),
-    });
-    if (!authRes.ok) {
-        throw new Error(`Auth failed: ${authRes.status} ${await authRes.text()}`);
-    }
-    const { token } = (await authRes.json()) as { token: string };
-
-    const secret = crypto.randomBytes(32);
-    const secretBase64 = toBase64(secret);
+    await ensureOidcIssuerReachable();
 
     const cliHome = path.join(envDir, "cli", "home");
     fs.mkdirSync(cliHome, { recursive: true });
-
-    fs.writeFileSync(
-        path.join(cliHome, "access.key"),
-        JSON.stringify({ secret: secretBase64, token }, null, 2),
-    );
-
     fs.writeFileSync(
         path.join(cliHome, "settings.json"),
-        JSON.stringify(
-            {
-                schemaVersion: 2,
-                onboardingCompleted: true,
-                machineId: crypto.randomUUID(),
-            },
-            null,
-            2,
-        ),
+        JSON.stringify({ schemaVersion: 2, onboardingCompleted: true }, null, 2),
     );
 
-    const authenticatedWebUrl = buildAuthenticatedWebUrl(config.expoPort, token, secretBase64);
-    writeEnvironmentConfig({ ...config, authenticatedWebUrl });
+    const envVars = buildEnvVars(envDir, config.serverPort, config.expoPort);
+    const cliEnv: Record<string, string | undefined> = { ...process.env, ...envVars };
+    delete cliEnv.CLAUDECODE;
+    const happyBin = path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs");
+
+    const login = spawn("node", [happyBin, "auth", "login"], { env: cliEnv, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    login.stdout.on("data", (chunk) => { output += chunk.toString(); });
+    login.stderr.on("data", (chunk) => { output += chunk.toString(); });
+    const exited = new Promise<number | null>((resolve) => login.on("exit", (code) => resolve(code)));
+
+    let verifyUrl = "";
+    await waitFor(() => {
+        const match = /(https?:\/\/\S+\/activate\?code=[A-Z]{4}-[A-Z]{4})/.exec(output);
+        if (match) verifyUrl = match[1];
+        return !!match;
+    }, 30_000, "device login URL").catch(() => {
+        login.kill();
+        throw new Error(`happy auth login did not print a sign-in URL:\n${output}`);
+    });
+
+    const { HttpBrowser, pickerFields } = await import("../packages/happy-server/sources/testing/httpBrowser");
+    const browser = new HttpBrowser();
+    const picker = await browser.get(verifyUrl);
+    const confirm = await browser.postForm(`${OIDC_ISSUER}/authorize/callback`, pickerFields(picker.body, OIDC_USER));
+    const csrf = /name="csrf" value="([^"]+)"/.exec(confirm.body)?.[1];
+    if (!csrf) {
+        login.kill();
+        throw new Error(`Activation page did not render a confirmation form (status ${confirm.status})`);
+    }
+    const userCode = new URL(verifyUrl).searchParams.get("code")!;
+    await browser.postForm(`${serverUrl}/activate`, { code: userCode, csrf, decision: "approve" });
+
+    const exitCode = await Promise.race([
+        exited,
+        new Promise<number | null>((resolve) => setTimeout(() => resolve(-1), 60_000)),
+    ]);
+    if (exitCode !== 0) {
+        login.kill();
+        throw new Error(`happy auth login failed (exit ${exitCode}):\n${output}`);
+    }
+    const { token } = JSON.parse(fs.readFileSync(path.join(cliHome, "access.key"), "utf-8")) as { token: string };
 
     const daemonStatePath = path.join(envDir, "cli", "home", "daemon.state.json");
     if (fs.existsSync(daemonStatePath)) {
@@ -519,13 +505,8 @@ export async function seedEnvironment(name: string): Promise<void> {
         } catch {}
     }
 
-    const envVars = buildEnvVars(envDir, config.serverPort, config.expoPort);
-    const daemonEnv = { ...process.env, ...envVars };
-    delete daemonEnv.CLAUDECODE;
-
-    const happyBin = path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs");
     const daemon = spawn("node", [happyBin, "daemon", "start"], {
-        env: daemonEnv,
+        env: cliEnv,
         stdio: "ignore",
         detached: true,
     });
@@ -541,7 +522,7 @@ export async function seedEnvironment(name: string): Promise<void> {
     }, 10_000, "machine registration").then(() => true, () => false);
 
     console.log(`  Seeded: credentials written, daemon ${machineRegistered ? "registered" : "starting"}`);
-    console.log(`  Auth URL: ${authenticatedWebUrl}`);
+    console.log(`  Signed in as ${OIDC_USER} via ${OIDC_ISSUER}`);
 }
 
 export function stopEnvironment(name: string): void {
@@ -795,18 +776,23 @@ function buildEnvVars(
     expoPort: number,
     options: { masterSecret?: string } = {},
 ): Record<string, string> {
-    const devAuth = readDevAuth(envDir);
     const projectDir = path.join(envDir, "project");
 
     return {
         // Server
-        HANDY_MASTER_SECRET: options.masterSecret || "happy-dev-secret",
+        HANDY_MASTER_SECRET: options.masterSecret || "happy-dev-master-secret-change-me-000000",
         PORT: String(serverPort),
         NODE_ENV: "development",
         DATA_DIR: path.join(envDir, "server"),
         PGLITE_DIR: path.join(envDir, "server", "pglite"),
         DATABASE_URL: "",
         METRICS_ENABLED: "false",
+        PUBLIC_URL: `http://localhost:${serverPort}`,
+        WEBAPP_URL: `http://localhost:${expoPort}`,
+        OIDC_ISSUER: OIDC_ISSUER,
+        OIDC_CLIENT_ID: "happy-server",
+        OIDC_CLIENT_SECRET: "happy-dev-secret",
+        OIDC_ALLOW_INSECURE_ISSUER: "true",
 
         // App (Expo)
         EXPO_PUBLIC_SERVER_URL: `http://localhost:${serverPort}`,
@@ -821,10 +807,6 @@ function buildEnvVars(
         HAPPY_PROJECT_DIR: projectDir,
         HAPPY_VARIANT: "dev",
         DEBUG: "1",
-        ...(devAuth ? {
-            EXPO_PUBLIC_DEV_TOKEN: devAuth.token,
-            EXPO_PUBLIC_DEV_SECRET: devAuth.secret,
-        } : {}),
     };
 }
 
@@ -846,16 +828,18 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
     lines.push(`export PGLITE_DIR="${vars.PGLITE_DIR}"`);
     lines.push(`export DATABASE_URL=""`);
     lines.push(`export METRICS_ENABLED=false`);
+    lines.push(`export PUBLIC_URL="${vars.PUBLIC_URL}"`);
+    lines.push(`export WEBAPP_URL="${vars.WEBAPP_URL}"`);
+    lines.push(`export OIDC_ISSUER="${vars.OIDC_ISSUER}"`);
+    lines.push(`export OIDC_CLIENT_ID="${vars.OIDC_CLIENT_ID}"`);
+    lines.push(`export OIDC_CLIENT_SECRET="${vars.OIDC_CLIENT_SECRET}"`);
+    lines.push(`export OIDC_ALLOW_INSECURE_ISSUER=${vars.OIDC_ALLOW_INSECURE_ISSUER}`);
     lines.push("");
 
     lines.push("# App (Expo)");
     lines.push(`export EXPO_PUBLIC_SERVER_URL="${vars.EXPO_PUBLIC_SERVER_URL}"`);
     lines.push(`export EXPO_PUBLIC_HAPPY_SERVER_URL="${vars.EXPO_PUBLIC_HAPPY_SERVER_URL}"`);
     lines.push(`export EXPO_PUBLIC_LOG_SERVER_URL="${vars.EXPO_PUBLIC_LOG_SERVER_URL}"`);
-    if (vars.EXPO_PUBLIC_DEV_TOKEN && vars.EXPO_PUBLIC_DEV_SECRET) {
-        lines.push(`export EXPO_PUBLIC_DEV_TOKEN="${vars.EXPO_PUBLIC_DEV_TOKEN}"`);
-        lines.push(`export EXPO_PUBLIC_DEV_SECRET="${vars.EXPO_PUBLIC_DEV_SECRET}"`);
-    }
     lines.push(`export EXPO_PORT=${vars.EXPO_PORT}`);
     lines.push("");
 
@@ -901,14 +885,6 @@ function writeEnvCommands(envDir: string): void {
         fs.writeFileSync(wrapperPath, wrapper);
         fs.chmodSync(wrapperPath, 0o755);
     }
-}
-
-function buildAuthenticatedWebUrl(expoPort: number, token: string, secret: string): string {
-    const webParams = new URLSearchParams({
-        dev_token: token,
-        dev_secret: Buffer.from(secret, "base64").toString("base64url"),
-    });
-    return `http://localhost:${expoPort}/?${webParams}`;
 }
 
 function buildCliCommand(envDir: string): string {
