@@ -3,7 +3,7 @@ import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-
 import type { PrismaClient } from '@prisma/client';
 import type { Fastify } from '@/app/api/types';
 import type { AuthConfig } from '@/app/auth/oidc/authConfig';
-import type { IdpRefreshResult, OidcClient, OidcIdentity } from '@/app/auth/oidc/oidcClient';
+import { IdpNotReadyError, type IdpRefreshResult, type OidcClient, type OidcIdentity } from '@/app/auth/oidc/oidcClient';
 import { createTestDb } from './testDb';
 
 export const TEST_ENV = {
@@ -20,6 +20,8 @@ export interface FakeOidc {
     client: OidcClient;
     queueIdentity(identity: OidcIdentity): void;
     setRefreshResult(result: IdpRefreshResult): void;
+    /** Simulates IdP discovery not having completed (default: ready). */
+    setReady(ready: boolean): void;
     readonly refreshCalls: number;
 }
 
@@ -27,14 +29,20 @@ export function createFakeOidc(): FakeOidc {
     const identities: OidcIdentity[] = [];
     let refreshResult: IdpRefreshResult = { status: 'ok', refreshToken: null };
     let refreshCalls = 0;
+    let ready = true;
     return {
         client: {
+            isReady() {
+                return ready;
+            },
             async buildLoginUrl(params) {
+                if (!ready) throw new IdpNotReadyError();
                 const url = new URL('https://idp.test/authorize');
                 url.searchParams.set('state', params.state);
                 return url;
             },
             async handleCallback(callbackUrl, params) {
+                if (!ready) throw new IdpNotReadyError();
                 if (callbackUrl.searchParams.get('state') !== params.state) {
                     throw new Error('state mismatch');
                 }
@@ -45,12 +53,14 @@ export function createFakeOidc(): FakeOidc {
                 return identity;
             },
             async refresh() {
+                if (!ready) return { status: 'unavailable' };
                 refreshCalls++;
                 return refreshResult;
             },
         },
         queueIdentity(identity) { identities.push(identity); },
         setRefreshResult(result) { refreshResult = result; },
+        setReady(value) { ready = value; },
         get refreshCalls() { return refreshCalls; },
     };
 }

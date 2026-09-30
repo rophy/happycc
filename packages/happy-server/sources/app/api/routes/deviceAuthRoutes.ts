@@ -12,7 +12,7 @@ import {
     decideDeviceAuth, findPendingRequest, normalizeUserCode, pollDeviceAuth, startDeviceAuth,
 } from '@/app/auth/oidc/deviceAuth';
 import { SESSION_COOKIE, readCookie, signValue, verifyValue } from '@/app/auth/oidc/browserCookies';
-import { confirmPage, enterCodePage, messagePage, sendHtml } from '@/app/auth/oidc/pages';
+import { confirmPage, enterCodePage, idpUnavailablePage, messagePage, sendHtml } from '@/app/auth/oidc/pages';
 
 const CSRF_PURPOSE = 'activate-csrf';
 
@@ -95,6 +95,9 @@ export function deviceAuthRoutes(app: Fastify, deps: AuthRouteDeps) {
         const session = readCookie<{ accountId: string }>(request.headers.cookie, SESSION_COOKIE);
         const rawCode = request.query.code;
         if (!session) {
+            if (!deps.oidc.isReady()) {
+                return sendHtml(reply, 503, idpUnavailablePage());
+            }
             const next = rawCode ? `&user_code=${encodeURIComponent(rawCode)}` : '';
             return reply.redirect(`/v1/auth/oidc/login?client=activate${next}`);
         }

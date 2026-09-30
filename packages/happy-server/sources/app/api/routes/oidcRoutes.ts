@@ -5,14 +5,14 @@ import { db } from '@/storage/db';
 import { log } from '@/utils/log';
 import type { AuthConfig } from '@/app/auth/oidc/authConfig';
 import type { OidcClient, OidcLoginParams } from '@/app/auth/oidc/oidcClient';
-import { newLoginParams } from '@/app/auth/oidc/oidcClient';
+import { IdpNotReadyError, newLoginParams } from '@/app/auth/oidc/oidcClient';
 import { AccountDisabledError, provisionAccount } from '@/app/auth/oidc/provisioning';
 import { boxForRecipient, decodeEphemeralPublicKey } from '@/app/auth/oidc/accountKeys';
 import { keyVault } from '@/app/auth/oidc/keyVault';
 import { createDevice } from '@/app/auth/oidc/devices';
 import { createExchangeCode, redeemExchangeCode } from '@/app/auth/oidc/exchangeCodes';
 import { LOGIN_COOKIE, SESSION_COOKIE, clearCookieHeader, readCookie, setCookieHeader } from '@/app/auth/oidc/browserCookies';
-import { messagePage, sendHtml } from '@/app/auth/oidc/pages';
+import { idpUnavailablePage, messagePage, sendHtml } from '@/app/auth/oidc/pages';
 
 export interface AuthRouteDeps {
     config: AuthConfig;
@@ -65,7 +65,15 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
         }
 
         const params = newLoginParams();
-        const loginUrl = await oidc.buildLoginUrl(params);
+        let loginUrl: URL;
+        try {
+            loginUrl = await oidc.buildLoginUrl(params);
+        } catch (error) {
+            if (error instanceof IdpNotReadyError) {
+                return reply.code(503).send({ error: 'idp_unavailable' });
+            }
+            throw error;
+        }
         const cookie: LoginCookie = { ...params, target };
         reply.header('set-cookie', setCookieHeader(LOGIN_COOKIE, cookie, LOGIN_COOKIE_TTL_SEC));
         return reply.redirect(loginUrl.toString());
@@ -77,6 +85,9 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
             return sendHtml(reply, code, messagePage(title, message));
         };
 
+        if (!oidc.isReady()) {
+            return sendHtml(reply, 503, idpUnavailablePage());
+        }
         const login = readCookie<LoginCookie>(request.headers.cookie, LOGIN_COOKIE);
         if (!login) {
             return html(400, 'Sign-in expired', 'Your sign-in took too long or was started in another browser. Please start again.');
@@ -91,6 +102,9 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
             const identity = await oidc.handleCallback(new URL(`${config.publicUrl}/v1/auth/oidc/callback?${rawQuery}`), login);
             ({ accountId } = await provisionAccount(identity));
         } catch (error) {
+            if (error instanceof IdpNotReadyError) {
+                return sendHtml(reply, 503, idpUnavailablePage());
+            }
             if (error instanceof AccountDisabledError) {
                 return html(403, 'Account disabled', 'Your account has been disabled. Contact your administrator.');
             }

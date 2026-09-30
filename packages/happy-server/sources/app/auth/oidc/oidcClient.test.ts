@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createServer } from 'net';
 import { OAuth2Server } from 'oauth2-mock-server';
-import { createOidcClient, newLoginParams, type OidcClient } from './oidcClient';
+import { IdpNotReadyError, createLazyOidcClient, createOidcClient, newLoginParams, type OidcClient } from './oidcClient';
 
 const redirectUri = 'http://localhost:3005/v1/auth/oidc/callback';
 let server: OAuth2Server;
@@ -105,5 +106,53 @@ describe('oidcClient', () => {
             }
         });
         expect(await client.refresh('any')).toEqual({ status: 'unavailable' });
+    });
+});
+
+async function freePort(): Promise<number> {
+    const srv = createServer();
+    await new Promise<void>((resolve) => srv.listen(0, '127.0.0.1', resolve));
+    const port = (srv.address() as { port: number }).port;
+    await new Promise<void>((resolve) => srv.close(() => resolve()));
+    return port;
+}
+
+describe('createLazyOidcClient', () => {
+    it('reports not-ready until discovery succeeds, then works', async () => {
+        const port = await freePort();
+        const issuer = `http://127.0.0.1:${port}`;
+        let attempts = 0;
+        const lazy = createLazyOidcClient(
+            () => {
+                attempts++;
+                return createOidcClient(
+                    { issuer, clientId: 'happy-server', clientSecret: 'secret', scopes: 'openid', redirectUri },
+                    { allowInsecureRequests: true },
+                );
+            },
+            { initialDelayMs: 20, maxDelayMs: 50 },
+        );
+        const late = new OAuth2Server();
+        let lateStarted = false;
+        try {
+            await lazy.firstAttempt;
+            expect(lazy.isReady()).toBe(false);
+            await expect(lazy.buildLoginUrl(newLoginParams())).rejects.toBeInstanceOf(IdpNotReadyError);
+            await expect(lazy.handleCallback(new URL('http://x/?code=a'), newLoginParams())).rejects.toBeInstanceOf(IdpNotReadyError);
+            expect(await lazy.refresh('any')).toEqual({ status: 'unavailable' });
+
+            await late.issuer.keys.generate('RS256');
+            late.issuer.url = issuer;
+            await late.start(port, '127.0.0.1');
+            lateStarted = true;
+            await lazy.ready;
+            expect(lazy.isReady()).toBe(true);
+            expect(attempts).toBeGreaterThan(1);
+            const url = await lazy.buildLoginUrl(newLoginParams());
+            expect(url.origin).toBe(issuer);
+        } finally {
+            lazy.stop();
+            if (lateStarted) await late.stop();
+        }
     });
 });

@@ -164,4 +164,15 @@ describe('deviceAuthRoutes', () => {
         });
         expect(res.statusCode).toBe(400);
     });
+
+    it('/activate responds 503 instead of redirecting to login while the IdP is not ready', async () => {
+        fake.setReady(false);
+        try {
+            const res = await app.inject({ method: 'GET', url: '/activate?code=BCDF-GHJK' });
+            expect(res.statusCode).toBe(503);
+            expect(res.headers['content-type']).toContain('text/html');
+        } finally {
+            fake.setReady(true);
+        }
+    });
 });

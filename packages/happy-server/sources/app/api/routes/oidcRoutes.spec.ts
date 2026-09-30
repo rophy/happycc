@@ -171,4 +171,20 @@ describe('oidcRoutes', () => {
         const again = await login(`client=web&code_challenge=${challenge}`, 'r-disabled');
         expect(again.statusCode).toBe(403);
     });
+
+    it('responds 503 while the IdP has not been discovered', async () => {
+        fake.setReady(false);
+        try {
+            const { challenge } = pkce();
+            const loginRes = await app.inject({ method: 'GET', url: `/v1/auth/oidc/login?client=web&code_challenge=${challenge}` });
+            expect(loginRes.statusCode).toBe(503);
+            expect(loginRes.json()).toEqual({ error: 'idp_unavailable' });
+
+            const callback = await app.inject({ method: 'GET', url: '/v1/auth/oidc/callback?code=x&state=y' });
+            expect(callback.statusCode).toBe(503);
+            expect(callback.headers['content-type']).toContain('text/html');
+        } finally {
+            fake.setReady(true);
+        }
+    });
 });

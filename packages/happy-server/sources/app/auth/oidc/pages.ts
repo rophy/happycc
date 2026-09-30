@@ -35,6 +35,10 @@ export function messagePage(title: string, message: string): string {
     return page(title, `<p>${escapeHtml(message)}</p>`);
 }
 
+export function idpUnavailablePage(): string {
+    return messagePage('Sign-in unavailable', 'The identity provider cannot be reached right now. Please try again in a minute.');
+}
+
 export function enterCodePage(opts: { code?: string; error?: string }): string {
     const error = opts.error ? `<p class="error">${escapeHtml(opts.error)}</p>` : '';
     return page('Connect a terminal', `${error}
