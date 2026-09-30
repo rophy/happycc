@@ -282,11 +282,11 @@ export class ApiClient {
   }
 
   sessionSyncClient(session: Session): ApiSessionClient {
-    return new ApiSessionClient(() => tokenStore.current(), session);
+    return new ApiSessionClient(() => tokenStore.current(), session, () => tokenStore.getAccessToken());
   }
 
   machineSyncClient(machine: Machine): ApiMachineClient {
-    return new ApiMachineClient(() => tokenStore.current(), machine);
+    return new ApiMachineClient(() => tokenStore.current(), machine, () => tokenStore.getAccessToken());
   }
 
   push(): PushNotificationClient {

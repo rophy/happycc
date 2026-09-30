@@ -14,7 +14,8 @@ import { backoff } from '@/utils/time';
 import { RpcHandlerManager } from './rpc/RpcHandlerManager';
 import { detectCLIAvailability, CLIAvailability } from '@/utils/detectCLI';
 import { detectResumeSupport, type ResumeSupport } from '@/resume/localHappyAgentAuth';
-import { type AccessTokenSource, resolveAccessToken } from './tokenSource';
+import { type AccessTokenSource, resolveAccessToken, resolveSocketAuthToken } from './tokenSource';
+import { LoggedOutError } from './tokenStore';
 import {
     releaseReconnectCapabilityMonitor,
     retainReconnectCapabilityMonitor,
@@ -157,15 +158,18 @@ export class ApiMachineClient {
     private reconnectCapabilityHeld = false;
     private shutdownRequested = false;
     private readonly tokenSource: AccessTokenSource;
+    private readonly getAccessToken?: () => Promise<string>;
     private get token(): string {
         return resolveAccessToken(this.tokenSource);
     }
 
     constructor(
         token: AccessTokenSource,
-        private machine: Machine
+        private machine: Machine,
+        getAccessToken?: () => Promise<string>,
     ) {
         this.tokenSource = token;
+        this.getAccessToken = getAccessToken;
         // Initialize RPC handler manager
         this.rpcHandlerManager = new RpcHandlerManager({
             scopePrefix: this.machine.id,
@@ -495,14 +499,30 @@ export class ApiMachineClient {
         const serverUrl = configuration.serverUrl.replace(/^http/, 'ws');
         logger.debug(`[API MACHINE] Connecting to ${serverUrl}`);
 
+        const authPayload = (token: string) => ({
+            token,
+            clientType: 'machine-scoped' as const,
+            machineId: this.machine.id,
+            happyClient: `cli-daemon/${configuration.currentCliVersion}`
+        });
+
         this.socket = io(serverUrl, {
             transports: ['websocket'],
-            auth: (cb: (data: object) => void) => cb({
-                token: this.token,
-                clientType: 'machine-scoped' as const,
-                machineId: this.machine.id,
-                happyClient: `cli-daemon/${configuration.currentCliVersion}`
-            }),
+            auth: (cb: (data: object) => void) => {
+                resolveSocketAuthToken(this.tokenSource, this.getAccessToken).then(
+                    (token) => cb(authPayload(token)),
+                    (error) => {
+                        logger.debug('[API MACHINE] Failed to resolve access token for socket auth:', error instanceof Error ? error.message : String(error));
+                        if (error instanceof LoggedOutError) {
+                            // Nothing will refresh this; stop the reconnect loop instead of
+                            // spinning against the server forever with an invalid handshake.
+                            this.shutdown();
+                            return;
+                        }
+                        cb(authPayload(''));
+                    },
+                );
+            },
             path: '/v1/updates',
             reconnection: false,
         });

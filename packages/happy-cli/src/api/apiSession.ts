@@ -18,7 +18,8 @@ import {
     shouldReconnect,
 } from '@/utils/lidState';
 import { createEnvelope, type CreateEnvelopeOptions, type SessionEnvelope, type SessionTurnEndStatus } from '@slopus/happy-wire';
-import { type AccessTokenSource, resolveAccessToken } from './tokenSource';
+import { type AccessTokenSource, resolveAccessToken, resolveSocketAuthToken } from './tokenSource';
+import { LoggedOutError } from './tokenStore';
 import {
     closeClaudeTurnWithStatus,
     mapClaudeLogMessageToSessionEnvelopes,
@@ -192,6 +193,7 @@ function buildMultipartUploadBody(
 
 export class ApiSessionClient extends EventEmitter {
     private readonly tokenSource: AccessTokenSource;
+    private readonly getAccessToken?: () => Promise<string>;
     private get token(): string {
         return resolveAccessToken(this.tokenSource);
     }
@@ -251,9 +253,10 @@ export class ApiSessionClient extends EventEmitter {
     private readonly receiveSync: InvalidateSync;
     private reconnectCapabilityHeld = false;
 
-    constructor(token: AccessTokenSource, session: Session) {
+    constructor(token: AccessTokenSource, session: Session, getAccessToken?: () => Promise<string>) {
         super()
         this.tokenSource = token;
+        this.getAccessToken = getAccessToken;
         this.sessionId = session.id;
         this.metadata = session.metadata;
         this.metadataVersion = session.metadataVersion;
@@ -277,13 +280,29 @@ export class ApiSessionClient extends EventEmitter {
         // Create socket
         //
 
+        const authPayload = (token: string) => ({
+            token,
+            clientType: 'session-scoped' as const,
+            sessionId: this.sessionId,
+            happyClient: `cli-coding-session/${configuration.currentCliVersion}`
+        });
+
         this.socket = io(configuration.serverUrl, {
-            auth: (cb: (data: object) => void) => cb({
-                token: this.token,
-                clientType: 'session-scoped' as const,
-                sessionId: this.sessionId,
-                happyClient: `cli-coding-session/${configuration.currentCliVersion}`
-            }),
+            auth: (cb: (data: object) => void) => {
+                resolveSocketAuthToken(this.tokenSource, this.getAccessToken).then(
+                    (token) => cb(authPayload(token)),
+                    (error) => {
+                        logger.debug('[API] Failed to resolve access token for socket auth:', error instanceof Error ? error.message : String(error));
+                        if (error instanceof LoggedOutError) {
+                            // Nothing will refresh this; stop the reconnect loop instead of
+                            // spinning against the server forever with an invalid handshake.
+                            void this.close();
+                            return;
+                        }
+                        cb(authPayload(''));
+                    },
+                );
+            },
             path: '/v1/updates',
             reconnection: false,
             transports: ['websocket'],

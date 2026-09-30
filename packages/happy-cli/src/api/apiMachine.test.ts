@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiMachineClient } from './apiMachine';
+import { LoggedOutError } from './tokenStore';
 import type { Machine } from './types';
 
 const {
@@ -274,6 +275,48 @@ describe('ApiMachineClient socket reconnection', () => {
             }),
         }));
 
+        client.shutdown();
+    });
+
+    it('prefers the async getAccessToken getter over the sync token source, refreshing across a suspend', async () => {
+        // Simulates a laptop suspend: wall-clock time has moved on (which is what
+        // tokenStore.getAccessToken checks), but no timers have fired.
+        const getAccessToken = vi.fn(async () => 'fresh-after-suspend');
+        const client = new ApiMachineClient('stale-token', makeMachine(), getAccessToken);
+        client.connect();
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        const result = await new Promise<any>((resolve) => options.auth(resolve));
+
+        expect(getAccessToken).toHaveBeenCalledTimes(1);
+        expect(result.token).toBe('fresh-after-suspend');
+        client.shutdown();
+    });
+
+    it('does not throw from the auth callback when getAccessToken rejects, and disconnects on LoggedOutError', async () => {
+        vi.useFakeTimers();
+        const getAccessToken = vi.fn(async () => { throw new LoggedOutError(); });
+        const client = new ApiMachineClient('stale-token', makeMachine(), getAccessToken);
+        client.connect();
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        // The callback never calls cb() on a LoggedOutError (there is nothing
+        // useful to hand the server); it must not throw or leave a hanging promise.
+        expect(() => options.auth(() => { })).not.toThrow();
+        await vi.waitFor(() => expect(mockSocket.close).toHaveBeenCalled());
+    });
+
+    it('does not throw from the auth callback on a non-logged-out rejection, and still calls cb', async () => {
+        const getAccessToken = vi.fn(async () => { throw new Error('network blip'); });
+        const client = new ApiMachineClient('stale-token', makeMachine(), getAccessToken);
+        client.connect();
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        let received: any;
+        await new Promise<void>((resolve) => {
+            expect(() => options.auth((data: any) => { received = data; resolve(); })).not.toThrow();
+        });
+        expect(received.token).toBe('');
         client.shutdown();
     });
 });

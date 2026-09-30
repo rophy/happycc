@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiSessionClient } from './apiSession';
+import { LoggedOutError } from './tokenStore';
 import { decodeBase64, decrypt, decryptBlob, encodeBase64, encrypt } from './encryption';
 import type { Update } from './types';
 import { logger } from '@/ui/logger';
@@ -198,6 +199,38 @@ describe('ApiSessionClient v3 messages API migration', () => {
         expect(first.token).toBe('token-1');
         expect(second.token).toBe('token-2');
         expect(second.clientType).toBe('session-scoped');
+    });
+
+    it('prefers the async getAccessToken getter over the sync token source, refreshing across a suspend', async () => {
+        const getAccessToken = vi.fn(async () => 'fresh-after-suspend');
+        new ApiSessionClient('stale-token', session, getAccessToken);
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        const result = await new Promise<any>((resolve) => options.auth(resolve));
+
+        expect(getAccessToken).toHaveBeenCalledTimes(1);
+        expect(result.token).toBe('fresh-after-suspend');
+    });
+
+    it('does not throw from the auth callback when getAccessToken rejects, and closes the socket on LoggedOutError', async () => {
+        const getAccessToken = vi.fn(async () => { throw new LoggedOutError(); });
+        new ApiSessionClient('stale-token', session, getAccessToken);
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        expect(() => options.auth(() => { })).not.toThrow();
+        await vi.waitFor(() => expect(mockSocket.close).toHaveBeenCalled());
+    });
+
+    it('does not throw from the auth callback on a non-logged-out rejection, and still calls cb', async () => {
+        const getAccessToken = vi.fn(async () => { throw new Error('network blip'); });
+        new ApiSessionClient('stale-token', session, getAccessToken);
+
+        const options = mockIo.mock.calls.at(-1)![1];
+        let received: any;
+        await new Promise<void>((resolve) => {
+            expect(() => options.auth((data: any) => { received = data; resolve(); })).not.toThrow();
+        });
+        expect(received.token).toBe('');
     });
 
     it('registers core socket handlers and connects', () => {
