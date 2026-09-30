@@ -5,8 +5,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['**/*.test.ts', '**/*.spec.ts'],
-    exclude: ['**/node_modules/**', '**/*.integration.test.ts'],
+    include: ['sources/**/*.integration.test.ts'],
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
   },
   plugins: [tsconfigPaths()]
 });
