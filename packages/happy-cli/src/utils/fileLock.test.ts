@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, existsSync, writeFileSync, utimesSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, utimesSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -52,5 +52,19 @@ describe('withFileLock', () => {
         writeFileSync(lock, '');
         await expect(withFileLock(lock, async () => 'never', { retryIntervalMs: 5, maxAttempts: 3, staleAfterMs: 60_000 }))
             .rejects.toThrow(`Failed to acquire lock ${lock}`);
+    });
+
+    it('does not unlink a lock stolen by another process', async () => {
+        const lock = join(dir, 'f.lock');
+        const foreignToken = 'foreign-token-12345';
+
+        await withFileLock(lock, async () => {
+            // Mid-critical-section, simulate another process stealing the lock
+            writeFileSync(lock, foreignToken);
+        });
+
+        // After withFileLock returns, lock file should still exist with the foreign token
+        expect(existsSync(lock)).toBe(true);
+        expect(readFileSync(lock, 'utf-8')).toBe(foreignToken);
     });
 });
