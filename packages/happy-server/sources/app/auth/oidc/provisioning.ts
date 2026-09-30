@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { db } from '@/storage/db';
+import { log } from '@/utils/log';
 import { separateName } from '@/utils/separateName';
 import { deriveAccountPublicKeyHex, generateRootSecret } from './accountKeys';
 import { keyVault, sealIdpRefreshToken } from './keyVault';
@@ -13,6 +14,17 @@ export class AccountDisabledError extends Error {
 }
 
 export async function provisionAccount(identity: OidcIdentity, now: Date = new Date()): Promise<{ accountId: string }> {
+    const { accountId } = await upsertAccount(identity, now);
+    if (!identity.refreshToken) {
+        log(
+            { module: 'auth', level: 'warn' },
+            `IdP returned no refresh token for account ${accountId}; IdP re-validation is disabled for it (request offline_access)`,
+        );
+    }
+    return { accountId };
+}
+
+async function upsertAccount(identity: OidcIdentity, now: Date): Promise<{ accountId: string }> {
     const where = { oidcIssuer_oidcSubject: { oidcIssuer: identity.issuer, oidcSubject: identity.subject } };
     const idpFields = identity.refreshToken
         ? { idpRefreshToken: sealIdpRefreshToken(identity.refreshToken), idpCheckedAt: now }
