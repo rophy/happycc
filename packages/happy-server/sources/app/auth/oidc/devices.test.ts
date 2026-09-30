@@ -70,6 +70,82 @@ describe('devices', () => {
         expect(afterReuse).toEqual({ ok: false, reason: 'revoked' });
     });
 
+    describe('reuse grace window', () => {
+        const GRACE = { maxSessionAgeSec: MAX_AGE, reuseGraceSec: 30 };
+        const base = Date.now() + 60_000;
+        const at = (ms: number) => new Date(base + ms);
+
+        it('re-rotates when the immediately previous token is replayed within the window', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            if (!first.ok) return;
+
+            // The client never received `first` (lost response) and retries with the old token.
+            const retry = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(10_000) });
+            expect(retry.ok).toBe(true);
+            if (!retry.ok) return;
+            expect(retry.tokens.refreshToken).not.toBe(first.tokens.refreshToken);
+            expect(tokens.verifyAccessToken(retry.tokens.accessToken)?.deviceId).toBe(created.deviceId);
+
+            const next = await devices.refreshDevice(retry.tokens.refreshToken, { ...GRACE, now: at(20_000) });
+            expect(next.ok).toBe(true);
+        });
+
+        it('revokes when the previous token is replayed after the window', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            if (!first.ok) return;
+
+            const late = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(31_000) });
+            expect(late).toEqual({ ok: false, reason: 'reused' });
+            expect(await devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(32_000) }))
+                .toEqual({ ok: false, reason: 'revoked' });
+        });
+
+        it('revokes when a token older than the previous one is replayed within the window', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            if (!first.ok) return;
+            const second = await devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(1_000) });
+            expect(second.ok).toBe(true);
+            if (!second.ok) return;
+
+            expect(await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(2_000) }))
+                .toEqual({ ok: false, reason: 'reused' });
+            expect(await devices.refreshDevice(second.tokens.refreshToken, { ...GRACE, now: at(3_000) }))
+                .toEqual({ ok: false, reason: 'revoked' });
+        });
+
+        it('allows the grace replay only once', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            const retry = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) });
+            expect(retry.ok).toBe(true);
+
+            expect(await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(2_000) }))
+                .toEqual({ ok: false, reason: 'reused' });
+        });
+
+        it('still rejects a revoked device within the window', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+            const first = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) });
+            expect(first.ok).toBe(true);
+            await devices.revokeDevice(created.deviceId);
+
+            expect(await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(1_000) }))
+                .toEqual({ ok: false, reason: 'revoked' });
+        });
+    });
+
     it('rejects unknown tokens', async () => {
         expect(await devices.refreshDevice('nope', { maxSessionAgeSec: MAX_AGE })).toEqual({ ok: false, reason: 'invalid' });
     });

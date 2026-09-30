@@ -39,21 +39,65 @@ export async function createDevice(input: {
     };
 }
 
-export async function refreshDevice(
-    refreshToken: string,
-    opts: { maxSessionAgeSec: number; now?: Date; checkIdp?: (accountId: string) => Promise<boolean> },
-): Promise<RefreshResult> {
+type RefreshOptions = {
+    maxSessionAgeSec: number;
+    /**
+     * How long the immediately previous refresh token stays redeemable after a
+     * rotation. Covers a lost response: the client never saw the new pair and
+     * retries with the old token. 0 disables the window.
+     */
+    reuseGraceSec?: number;
+    now?: Date;
+    checkIdp?: (accountId: string) => Promise<boolean>;
+};
+
+type DeviceWithAccount = NonNullable<Awaited<ReturnType<typeof findDeviceWithAccount>>>;
+
+function findDeviceWithAccount(where: { id: string } | { refreshTokenHash: string }) {
+    return db.device.findUnique({ where, include: { account: true } });
+}
+
+export async function refreshDevice(refreshToken: string, opts: RefreshOptions): Promise<RefreshResult> {
     const now = opts.now ?? new Date();
     const hash = hashToken(refreshToken);
-    const device = await db.device.findUnique({ where: { refreshTokenHash: hash }, include: { account: true } });
-    if (!device) {
-        const retired = await db.retiredRefreshToken.findUnique({ where: { tokenHash: hash } });
-        if (retired) {
-            await revokeDevice(retired.deviceId);
-            return { ok: false, reason: 'reused' };
-        }
+    const device = await findDeviceWithAccount({ refreshTokenHash: hash });
+    if (device) {
+        return rotate(device, opts, now);
+    }
+
+    const retired = await db.retiredRefreshToken.findUnique({ where: { tokenHash: hash } });
+    if (!retired) {
         return { ok: false, reason: 'invalid' };
     }
+    if (await isWithinReuseGrace(retired, opts.reuseGraceSec ?? 0, now)) {
+        const current = await findDeviceWithAccount({ id: retired.deviceId });
+        if (current) {
+            return rotate(current, opts, now);
+        }
+    }
+    await revokeDevice(retired.deviceId);
+    return { ok: false, reason: 'reused' };
+}
+
+/** Only the device's most recently retired token, and only within the window. */
+async function isWithinReuseGrace(
+    retired: { tokenHash: string; deviceId: string; retiredAt: Date },
+    graceSec: number,
+    now: Date,
+): Promise<boolean> {
+    if (graceSec <= 0 || now.getTime() - retired.retiredAt.getTime() > graceSec * 1000) {
+        return false;
+    }
+    const latest = await db.retiredRefreshToken.findFirst({
+        where: { deviceId: retired.deviceId },
+        orderBy: { retiredAt: 'desc' },
+        select: { tokenHash: true },
+    });
+    return latest?.tokenHash === retired.tokenHash;
+}
+
+/** Validates the device and replaces its current refresh token with a new one. */
+async function rotate(device: DeviceWithAccount, opts: RefreshOptions, now: Date): Promise<RefreshResult> {
     if (device.revokedAt) {
         return { ok: false, reason: 'revoked' };
     }
@@ -68,17 +112,18 @@ export async function refreshDevice(
         return { ok: false, reason: 'disabled' };
     }
 
+    const currentHash = device.refreshTokenHash;
     const next = generateOpaqueToken();
-    // Conditional update: a concurrent refresh with the same token loses and gets 'invalid'.
+    // Conditional update: a concurrent refresh of the same token loses and gets 'invalid'.
     const rotated = await db.$transaction(async (tx) => {
         const updated = await tx.device.updateMany({
-            where: { id: device.id, refreshTokenHash: hash, revokedAt: null },
+            where: { id: device.id, refreshTokenHash: currentHash, revokedAt: null },
             data: { refreshTokenHash: hashToken(next), lastSeenAt: now },
         });
         if (updated.count !== 1) {
             return false;
         }
-        await tx.retiredRefreshToken.create({ data: { tokenHash: hash, deviceId: device.id } });
+        await tx.retiredRefreshToken.create({ data: { tokenHash: currentHash, deviceId: device.id, retiredAt: now } });
         return true;
     });
     if (!rotated) {

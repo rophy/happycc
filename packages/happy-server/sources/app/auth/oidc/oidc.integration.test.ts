@@ -118,9 +118,12 @@ describe('OIDC against oidc-mock', () => {
 
         const refreshed = await post('/v1/auth/refresh', { refreshToken: token.json.refreshToken });
         expect(refreshed.status).toBe(200);
+        // A client that lost the response may retry the previous token once, within the grace window.
+        const retried = await post('/v1/auth/refresh', { refreshToken: token.json.refreshToken });
+        expect(retried.status).toBe(200);
         const reused = await post('/v1/auth/refresh', { refreshToken: token.json.refreshToken });
         expect(reused.json).toEqual({ error: 'invalid_grant', reason: 'reused' });
-        const afterReuse = await post('/v1/auth/refresh', { refreshToken: refreshed.json.refreshToken });
+        const afterReuse = await post('/v1/auth/refresh', { refreshToken: retried.json.refreshToken });
         expect(afterReuse.json.reason).toBe('revoked');
     });
 

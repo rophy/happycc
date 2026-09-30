@@ -9,6 +9,7 @@ export function tokenRoutes(app: Fastify, deps: AuthRouteDeps) {
     }, async (request, reply) => {
         const result = await refreshDevice(request.body.refreshToken, {
             maxSessionAgeSec: deps.config.maxSessionAgeSec,
+            reuseGraceSec: deps.config.refreshReuseGraceSec,
             checkIdp: deps.checkIdp,
         });
         if (!result.ok) {

@@ -36,6 +36,7 @@ describe('loadAuthConfig', () => {
             mobileRedirectUris: [],
             accessTokenTtlSec: 900,
             maxSessionAgeSec: 2_592_000,
+            refreshReuseGraceSec: 30,
             allowInsecureIssuer: false,
             masterSecret: 'x'.repeat(32),
         });
@@ -48,12 +49,14 @@ describe('loadAuthConfig', () => {
             MOBILE_REDIRECT_URIS: 'corpapp://auth/callback, corpapp-dev://auth/callback',
             AUTH_ACCESS_TOKEN_TTL: '5m',
             AUTH_MAX_SESSION_AGE: '7d',
+            AUTH_REFRESH_REUSE_GRACE: '0s',
             OIDC_ALLOW_INSECURE_ISSUER: 'true',
         });
         expect(cfg.scopes).toBe('openid email');
         expect(cfg.mobileRedirectUris).toEqual(['corpapp://auth/callback', 'corpapp-dev://auth/callback']);
         expect(cfg.accessTokenTtlSec).toBe(300);
         expect(cfg.maxSessionAgeSec).toBe(604_800);
+        expect(cfg.refreshReuseGraceSec).toBe(0);
         expect(cfg.allowInsecureIssuer).toBe(true);
     });
 
