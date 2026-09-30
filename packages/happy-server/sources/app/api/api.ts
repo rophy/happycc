@@ -3,7 +3,10 @@ import { isProduction, log, logger } from "@/utils/log";
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-type-provider-zod";
 import { onShutdown } from "@/utils/shutdown";
 import { Fastify } from "./types";
-import { authRoutes } from "./routes/authRoutes";
+import { oidcRoutes } from "./routes/oidcRoutes";
+import { deviceAuthRoutes } from "./routes/deviceAuthRoutes";
+import { tokenRoutes } from "./routes/tokenRoutes";
+import { getOidcRuntime } from "@/app/auth/oidc/oidcRuntime";
 import { pushRoutes } from "./routes/pushRoutes";
 import { sessionRoutes } from "./routes/sessionRoutes";
 import { connectRoutes } from "./routes/connectRoutes";
@@ -99,7 +102,10 @@ export async function startApi(opts: StartApiOptions = {}) {
     }
 
     // Routes
-    authRoutes(typed);
+    const oidcRuntime = getOidcRuntime();
+    oidcRoutes(typed, oidcRuntime);
+    deviceAuthRoutes(typed, oidcRuntime);
+    tokenRoutes(typed, oidcRuntime);
     pushRoutes(typed);
     sessionRoutes(typed);
     accountRoutes(typed);
@@ -163,7 +169,8 @@ export async function startApi(opts: StartApiOptions = {}) {
             // Don't fall through for API/socket/files paths
             if (request.method !== 'GET') return reply.code(404).send({ error: 'Not found' });
             if (url.startsWith('/v1') || url.startsWith('/v3') || url.startsWith('/socket') ||
-                url.startsWith('/files/') || url.startsWith('/metrics') || url.startsWith('/health')) {
+                url.startsWith('/files/') || url.startsWith('/metrics') || url.startsWith('/health') ||
+                url.startsWith('/activate')) {
                 return reply.code(404).send({ error: 'Not found' });
             }
             const indexPath = path.join(opts.staticDir!, 'index.html');

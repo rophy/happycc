@@ -2,6 +2,7 @@ import "reflect-metadata";
 
 import { db } from "./storage/db";
 import { initEncrypt } from "./modules/encrypt";
+import { initOidcAuth } from "./app/auth/oidc/oidcRuntime";
 import { initGithub } from "./modules/github";
 import { loadFiles } from "./storage/files";
 import { auth } from "./app/auth/auth";
@@ -33,6 +34,7 @@ export async function startServer(opts: StartServerOptions): Promise<{ port: num
     });
 
     await initEncrypt();
+    await initOidcAuth();
     await initGithub();
     await loadFiles();
     await auth.init();
