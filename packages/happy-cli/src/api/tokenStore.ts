@@ -160,7 +160,16 @@ class TokenStore {
                 const response = await axios.post(
                     `${configuration.serverUrl}/v1/auth/refresh`,
                     { refreshToken: credentials.refreshToken },
-                    { timeout: REFRESH_TIMEOUT_MS, headers: { 'X-Happy-Client': `cli/${configuration.currentCliVersion}` } },
+                    {
+                        // `timeout` alone only bounds socket inactivity after connect (axios sets
+                        // it via req.setTimeout, which Node applies post-connect). A black-holed
+                        // route can hang in DNS/TCP connect for minutes, holding the credentials
+                        // lock well past its 30s stale window. AbortSignal.timeout is a hard wall
+                        // clock deadline covering DNS + connect + the whole request.
+                        timeout: REFRESH_TIMEOUT_MS,
+                        signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+                        headers: { 'X-Happy-Client': `cli/${configuration.currentCliVersion}` },
+                    },
                 );
                 data = response.data;
             } catch (error) {

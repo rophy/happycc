@@ -100,6 +100,42 @@ describe('tokenStore', () => {
         expect(listener).toHaveBeenCalledTimes(1);
     });
 
+    it('bounds the refresh request with a hard abort deadline, not just the post-connect socket timeout', async () => {
+        server = await startFakeAuthServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: makeJwt(900), refreshToken: 'rt-2' } }),
+        });
+        mockConfiguration.serverUrl = server.url;
+        const stale = makeJwt(30);
+        tokenStore.init(await seed(stale));
+        const postSpy = vi.spyOn(axios, 'post');
+        await tokenStore.refresh(stale);
+        const options = postSpy.mock.calls.at(-1)?.[2] as { signal?: unknown } | undefined;
+        // `timeout` (axios' req.setTimeout) only bounds the socket after it connects; a
+        // black-holed route can hang in DNS/connect for minutes otherwise, holding the
+        // credentials lock well past its 30s stale window. The abort signal is a hard
+        // wall-clock deadline that also covers DNS + connect.
+        expect(options?.signal).toBeInstanceOf(AbortSignal);
+        postSpy.mockRestore();
+    });
+
+    it('sanitizes an aborted refresh the same way as any other network error', async () => {
+        server = await startFakeAuthServer({});
+        mockConfiguration.serverUrl = server.url;
+        const stale = makeJwt(30);
+        tokenStore.init(await seed(stale));
+        // Force the abort branch deterministically (rather than racing a real hang)
+        // by pre-aborting the signal handed to axios; this exercises the exact
+        // catch path a DNS/connect-phase hang would take.
+        const originalPost = axios.post.bind(axios);
+        const postSpy = vi.spyOn(axios, 'post').mockImplementation(async (url, data, options: any) => {
+            return originalPost(url, data, { ...options, signal: AbortSignal.abort() });
+        });
+        await expect(tokenStore.refresh(stale)).rejects.not.toBeInstanceOf(LoggedOutError);
+        await expect(tokenStore.refresh(stale)).rejects.toThrow(/^Token refresh failed: /);
+        expect((await readCredentials())?.token).toBe(stale);
+        postSpy.mockRestore();
+    });
+
     it('keeps credentials on network errors and never leaks the raw axios error', async () => {
         mockConfiguration.serverUrl = 'http://127.0.0.1:9'; // closed port
         const stale = makeJwt(30);
