@@ -5,7 +5,7 @@
  * - File output location: ~/.handy/logs/<date time in local timezone>.log
  */
 
-import axios from 'axios'
+import axios, { type AxiosError } from 'axios'
 import chalk from 'chalk'
 import { appendFileSync } from 'fs'
 import { inspect } from 'node:util'
@@ -22,17 +22,78 @@ import { join, basename } from 'node:path'
  * Replace it with a plain summary before anything is logged, so the leak
  * class can't come back through a new call site. Never pass through headers,
  * config.data or response.data.
+ *
+ * An AxiosError doesn't always show up as the top-level logged value — it's
+ * commonly nested inside a plain `{ error }` wrapper, an array, or an
+ * `Error.cause` chain — so this walks the value recursively. Bounded by a
+ * depth limit and a WeakSet cycle guard, and wrapped so it can never throw:
+ * a broken sanitizer must never be the reason a log call crashes a session.
  */
-function sanitizeLogArg(arg: unknown): unknown {
-  if (!axios.isAxiosError(arg)) {
-    return arg
-  }
+const SANITIZE_MAX_DEPTH = 6
+
+function sanitizeAxiosError(err: AxiosError): Record<string, unknown> {
   return {
-    message: arg.message,
-    code: arg.code,
-    status: arg.response?.status,
-    method: arg.config?.method,
-    url: arg.config?.url,
+    message: err.message,
+    code: err.code,
+    status: err.response?.status,
+    method: err.config?.method,
+    url: err.config?.url,
+  }
+}
+
+function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): unknown {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  if (axios.isAxiosError(value)) {
+    return sanitizeAxiosError(value)
+  }
+
+  if (depth >= SANITIZE_MAX_DEPTH) {
+    return '[Max depth reached]'
+  }
+
+  if (seen.has(value)) {
+    return '[Circular]'
+  }
+  seen.add(value)
+
+  if (value instanceof Error) {
+    const sanitized: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+    }
+    // Custom error subclasses sometimes carry extra own properties (and a
+    // `cause`) that themselves might wrap an AxiosError — walk those too.
+    for (const key of Object.keys(value)) {
+      if (key === 'name' || key === 'message' || key === 'stack') continue
+      sanitized[key] = sanitizeValue((value as unknown as Record<string, unknown>)[key], depth + 1, seen)
+    }
+    if ('cause' in value && (value as { cause?: unknown }).cause !== undefined) {
+      sanitized.cause = sanitizeValue((value as { cause?: unknown }).cause, depth + 1, seen)
+    }
+    return sanitized
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeValue(item, depth + 1, seen))
+  }
+
+  const result: Record<string, unknown> = {}
+  for (const [key, entryValue] of Object.entries(value)) {
+    result[key] = sanitizeValue(entryValue, depth + 1, seen)
+  }
+  return result
+}
+
+function sanitizeLogArg(arg: unknown): unknown {
+  try {
+    return sanitizeValue(arg, 0, new WeakSet())
+  } catch {
+    // The sanitizer itself must never be the reason a log call throws.
+    return '[Unloggable value]'
   }
 }
 
@@ -149,7 +210,10 @@ export class Logger {
   
   info(message: string, ...args: unknown[]): void {
     this.logToConsole('info', '', message, ...args)
-    this.debug(message, args)
+    // Spread, not nested: passing `args` as one argument wraps it in an
+    // extra array, which `logToFile`'s per-arg sanitizer can't see into
+    // (an AxiosError nested a level deeper than expected).
+    this.debug(message, ...args)
   }
   
   infoDeveloper(message: string, ...args: unknown[]): void {
@@ -172,30 +236,31 @@ export class Logger {
   }
   
   private logToConsole(level: 'debug' | 'error' | 'info' | 'warn', prefix: string, message: string, ...args: unknown[]): void {
+    const sanitizedArgs = args.map(sanitizeLogArg)
     switch (level) {
       case 'debug': {
-        console.log(chalk.gray(prefix), message, ...args)
+        console.log(chalk.gray(prefix), message, ...sanitizedArgs)
         break
       }
 
       case 'error': {
-        console.error(chalk.red(prefix), message, ...args)
+        console.error(chalk.red(prefix), message, ...sanitizedArgs)
         break
       }
 
       case 'info': {
-        console.log(chalk.blue(prefix), message, ...args)
+        console.log(chalk.blue(prefix), message, ...sanitizedArgs)
         break
       }
 
       case 'warn': {
-        console.log(chalk.yellow(prefix), message, ...args)
+        console.log(chalk.yellow(prefix), message, ...sanitizedArgs)
         break
       }
 
       default: {
         this.debug('Unknown log level:', level)
-        console.log(chalk.blue(prefix), message, ...args)
+        console.log(chalk.blue(prefix), message, ...sanitizedArgs)
         break
       }
     }
@@ -203,7 +268,11 @@ export class Logger {
 
   private async sendToRemoteServer(level: string, message: string, ...args: unknown[]): Promise<void> {
     if (!this.dangerouslyUnencryptedServerLoggingUrl) return
-    
+
+    // Callers already sanitize before reaching here; sanitize again so this
+    // path can never regress into leaking a token even if a future caller
+    // forgets to.
+    const sanitizedArgs = args.map(sanitizeLogArg)
     try {
       await fetch(this.dangerouslyUnencryptedServerLoggingUrl + '/logs-combined-from-cli-and-mobile-for-simple-ai-debugging', {
         method: 'POST',
@@ -211,7 +280,7 @@ export class Logger {
         body: JSON.stringify({
           timestamp: new Date().toISOString(),
           level,
-          message: `${message} ${args.map(a => 
+          message: `${message} ${sanitizedArgs.map(a =>
             typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
           ).join(' ')}`,
           source: 'cli',
