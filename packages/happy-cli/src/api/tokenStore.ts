@@ -8,6 +8,11 @@ import { decodeJwtExpiry } from './jwt';
 const REFRESH_MARGIN_MS = 2 * 60 * 1000;
 const RETRY_AFTER_ERROR_MS = 30_000;
 const MIN_TIMER_MS = 5_000;
+const REFRESH_TIMEOUT_MS = 10_000;
+
+/** Lock options for the credentials lock. A stale lock (crashed holder) is reclaimed after 30s;
+ *  waiting for a live holder retries every 100ms for up to ~20s. Shared with logout (Task 5). */
+export const CREDENTIALS_LOCK_OPTIONS = { staleAfterMs: 30_000, maxAttempts: 200 };
 
 export class LoggedOutError extends Error {
     constructor() {
@@ -57,6 +62,8 @@ class TokenStore {
     private inflight: Promise<string> | null = null;
     private interceptorId: number | null = null;
     private readonly listeners = new Set<(error: LoggedOutError) => void>();
+    /** A refreshed pair the server already issued but we failed to persist. Retried before any new POST. */
+    private pendingRotation: Credentials | null = null;
 
     init(credentials: Credentials): void {
         if (this.token !== null) {
@@ -121,11 +128,23 @@ class TokenStore {
         this.timer = null;
         this.inflight = null;
         this.interceptorId = null;
+        this.pendingRotation = null;
         this.listeners.clear();
     }
 
     private async adoptOrRefresh(rejectedToken: string): Promise<string> {
         return withFileLock(credentialsLockFile(), async () => {
+            // A previous refresh already got a new pair from the server but failed to persist it.
+            // Retry the write instead of asking the server for another rotation (that would burn
+            // the just-issued refresh token a second time and desync from the server).
+            if (this.pendingRotation) {
+                const pending = this.pendingRotation;
+                await writeCredentials(pending);
+                this.pendingRotation = null;
+                logger.debug('[AUTH] Persisted a previously pending token rotation');
+                return pending.token;
+            }
+
             const credentials = await readCredentials();
             if (!credentials) {
                 throw new LoggedOutError();
@@ -139,20 +158,32 @@ class TokenStore {
                 const response = await axios.post(
                     `${configuration.serverUrl}/v1/auth/refresh`,
                     { refreshToken: credentials.refreshToken },
-                    { timeout: 15_000, headers: { 'X-Happy-Client': `cli/${configuration.currentCliVersion}` } },
+                    { timeout: REFRESH_TIMEOUT_MS, headers: { 'X-Happy-Client': `cli/${configuration.currentCliVersion}` } },
                 );
                 data = response.data;
             } catch (error) {
-                if (axios.isAxiosError(error) && error.response?.status === 401) {
+                if (axios.isAxiosError(error) && error.response?.status === 401 && (error.response?.data as any)?.error === 'invalid_grant') {
                     await clearCredentialsIfRefreshToken(credentials.refreshToken);
                     throw new LoggedOutError();
                 }
-                throw error;
+                const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+                const code = axios.isAxiosError(error) ? error.code : undefined;
+                throw new Error(`Token refresh failed: ${status ?? code ?? 'unknown'}`);
             }
-            await writeCredentials({ ...credentials, token: data.accessToken, refreshToken: data.refreshToken });
+            const rotated: Credentials = { ...credentials, token: data.accessToken, refreshToken: data.refreshToken };
+            try {
+                await writeCredentials(rotated);
+            } catch (writeError) {
+                // The server already rotated the refresh token; we cannot ask it for another one
+                // without burning the one it just issued. Keep serving the new access token from
+                // memory and persist it on the next refresh attempt.
+                this.pendingRotation = rotated;
+                logger.debug('[AUTH] Failed to persist refreshed token; keeping rotation pending', writeError instanceof Error ? writeError.message : writeError);
+                return rotated.token;
+            }
             logger.debug('[AUTH] Access token refreshed');
-            return data.accessToken;
-        });
+            return rotated.token;
+        }, CREDENTIALS_LOCK_OPTIONS);
     }
 
     private schedule(delayOverrideMs?: number): void {
@@ -206,6 +237,8 @@ class TokenStore {
             clearTimeout(this.timer);
             this.timer = null;
         }
+        this.token = null;
+        this.pendingRotation = null;
         for (const listener of this.listeners) {
             try {
                 listener(error);

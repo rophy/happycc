@@ -11,6 +11,7 @@ const mockConfiguration = vi.hoisted(() => ({
 vi.mock('@/configuration', () => ({ configuration: mockConfiguration }));
 vi.mock('@/ui/logger', () => ({ logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
+import * as persistence from '@/persistence';
 import { readCredentials, writeCredentials, type Credentials } from '@/persistence';
 import { LoggedOutError, tokenStore } from './tokenStore';
 
@@ -99,12 +100,58 @@ describe('tokenStore', () => {
         expect(listener).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps credentials on network errors', async () => {
+    it('keeps credentials on network errors and never leaks the raw axios error', async () => {
         mockConfiguration.serverUrl = 'http://127.0.0.1:9'; // closed port
         const stale = makeJwt(30);
         tokenStore.init(await seed(stale));
         await expect(tokenStore.refresh(stale)).rejects.not.toBeInstanceOf(LoggedOutError);
+        await expect(tokenStore.refresh(stale)).rejects.toThrow(/^Token refresh failed: /);
         expect((await readCredentials())?.token).toBe(stale);
+    });
+
+    it('does not log out on a 401 that is not invalid_grant', async () => {
+        server = await startFakeAuthServer({
+            'POST /v1/auth/refresh': () => ({ status: 401, body: { error: 'temporarily_unavailable' } }),
+        });
+        mockConfiguration.serverUrl = server.url;
+        const stale = makeJwt(30);
+        tokenStore.init(await seed(stale));
+        const listener = vi.fn();
+        tokenStore.onLoggedOut(listener);
+        await expect(tokenStore.refresh(stale)).rejects.not.toBeInstanceOf(LoggedOutError);
+        expect(await readCredentials()).not.toBeNull();
+        expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('keeps a rotation pending in memory when the write fails, and persists it without a second POST', async () => {
+        let refreshCalls = 0;
+        const next = makeJwt(900);
+        server = await startFakeAuthServer({
+            'POST /v1/auth/refresh': () => {
+                refreshCalls++;
+                return { status: 200, body: { accessToken: next, refreshToken: 'rt-2' } };
+            },
+        });
+        mockConfiguration.serverUrl = server.url;
+        const stale = makeJwt(30);
+        tokenStore.init(await seed(stale));
+
+        const writeSpy = vi.spyOn(persistence, 'writeCredentials').mockImplementationOnce(async () => {
+            throw new Error('disk full');
+        });
+
+        const first = await tokenStore.refresh(stale);
+        expect(first).toBe(next);
+        expect(refreshCalls).toBe(1);
+        expect(tokenStore.current()).toBe(next);
+
+        writeSpy.mockRestore();
+
+        const second = await tokenStore.refresh(next);
+        expect(second).toBe(next);
+        expect(refreshCalls).toBe(1);
+        expect((await readCredentials())?.token).toBe(next);
+        expect((await readCredentials())?.refreshToken).toBe('rt-2');
     });
 
     it('retries a 401 once with a refreshed token via the axios interceptor', async () => {
@@ -121,6 +168,21 @@ describe('tokenStore', () => {
         const res = await axios.get(`${server.url}/v1/whoami`, { headers: { Authorization: `Bearer ${stale}` } });
         expect(res.data).toEqual({ ok: true });
         expect(server.calls.filter((c) => c.path === '/v1/whoami')).toHaveLength(2);
+    });
+
+    it('does not retry a request a second time if the refreshed token still gets a 401', async () => {
+        let whoamiCalls = 0;
+        server = await startFakeAuthServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: makeJwt(900), refreshToken: 'rt-2' } }),
+            'GET /v1/whoami': () => {
+                whoamiCalls++;
+                return { status: 401, body: { error: 'Invalid token' } };
+            },
+        });
+        mockConfiguration.serverUrl = server.url;
+        tokenStore.init(await seed(makeJwt(600)));
+        await expect(axios.get(`${server.url}/v1/whoami`, { headers: { Authorization: 'Bearer stale-token' } })).rejects.toThrow();
+        expect(whoamiCalls).toBe(2);
     });
 
     it('does not retry requests to other hosts', async () => {
