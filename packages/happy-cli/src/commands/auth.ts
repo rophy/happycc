@@ -47,6 +47,11 @@ async function performLogout(): Promise<void> {
     await axios.post(`${configuration.serverUrl}/v1/auth/logout`, {}, {
       headers: { Authorization: `Bearer ${accessToken}` },
       timeout: 5000,
+      // `timeout` alone only bounds the socket after it connects; a
+      // black-holed route can hang in DNS/connect well past that. This is a
+      // best-effort server-side logout (local logout proceeds regardless),
+      // so bound the whole request with a hard deadline too.
+      signal: AbortSignal.timeout(5000),
     });
   } catch (error) {
     logger.debug('Server-side logout failed (continuing with local logout):', error instanceof Error ? error.message : String(error));
