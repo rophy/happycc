@@ -5,7 +5,7 @@
  */
 
 import { FileHandle } from 'node:fs/promises'
-import { readFile, writeFile, mkdir, open, unlink, rename, stat } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, open, unlink, rename } from 'node:fs/promises'
 import { existsSync, writeFileSync, readFileSync, unlinkSync, renameSync, linkSync } from 'node:fs'
 import { constants } from 'node:fs'
 import os from 'node:os'
@@ -14,6 +14,7 @@ import * as z from 'zod';
 import { encodeBase64, decodeBase64 } from '@/api/encryption';
 import type { Metadata } from '@/api/types';
 import { logger } from '@/ui/logger';
+import { withFileLock } from '@/utils/fileLock';
 
 export const SandboxConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -144,67 +145,17 @@ export async function writeSettings(settings: Settings): Promise<void> {
 export async function updateSettings(
   updater: (current: Settings) => Settings | Promise<Settings>
 ): Promise<Settings> {
-  // Timing constants
-  const LOCK_RETRY_INTERVAL_MS = 100;  // How long to wait between lock attempts
-  const MAX_LOCK_ATTEMPTS = 50;        // Maximum number of attempts (5 seconds total)
-  const STALE_LOCK_TIMEOUT_MS = 10000; // Consider lock stale after 10 seconds
-
-  const lockFile = configuration.settingsFile + '.lock';
   const tmpFile = configuration.settingsFile + '.tmp';
-  let fileHandle;
-  let attempts = 0;
-
-  // Acquire exclusive lock with retries
-  while (attempts < MAX_LOCK_ATTEMPTS) {
-    try {
-      // O_CREAT | O_EXCL | O_WRONLY = create exclusively, fail if exists
-      fileHandle = await open(lockFile, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY);
-      break;
-    } catch (err: any) {
-      if (err.code === 'EEXIST') {
-        // Lock file exists, wait and retry
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_INTERVAL_MS));
-
-        // Check for stale lock
-        try {
-          const stats = await stat(lockFile);
-          if (Date.now() - stats.mtimeMs > STALE_LOCK_TIMEOUT_MS) {
-            await unlink(lockFile).catch(() => { });
-          }
-        } catch { }
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  if (!fileHandle) {
-    throw new Error(`Failed to acquire settings lock after ${MAX_LOCK_ATTEMPTS * LOCK_RETRY_INTERVAL_MS / 1000} seconds`);
-  }
-
-  try {
-    // Read current settings with defaults
+  return withFileLock(configuration.settingsFile + '.lock', async () => {
     const current = await readSettings() || { ...defaultSettings };
-
-    // Apply update
     const updated = await updater(current);
-
-    // Ensure directory exists
     if (!existsSync(configuration.happyHomeDir)) {
       await mkdir(configuration.happyHomeDir, { recursive: true });
     }
-
-    // Write atomically using rename
     await writeFile(tmpFile, JSON.stringify(updated, null, 2));
     await rename(tmpFile, configuration.settingsFile); // Atomic on POSIX
-
     return updated;
-  } finally {
-    // Release lock
-    await fileHandle.close();
-    await unlink(lockFile).catch(() => { }); // Remove lock file
-  }
+  });
 }
 
 //
