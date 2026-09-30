@@ -122,7 +122,31 @@ Triggered by `happy auth login`, or automatically when no credentials exist.
    `keyBundle = box([0 | contentPublicKey], ephemeralPublicKey)` — identical to
    today's v2 pairing payload, so `decryptWithEphemeralKey` and
    `writeCredentialsDataKey` are reused.
-5. Credentials stored in `~/.happy` as today, plus `refreshToken`.
+5. Credentials stored in `~/.happy/access.key` as
+   `{token, refreshToken, encryption: {publicKey, machineKey}}` (the
+   `machineKey` is still generated locally). A credentials file without a
+   `refreshToken` (e.g. old keypair credentials) counts as logged out.
+
+CLI token handling (daemon, spawned session processes and a foreground
+`happy` all share one credentials file and one device):
+
+- A process-wide token store hands the current access token to every HTTP
+  client and socket (sockets read it at each (re)connect).
+- It refreshes proactively ~2 min before expiry, and on any 401 from the
+  Happy server (one retry per request).
+- Refresh runs under a cross-process lock on the credentials file. After
+  taking the lock it re-reads the file; if another process already rotated
+  the token, it adopts that token instead of refreshing. Writes are atomic
+  (temp file + rename, mode 0600).
+- A 401 `invalid_grant` from `/v1/auth/refresh` clears the credentials (only
+  if they still hold that refresh token) and reports "logged out"; the
+  daemon shuts down with a message to run `happy auth login`.
+- `happy auth logout` calls `/v1/auth/logout` best-effort, then clears the
+  credentials.
+- `happy auth desktop` (importing a desktop app's pairing) and
+  `happy server` (launching a local self-host server) are removed; the
+  corporate deployment always uses the central server. Local development
+  uses the repo `docker-compose.yaml` or `pnpm env:*` with oidc-mock.
 
 ### Web app
 
@@ -194,8 +218,11 @@ credentials.
   backup/restore (`secretKeyBackup`), `authChallenge`, `authGetToken`,
   `authQRStart`, `authQRWait`, `authApprove`, `authAccountApprove`, and
   the server URL picker.
-- CLI: `happy://terminal` QR generation and `/v1/auth/request` polling in
-  `src/ui/auth.ts`.
+- CLI: `happy://terminal` QR generation, the mobile/web auth method
+  picker, web-auth URL, legacy `/v1/auth` helper, `/v1/auth/request`
+  polling, `happy auth desktop`, and `happy server`.
+- Other packages still calling the removed endpoints (`happy-agent`,
+  `happy-mobile-gym`) are migrated in a later plan.
 
 ## 3. Hardening, integrations, packaging
 
