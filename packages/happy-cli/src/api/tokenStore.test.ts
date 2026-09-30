@@ -170,6 +170,47 @@ describe('tokenStore', () => {
         expect(server.calls.filter((c) => c.path === '/v1/whoami')).toHaveLength(2);
     });
 
+    it('retries persisting a pending rotation within 30s instead of waiting for the next natural refresh', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        try {
+            let refreshCalls = 0;
+            const next = makeJwt(900);
+            server = await startFakeAuthServer({
+                'POST /v1/auth/refresh': () => {
+                    refreshCalls++;
+                    return { status: 200, body: { accessToken: next, refreshToken: 'rt-2' } };
+                },
+            });
+            mockConfiguration.serverUrl = server.url;
+            const stale = makeJwt(30);
+            tokenStore.init(await seed(stale));
+
+            const writeSpy = vi.spyOn(persistence, 'writeCredentials').mockImplementationOnce(async () => {
+                throw new Error('disk full');
+            });
+
+            await tokenStore.refresh(stale);
+            expect(refreshCalls).toBe(1);
+            expect((await readCredentials())?.token).toBe(stale); // not yet persisted
+
+            writeSpy.mockRestore();
+
+            await vi.advanceTimersByTimeAsync(30_000);
+            // The scheduled retry fires a fire-and-forget refresh(); its lock acquisition and
+            // file write are real async I/O that fake timers do not drive, so wait for it with
+            // real timers before asserting on disk state.
+            vi.useRealTimers();
+            await vi.waitFor(async () => {
+                expect((await readCredentials())?.token).toBe(next);
+            }, { timeout: 2000, interval: 20 });
+
+            expect(refreshCalls).toBe(1); // no second POST
+            expect((await readCredentials())?.refreshToken).toBe('rt-2');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('does not retry a request a second time if the refreshed token still gets a 401', async () => {
         let whoamiCalls = 0;
         server = await startFakeAuthServer({

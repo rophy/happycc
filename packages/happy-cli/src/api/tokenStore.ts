@@ -98,7 +98,9 @@ class TokenStore {
             this.inflight = this.adoptOrRefresh(rejectedToken)
                 .then((token) => {
                     this.token = token;
-                    this.schedule();
+                    // A pending rotation still needs to reach disk; don't wait for the next
+                    // natural refresh (~13 minutes away) to retry the write.
+                    this.schedule(this.pendingRotation ? RETRY_AFTER_ERROR_MS : undefined);
                     return token;
                 })
                 .catch((error) => {
