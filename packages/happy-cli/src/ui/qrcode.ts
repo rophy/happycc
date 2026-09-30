@@ -5,7 +5,7 @@ import qrcode from 'qrcode-terminal';
  */
 export function displayQRCode(url: string): void {
   console.log('='.repeat(80));
-  console.log('📱 To authenticate, scan this QR code with your mobile device:');
+  console.log('📱 Or scan this QR code to open the sign-in page on your phone:');
   console.log('='.repeat(80));
   qrcode.generate(url, { small: true }, (qr) => {
     for (let l of qr.split('\n')) {

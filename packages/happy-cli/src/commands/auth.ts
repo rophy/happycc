@@ -1,11 +1,14 @@
+import axios from 'axios';
 import chalk from 'chalk';
 import { readCredentials, clearCredentials, clearMachineId, readSettings } from '@/persistence';
 import { authAndSetupMachineIfNeeded } from '@/ui/auth';
 import { configuration } from '@/configuration';
-import { handleDesktopAuth } from './desktopAuth';
 import { createInterface } from 'node:readline';
 import { stopDaemon, checkIfDaemonRunningAndCleanupStaleState } from '@/daemon/controlClient';
 import { logger } from '@/ui/logger';
+import { credentialsLockFile, tokenStore, CREDENTIALS_LOCK_OPTIONS } from '@/api/tokenStore';
+import { decodeJwtExpiry } from '@/api/jwt';
+import { withFileLock } from '@/utils/fileLock';
 import os from 'node:os';
 
 export async function handleAuthCommand(args: string[]): Promise<void> {
@@ -17,9 +20,6 @@ export async function handleAuthCommand(args: string[]): Promise<void> {
   }
 
   switch (subcommand) {
-    case 'desktop':
-      await handleDesktopAuth(args.slice(1));
-      break;
     case 'login':
       await handleAuthLogin(args.slice(1));
       break;
@@ -49,9 +49,7 @@ ${chalk.bold('Usage:')}
 ${chalk.bold('Options:')}
   --force    Clear credentials, machine ID, and stop daemon before re-auth
 
-${chalk.gray('PS: Your master secret never leaves your mobile/web device. Each CLI machine')}
-${chalk.gray('receives only a derived key for per-machine encryption, so backup codes')}
-${chalk.gray('cannot be displayed from the CLI.')}
+${chalk.gray('Sign-in uses your organization\'s identity provider in a browser.')}
 `);
 }
 
@@ -149,9 +147,19 @@ async function handleAuthLogout(): Promise<void> {
         console.log(chalk.gray('Stopped daemon'));
       } catch { }
 
+      try {
+        const accessToken = await tokenStore.getAccessToken();
+        await axios.post(`${configuration.serverUrl}/v1/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 5000,
+        });
+      } catch (error) {
+        logger.debug('Server-side logout failed (continuing with local logout):', error);
+      }
+
       // The home is shared with Happy Agent. Logout owns only CLI authentication,
       // never the Agent runtime/database or the local history used for resume.
-      await clearCredentials();
+      await withFileLock(credentialsLockFile(), () => clearCredentials(), CREDENTIALS_LOCK_OPTIONS);
       await clearMachineId();
 
       console.log(chalk.green('✓ Successfully logged out'));
@@ -178,9 +186,8 @@ async function handleAuthStatus(): Promise<void> {
 
   console.log(chalk.green('✓ Authenticated'));
 
-  // Token preview (first few chars for security)
-  const tokenPreview = credentials.token.substring(0, 30) + '...';
-  console.log(chalk.gray(`  Token: ${tokenPreview}`));
+  const expiresAt = decodeJwtExpiry(credentials.token);
+  console.log(chalk.gray(`  Access token ${expiresAt && expiresAt > Date.now() ? `valid until ${new Date(expiresAt).toLocaleString()}` : 'expired (refreshed automatically on next use)'}`));
 
   // Machine status
   if (settings?.machineId) {
