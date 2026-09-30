@@ -6,6 +6,7 @@ import { createAdapter } from "@socket.io/redis-streams-adapter";
 import { Redis } from "ioredis";
 import { log } from "@/utils/log";
 import { auth } from "@/app/auth/auth";
+import { deviceRoom, setSocketServer } from "@/app/auth/oidc/deviceSockets";
 import { getMetricsLabelsFromSocket, redisStreamLagMsGauge, websocketConnectionsGauge, websocketEventsCounter } from "../monitoring/metrics2";
 import { usageHandler } from "./socket/usageHandler";
 import { rpcHandler } from "./socket/rpcHandler";
@@ -18,6 +19,7 @@ import { socketServerOptions } from "./socketConfig";
 
 export function startSocket(app: Fastify) {
     const io = new Server(app.server, socketServerOptions);
+    setSocketServer(io);
 
     // Multi-process support: attach Redis streams adapter when REDIS_URL is set
     if (process.env.REDIS_URL) {
@@ -84,6 +86,7 @@ export function startSocket(app: Fastify) {
         }
 
         socket.data.userId = verified.userId;
+        socket.data.deviceId = verified.deviceId;
         socket.data.clientType = clientType;
         socket.data.sessionId = sessionId;
         socket.data.machineId = machineId;
@@ -94,6 +97,8 @@ export function startSocket(app: Fastify) {
     });
 
     io.on("connection", (socket) => {
+        socket.join(deviceRoom(socket.data.deviceId as string));
+
         const userId = socket.data.userId as string;
         const clientType = socket.data.clientType as 'session-scoped' | 'user-scoped' | 'machine-scoped' | undefined;
         const sessionId = socket.data.sessionId as string | undefined;

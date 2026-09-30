@@ -22,6 +22,7 @@ export function enableAuthentication(app: Fastify) {
 
             debug({ module: 'auth' }, `auth:success userId=${verified.userId}`);
             request.userId = verified.userId;
+            request.deviceId = verified.deviceId;
         } catch (error) {
             return reply.code(401).send({ error: 'Authentication failed' });
         }
