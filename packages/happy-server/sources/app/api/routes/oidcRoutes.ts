@@ -92,7 +92,9 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
         if (!login) {
             return html(400, 'Sign-in expired', 'Your sign-in took too long or was started in another browser. Please start again.');
         }
-        const rawQuery = (request.raw.url ?? '').split('?')[1] ?? '';
+        const rawUrl = request.raw.url ?? '';
+        const queryStart = rawUrl.indexOf('?');
+        const rawQuery = queryStart === -1 ? '' : rawUrl.slice(queryStart + 1);
         if (new URLSearchParams(rawQuery).has('error')) {
             return html(400, 'Sign-in failed', 'Your identity provider did not complete the sign-in. Please try again.');
         }

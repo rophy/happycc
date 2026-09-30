@@ -187,4 +187,18 @@ describe('oidcRoutes', () => {
             fake.setReady(true);
         }
     });
+
+    it('passes the full callback query to the IdP client, including a literal ?', async () => {
+        const start = await app.inject({ method: 'GET', url: '/v1/auth/oidc/login?client=activate' });
+        const state = new URL(start.headers.location as string).searchParams.get('state');
+        fake.queueIdentity({ issuer: 'https://idp.test', subject: 'r-query', email: null, name: null, refreshToken: null });
+        const res = await app.inject({
+            method: 'GET',
+            url: `/v1/auth/oidc/callback?code=abc?def&state=${state}`,
+            headers: { cookie: cookieHeader(start) },
+        });
+        expect(res.statusCode).toBe(302);
+        expect(fake.lastCallbackUrl?.searchParams.get('code')).toBe('abc?def');
+        expect(fake.lastCallbackUrl?.searchParams.get('state')).toBe(state);
+    });
 });

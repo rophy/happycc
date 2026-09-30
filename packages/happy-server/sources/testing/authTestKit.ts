@@ -23,6 +23,8 @@ export interface FakeOidc {
     /** Simulates IdP discovery not having completed (default: ready). */
     setReady(ready: boolean): void;
     readonly refreshCalls: number;
+    /** The callback URL passed to the last handleCallback call. */
+    readonly lastCallbackUrl: URL | null;
 }
 
 export function createFakeOidc(): FakeOidc {
@@ -30,6 +32,7 @@ export function createFakeOidc(): FakeOidc {
     let refreshResult: IdpRefreshResult = { status: 'ok', refreshToken: null };
     let refreshCalls = 0;
     let ready = true;
+    let lastCallbackUrl: URL | null = null;
     return {
         client: {
             isReady() {
@@ -43,6 +46,7 @@ export function createFakeOidc(): FakeOidc {
             },
             async handleCallback(callbackUrl, params) {
                 if (!ready) throw new IdpNotReadyError();
+                lastCallbackUrl = callbackUrl;
                 if (callbackUrl.searchParams.get('state') !== params.state) {
                     throw new Error('state mismatch');
                 }
@@ -62,6 +66,7 @@ export function createFakeOidc(): FakeOidc {
         setRefreshResult(result) { refreshResult = result; },
         setReady(value) { ready = value; },
         get refreshCalls() { return refreshCalls; },
+        get lastCallbackUrl() { return lastCallbackUrl; },
     };
 }
 
