@@ -12,7 +12,7 @@ import { keyVault } from '@/app/auth/oidc/keyVault';
 import { createDevice } from '@/app/auth/oidc/devices';
 import { createExchangeCode, redeemExchangeCode } from '@/app/auth/oidc/exchangeCodes';
 import { LOGIN_COOKIE, SESSION_COOKIE, clearCookieHeader, readCookie, setCookieHeader } from '@/app/auth/oidc/browserCookies';
-import { messagePage } from '@/app/auth/oidc/pages';
+import { messagePage, sendHtml } from '@/app/auth/oidc/pages';
 
 export interface AuthRouteDeps {
     config: AuthConfig;
@@ -72,8 +72,10 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
     });
 
     app.get('/v1/auth/oidc/callback', async (request, reply) => {
-        const html = (code: number, title: string, message: string) =>
-            reply.code(code).type('text/html').header('set-cookie', clearCookieHeader(LOGIN_COOKIE)).send(messagePage(title, message));
+        const html = (code: number, title: string, message: string) => {
+            reply.header('set-cookie', clearCookieHeader(LOGIN_COOKIE));
+            return sendHtml(reply, code, messagePage(title, message));
+        };
 
         const login = readCookie<LoginCookie>(request.headers.cookie, LOGIN_COOKIE);
         if (!login) {

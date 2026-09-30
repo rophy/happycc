@@ -131,6 +131,8 @@ describe('oidcRoutes', () => {
         const res = await app.inject({ method: 'GET', url: '/v1/auth/oidc/callback?code=x&state=y' });
         expect(res.statusCode).toBe(400);
         expect(res.headers['content-type']).toContain('text/html');
+        expect(res.headers['x-frame-options']).toBe('DENY');
+        expect(res.headers['content-security-policy']).toBe("frame-ancestors 'none'");
     });
 
     it('does not forward IdP errors', async () => {
