@@ -87,6 +87,16 @@ describe('oidcClient', () => {
         expect(await client.refresh(identity.refreshToken!)).toEqual({ status: 'rejected' });
     });
 
+    it('reports invalid_client as unavailable, not rejected', async () => {
+        server.service.once('beforeResponse', (response, req) => {
+            if (req.body.grant_type === 'refresh_token') {
+                response.statusCode = 401;
+                response.body = { error: 'invalid_client' };
+            }
+        });
+        expect(await client.refresh('any')).toEqual({ status: 'unavailable' });
+    });
+
     it('reports an unreachable IdP as unavailable', async () => {
         server.service.once('beforeResponse', (response, req) => {
             if (req.body.grant_type === 'refresh_token') {

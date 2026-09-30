@@ -1,4 +1,5 @@
 import * as client from 'openid-client';
+import { log } from '@/utils/log';
 
 export interface OidcLoginParams {
     state: string;
@@ -85,6 +86,13 @@ export async function createOidcClient(
                 if (error instanceof client.ResponseBodyError && error.error === 'invalid_grant') {
                     return { status: 'rejected' };
                 }
+                const errorName = error instanceof Error ? error.constructor.name : String(error);
+                const errorCode = (error as { error?: string; code?: string } | null)?.error
+                    ?? (error as { error?: string; code?: string } | null)?.code;
+                log(
+                    { module: 'auth', level: 'error' },
+                    `OIDC refresh failed with unexpected error: ${errorName}${errorCode ? ` (${errorCode})` : ''}`,
+                );
                 return { status: 'unavailable' };
             }
         },
