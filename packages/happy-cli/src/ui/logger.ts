@@ -81,6 +81,13 @@ function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): un
     return value.map((item) => sanitizeValue(item, depth + 1, seen))
   }
 
+  // Leave class instances (Date, Map, Buffer, typed arrays, ...) to inspect();
+  // only plain objects are walked for nested AxiosErrors.
+  const proto = Object.getPrototypeOf(value)
+  if (proto !== Object.prototype && proto !== null) {
+    return value
+  }
+
   const result: Record<string, unknown> = {}
   for (const [key, entryValue] of Object.entries(value)) {
     result[key] = sanitizeValue(entryValue, depth + 1, seen)
