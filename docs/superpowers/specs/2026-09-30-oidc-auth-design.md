@@ -87,6 +87,7 @@ replaces only *who generates the root secret* (server instead of app) and
 | `MOBILE_REDIRECT_URIS` | no | Allowed custom-scheme callbacks, e.g. `corpapp://auth/callback` |
 | `AUTH_ACCESS_TOKEN_TTL` | no | Default 15m |
 | `AUTH_MAX_SESSION_AGE` | no | Default 30d; forces re-login |
+| `AUTH_REFRESH_REUSE_GRACE` | no | Default 30s; how long the immediately previous refresh token stays redeemable after a rotation. `0s` disables it |
 | `HANDY_MASTER_SECRET` | yes | At least 32 characters; startup fails otherwise |
 | `OIDC_ALLOW_INSECURE_ISSUER` | no | `true` allows an `http://` issuer (local dev only) |
 
@@ -195,6 +196,13 @@ Clients must serialize refresh per credentials file: one refresher at a time
 (the daemon and the foreground CLI share `~/.happy`), because replaying a
 rotated refresh token revokes the device.
 
+Lost responses: if a client never receives the rotated pair (timeout, reset
+connection) it retries with the old token. Within `AUTH_REFRESH_REUSE_GRACE`
+of the rotation, the device's most recently retired token is accepted once
+more and triggers a fresh rotation (the pair issued by the lost response is
+retired in turn). Any older token, a second replay of the same token, or a
+replay after the window still revokes the device.
+
 The daemon refreshes in the background. On refresh failure it stops
 syncing, logs out, and reports that `happy auth login` is required.
 
@@ -237,7 +245,8 @@ credentials.
 - OIDC callback validates `state` and `nonce`. IdP errors render a server
   error page; they are never forwarded to clients.
 - Refresh-token rotation with reuse detection: presenting a previously
-  rotated token revokes the device.
+  rotated token revokes the device, except the immediately previous token
+  within the short `AUTH_REFRESH_REUSE_GRACE` window (lost-response retry).
 - Root secret leaves the server only boxed to a client-supplied ephemeral
   key, never logged.
 - `keyVault.unwrap` failure returns 500 and logs an alert. The server never
