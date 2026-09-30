@@ -8,7 +8,8 @@ export const IDP_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
 /**
  * Returns a check used on refresh: at most once per interval per account, refresh the
- * stored IdP token. invalid_grant → revoke all devices; IdP unreachable → allow.
+ * stored IdP token. invalid_grant or an unreadable stored token → revoke all devices;
+ * IdP unreachable → allow.
  */
 export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: () => Date }) {
     return async function checkIdp(accountId: string): Promise<boolean> {
@@ -38,9 +39,11 @@ export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: 
             openedToken = openIdpRefreshToken(account.idpRefreshToken);
         } catch (error) {
             if (error instanceof KeyVaultError) {
-                log({ module: 'auth', level: 'error' }, `Stored IdP refresh token for account ${accountId} could not be opened; clearing it`);
+                // Fail closed: without a usable IdP token the account cannot be re-validated.
+                log({ module: 'auth', level: 'error' }, `Stored IdP refresh token for account ${accountId} could not be opened; clearing it and revoking devices`);
                 await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: null } });
-                return true;
+                await revokeAccountDevices(accountId);
+                return false;
             }
             throw error;
         }

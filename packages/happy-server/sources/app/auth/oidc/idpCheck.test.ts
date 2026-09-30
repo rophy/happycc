@@ -78,14 +78,17 @@ describe('createIdpCheck', () => {
         expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
     });
 
-    it('fails open and clears the token when the stored IdP token cannot be opened', async () => {
+    it('fails closed when the stored IdP token cannot be opened', async () => {
         const accountId = await accountWithIdpToken('i-corrupt', stale);
+        const device = await devices.createDevice({ accountId, kind: 'cli', name: 'x' });
         await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: 'bm90LXZhbGlk' } });
-        const { calls, oidc } = fakeOidc({ status: 'rejected' });
-        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
+        const { calls, oidc } = fakeOidc({ status: 'ok', refreshToken: null });
+        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(false);
         expect(calls).toEqual([]);
         const account = await db.account.findUniqueOrThrow({ where: { id: accountId } });
         expect(account.idpRefreshToken).toBeNull();
+        const row = await db.device.findUniqueOrThrow({ where: { id: device.deviceId } });
+        expect(row.revokedAt).not.toBeNull();
     });
 
     it('lets only one concurrent caller contact the IdP', async () => {
