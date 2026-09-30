@@ -134,6 +134,9 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
             return reply.code(400).send({ error: 'invalid_grant' });
         }
         const account = await db.account.findUniqueOrThrow({ where: { id: redeemed.accountId } });
+        if (account.disabledAt) {
+            return reply.code(400).send({ error: 'invalid_grant' });
+        }
         let rootSecret: Uint8Array;
         try {
             rootSecret = keyVault.unwrap(account.wrappedRootSecret!);

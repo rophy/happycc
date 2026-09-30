@@ -75,6 +75,24 @@ describe('oidcRoutes', () => {
         expect(replay.json()).toEqual({ error: 'invalid_grant' });
     });
 
+    it('refuses to issue tokens for a disabled account at exchange time', async () => {
+        const { verifier, challenge } = pkce();
+        const callback = await login(`client=web&code_challenge=${challenge}`, 'r-exchange-disabled');
+        const code = new URLSearchParams((callback.headers.location as string).split('#')[1]).get('code')!;
+        await db.account.updateMany({ where: { oidcSubject: 'r-exchange-disabled' }, data: { disabledAt: new Date() } });
+
+        const ephemeral = tweetnacl.box.keyPair();
+        const exchange = await app.inject({
+            method: 'POST',
+            url: '/v1/auth/oidc/exchange',
+            payload: { code, codeVerifier: verifier, ephemeralPublicKey: privacyKit.encodeBase64(new Uint8Array(ephemeral.publicKey)) },
+        });
+        expect(exchange.statusCode).toBe(400);
+        expect(exchange.json()).toEqual({ error: 'invalid_grant' });
+        const account = await db.account.findFirstOrThrow({ where: { oidcSubject: 'r-exchange-disabled' } });
+        expect(await db.device.count({ where: { accountId: account.id } })).toBe(0);
+    });
+
     it('rejects an exchange with the wrong PKCE verifier', async () => {
         const { challenge } = pkce();
         const callback = await login(`client=web&code_challenge=${challenge}`, 'r-wrong-verifier');
