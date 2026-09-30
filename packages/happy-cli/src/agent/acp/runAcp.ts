@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { ApiClient } from '@/api/api';
+import { registerLoggedOutShutdown } from '@/utils/registerLoggedOutShutdown';
 import type { ApiSessionClient } from '@/api/apiSession';
 import type { AgentMessage } from '@/agent/core';
 import { AcpBackend, type AcpPermissionHandler } from './AcpBackend';
@@ -459,6 +460,9 @@ export async function runAcp(opts: {
   connectionState.setBackend(opts.agentName);
 
   const api = await ApiClient.create(opts.credentials);
+  // Logged out from another terminal, or the device was revoked: nothing
+  // will refresh the token. Tell the user what to do instead of crashing.
+  registerLoggedOutShutdown(() => process.exit(0));
   const settings = await readSettings();
   if (!settings?.machineId) {
     throw new Error('No machine ID found in settings');

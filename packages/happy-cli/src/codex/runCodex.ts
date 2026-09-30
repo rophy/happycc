@@ -1,6 +1,7 @@
 import { render } from "ink";
 import React from "react";
 import { ApiClient } from '@/api/api';
+import { registerLoggedOutShutdown } from '@/utils/registerLoggedOutShutdown';
 import { CodexAppServerClient } from './codexAppServerClient';
 import type { ReasoningEffort } from './codexAppServerTypes';
 import { CodexPermissionHandler } from './utils/permissionHandler';
@@ -130,6 +131,9 @@ export async function runCodex(opts: {
     connectionState.setBackend('Codex');
 
     const api = await ApiClient.create(opts.credentials);
+    // Logged out from another terminal, or the device was revoked: nothing
+    // will refresh the token. Tell the user what to do instead of crashing.
+    registerLoggedOutShutdown(() => process.exit(0));
 
     // Log startup options
     logger.debug(`[codex] Starting with options: startedBy=${opts.startedBy || 'terminal'}`);

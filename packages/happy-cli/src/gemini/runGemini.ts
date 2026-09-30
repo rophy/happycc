@@ -13,6 +13,7 @@ import os from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { ApiClient } from '@/api/api';
+import { registerLoggedOutShutdown } from '@/utils/registerLoggedOutShutdown';
 import { logger } from '@/ui/logger';
 import { Credentials, readSettings } from '@/persistence';
 import { createSessionMetadata } from '@/utils/createSessionMetadata';
@@ -71,7 +72,9 @@ export async function runGemini(opts: {
   connectionState.setBackend('Gemini');
 
   const api = await ApiClient.create(opts.credentials);
-
+  // Logged out from another terminal, or the device was revoked: nothing
+  // will refresh the token. Tell the user what to do instead of crashing.
+  registerLoggedOutShutdown(() => process.exit(0));
 
   //
   // Machine

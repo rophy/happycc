@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import React from 'react';
 import { render, type Instance as InkInstance } from 'ink';
 import { ApiClient } from '@/api/api';
+import { registerLoggedOutShutdown } from '@/utils/registerLoggedOutShutdown';
 import type { ApiSessionClient } from '@/api/apiSession';
 import { AcpSessionManager } from '@/agent/acp/AcpSessionManager';
 import type { SessionEnvelope } from '@slopus/happy-wire';
@@ -58,6 +59,9 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
   };
 
   const api = await ApiClient.create(opts.credentials);
+  // Logged out from another terminal, or the device was revoked: nothing
+  // will refresh the token. Tell the user what to do instead of crashing.
+  registerLoggedOutShutdown(() => process.exit(0));
   const settings = await readSettings();
   if (!settings?.machineId) {
     throw new Error('No machine ID found in settings');

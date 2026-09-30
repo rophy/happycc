@@ -19,6 +19,7 @@ import { startHappyServer } from '@/claude/utils/startHappyServer';
 import { startHookServer } from '@/claude/utils/startHookServer';
 import { generateHookSettingsFile, cleanupHookSettingsFile } from '@/claude/utils/generateHookSettings';
 import { registerKillSessionHandler } from './registerKillSessionHandler';
+import { registerLoggedOutShutdown } from '@/utils/registerLoggedOutShutdown';
 import { projectPath } from '../projectPath';
 import { resolve } from 'node:path';
 import { startOfflineReconnection, connectionState } from '@/utils/serverConnectionErrors';
@@ -911,6 +912,12 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             process.exit(1);
         }
     };
+
+    // Logged out from another terminal, or the device was revoked: nothing
+    // will refresh the token, and the server will keep refusing every
+    // reconnect. Tell the user what to do instead of archiving the session
+    // as if it had crashed.
+    registerLoggedOutShutdown(() => cleanup({ archive: false }));
 
     // Handle termination signals — Ctrl-C / SIGTERM are user-initiated
     // exits, treat as "I'll come back to this session later" rather than
