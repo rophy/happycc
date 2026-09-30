@@ -78,6 +78,16 @@ describe('createIdpCheck', () => {
         expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
     });
 
+    it('fails open and clears the token when the stored IdP token cannot be opened', async () => {
+        const accountId = await accountWithIdpToken('i-corrupt', stale);
+        await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: 'bm90LXZhbGlk' } });
+        const { calls, oidc } = fakeOidc({ status: 'rejected' });
+        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
+        expect(calls).toEqual([]);
+        const account = await db.account.findUniqueOrThrow({ where: { id: accountId } });
+        expect(account.idpRefreshToken).toBeNull();
+    });
+
     it('lets only one concurrent caller contact the IdP', async () => {
         const accountId = await accountWithIdpToken('i-race', stale);
         const { calls, oidc } = fakeOidc({ status: 'ok', refreshToken: null });

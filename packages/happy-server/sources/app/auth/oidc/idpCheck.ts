@@ -1,7 +1,7 @@
 import { db } from '@/storage/db';
 import { log } from '@/utils/log';
 import { revokeAccountDevices } from './devices';
-import { openIdpRefreshToken, sealIdpRefreshToken } from './keyVault';
+import { KeyVaultError, openIdpRefreshToken, sealIdpRefreshToken } from './keyVault';
 import type { OidcClient } from './oidcClient';
 
 export const IDP_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -33,7 +33,19 @@ export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: 
             return true;
         }
 
-        const result = await deps.oidc.refresh(openIdpRefreshToken(account.idpRefreshToken));
+        let openedToken: string;
+        try {
+            openedToken = openIdpRefreshToken(account.idpRefreshToken);
+        } catch (error) {
+            if (error instanceof KeyVaultError) {
+                log({ module: 'auth', level: 'error' }, `Stored IdP refresh token for account ${accountId} could not be opened; clearing it`);
+                await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: null } });
+                return true;
+            }
+            throw error;
+        }
+
+        const result = await deps.oidc.refresh(openedToken);
         if (result.status === 'rejected') {
             log({ module: 'auth', level: 'warn' }, `IdP rejected account ${accountId}; revoking devices`);
             await db.account.update({ where: { id: accountId }, data: { idpRefreshToken: null } });
