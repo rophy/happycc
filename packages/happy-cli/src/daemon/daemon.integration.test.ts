@@ -152,9 +152,9 @@ describe('Daemon Integration Tests', { timeout: 180_000 }, () => {
     const stopResults = await Promise.all(sessionIds.map(sessionId => stopDaemonSession(sessionId)));
     expect(stopResults.every(r => r), 'Not all sessions reported stopped').toBe(true);
 
-    // Verify all sessions are stopped
-    const emptySessions = await listDaemonSessions();
-    expect(emptySessions).toHaveLength(0);
+    // Verify all sessions are stopped. The daemon keeps a session tracked until
+    // its process actually exits, so give the SIGTERMs time to land.
+    await waitFor(async () => (await listDaemonSessions()).length === 0, 15_000);
   });
 
   it('should handle daemon stop request gracefully', async () => {    
