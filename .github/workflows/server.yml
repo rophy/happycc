@@ -135,10 +135,17 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+    # The server needs an IdP at startup. oidc-mock publishes 8180 (and 3005 for
+    # the compose server), so the server runs on the host network on 3006 and
+    # sees the issuer at the same http://localhost:8180 URL.
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/handy
       HANDY_MASTER_SECRET: ci-master-secret-not-used-in-production
-      PORT: "3005"
+      PORT: "3006"
+      OIDC_ISSUER: http://localhost:8180
+      OIDC_CLIENT_ID: happy-server
+      OIDC_CLIENT_SECRET: happy-dev-secret
+      OIDC_ALLOW_INSECURE_ISSUER: "true"
 
     steps:
     - name: Checkout
@@ -146,6 +153,16 @@ jobs:
 
     - name: Build production image
       run: docker build -t happy-server:ci -f Dockerfile.server .
+
+    - name: Start oidc-mock
+      run: |
+        docker compose up -d oidc-mock
+        for i in $(seq 1 30); do
+          curl -sf http://localhost:8180/.well-known/openid-configuration >/dev/null && exit 0
+          sleep 1
+        done
+        docker compose logs oidc-mock
+        exit 1
 
     - name: Apply migrations
       run: |
@@ -162,6 +179,12 @@ jobs:
           -e HANDY_MASTER_SECRET="$HANDY_MASTER_SECRET" \
           -e PORT="$PORT" \
           -e METRICS_ENABLED=false \
+          -e OIDC_ISSUER="$OIDC_ISSUER" \
+          -e OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
+          -e OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
+          -e OIDC_ALLOW_INSECURE_ISSUER="$OIDC_ALLOW_INSECURE_ISSUER" \
+          -e PUBLIC_URL="http://localhost:${PORT}" \
+          -e WEBAPP_URL="http://localhost:${PORT}" \
           happy-server:ci
 
     - name: Wait for health
@@ -193,11 +216,15 @@ jobs:
         curl -sf -m 5 "http://127.0.0.1:${PORT}/health"; echo
         # Hits the database through Prisma, so this fails if the query engine
         # or the schema is not actually usable in the image.
-        echo "--- /v1/auth/request/status"
-        PK=$(node -e "console.log(Buffer.alloc(32).toString('base64'))")
-        BODY=$(curl -sf -m 5 -G "http://127.0.0.1:${PORT}/v1/auth/request/status" --data-urlencode "publicKey=$PK")
-        echo "$BODY"
-        echo "$BODY" | grep -q '"status"' || { echo "Error: Prisma-backed endpoint did not respond"; exit 1; }
+        echo "--- /v1/auth/device/start"
+        PK=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
+        CODE=$(curl -s -m 5 -o /tmp/device-start.json -w '%{http_code}' \
+          -H 'content-type: application/json' \
+          -d "{\"ephemeralPublicKey\":\"$PK\",\"clientInfo\":{\"host\":\"ci\",\"os\":\"linux\",\"cliVersion\":\"0.0.0\"}}" \
+          "http://127.0.0.1:${PORT}/v1/auth/device/start")
+        cat /tmp/device-start.json; echo
+        [ "$CODE" = "200" ] || { echo "Error: device/start returned HTTP $CODE"; exit 1; }
+        grep -q '"userCode"' /tmp/device-start.json || { echo "Error: device/start returned no userCode"; exit 1; }
 
     - name: Container logs
       if: always()
@@ -205,13 +232,18 @@ jobs:
 
     - name: Stop container
       if: always()
-      run: docker rm -f happy-server-ci || true
+      run: |
+        docker rm -f happy-server-ci || true
+        docker compose down -v || true
 
   # The standalone image is the self-host path: embedded PGlite, local files,
-  # no external services.
+  # no external services other than the IdP.
   docker-standalone:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+
+    env:
+      PORT: "3006"
 
     steps:
     - name: Checkout
@@ -220,17 +252,35 @@ jobs:
     - name: Build standalone image
       run: docker build -t happy-server-standalone:ci -f Dockerfile .
 
+    - name: Start oidc-mock
+      run: |
+        docker compose up -d oidc-mock
+        for i in $(seq 1 30); do
+          curl -sf http://localhost:8180/.well-known/openid-configuration >/dev/null && exit 0
+          sleep 1
+        done
+        docker compose logs oidc-mock
+        exit 1
+
+    # Host network so the issuer is http://localhost:8180 for the server too.
     - name: Start container
       run: |
-        docker run -d --name happy-standalone-ci -p 3005:3005 \
+        docker run -d --name happy-standalone-ci --network host \
+          -e PORT="$PORT" \
           -e HANDY_MASTER_SECRET=ci-master-secret-not-used-in-production \
+          -e OIDC_ISSUER=http://localhost:8180 \
+          -e OIDC_CLIENT_ID=happy-server \
+          -e OIDC_CLIENT_SECRET=happy-dev-secret \
+          -e OIDC_ALLOW_INSECURE_ISSUER=true \
+          -e PUBLIC_URL="http://localhost:${PORT}" \
+          -e WEBAPP_URL="http://localhost:${PORT}" \
           happy-server-standalone:ci
 
     - name: Wait for health
       run: |
         UP=0
         for i in $(seq 1 90); do
-          if curl -sf -m 2 http://127.0.0.1:3005/health -o /dev/null; then
+          if curl -sf -m 2 "http://127.0.0.1:${PORT}/health" -o /dev/null; then
             UP=1; echo "standalone healthy after ${i}s"; break
           fi
           if [ "$(docker inspect -f '{{.State.Running}}' happy-standalone-ci)" != "true" ]; then
@@ -253,4 +303,6 @@ jobs:
 
     - name: Stop container
       if: always()
-      run: docker rm -f happy-standalone-ci || true
+      run: |
+        docker rm -f happy-standalone-ci || true
+        docker compose down -v || true

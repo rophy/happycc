@@ -241,6 +241,9 @@ Root `docker-compose.yaml`: server, web app, Postgres, and
 pinned by date tag, test users in `deploy/oidc-mock/config.yaml`) for local
 development and integration tests.
 
+The standalone image (`Dockerfile`, embedded PGlite) still needs an external
+IdP: it refuses to start without the `OIDC_*` settings.
+
 ## 4. Testing
 
 | Level | What |
