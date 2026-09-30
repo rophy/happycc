@@ -36,6 +36,25 @@ export async function handleAuthCommand(args: string[]): Promise<void> {
   }
 }
 
+/**
+ * Best-effort server-side logout (revokes the device), then clears the local
+ * credentials under the credentials lock. Never throws: a failed server call
+ * is logged at debug and local logout proceeds regardless.
+ */
+async function performLogout(): Promise<void> {
+  try {
+    const accessToken = await tokenStore.getAccessToken();
+    await axios.post(`${configuration.serverUrl}/v1/auth/logout`, {}, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 5000,
+    });
+  } catch (error) {
+    logger.debug('Server-side logout failed (continuing with local logout):', error instanceof Error ? error.message : String(error));
+  }
+
+  await withFileLock(credentialsLockFile(), () => clearCredentials(), CREDENTIALS_LOCK_OPTIONS);
+}
+
 function showAuthHelp(): void {
   console.log(`
 ${chalk.bold('happy auth')} - Authentication management
@@ -74,8 +93,8 @@ async function handleAuthLogin(args: string[]): Promise<void> {
       logger.debug('Daemon was not running or failed to stop:', error);
     }
 
-    // Clear credentials
-    await clearCredentials();
+    // Clear credentials (best-effort server-side logout first)
+    await performLogout();
     console.log(chalk.gray('✓ Cleared credentials'));
 
     // Clear machine ID
@@ -147,19 +166,9 @@ async function handleAuthLogout(): Promise<void> {
         console.log(chalk.gray('Stopped daemon'));
       } catch { }
 
-      try {
-        const accessToken = await tokenStore.getAccessToken();
-        await axios.post(`${configuration.serverUrl}/v1/auth/logout`, {}, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          timeout: 5000,
-        });
-      } catch (error) {
-        logger.debug('Server-side logout failed (continuing with local logout):', error);
-      }
-
       // The home is shared with Happy Agent. Logout owns only CLI authentication,
       // never the Agent runtime/database or the local history used for resume.
-      await withFileLock(credentialsLockFile(), () => clearCredentials(), CREDENTIALS_LOCK_OPTIONS);
+      await performLogout();
       await clearMachineId();
 
       console.log(chalk.green('✓ Successfully logged out'));

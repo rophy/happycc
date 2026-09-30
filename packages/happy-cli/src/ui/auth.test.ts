@@ -130,6 +130,34 @@ describe('deviceLogin', () => {
         expect(await readCredentials()).toBeNull();
     });
 
+    it('rejects a properly boxed bundle with the wrong leading byte', async () => {
+        server = await fakeDeviceServer([(ephemeralPublicKey) => {
+            const plain = new Uint8Array(33);
+            plain[0] = 1; // must be 0
+            plain.set(new Uint8Array(32).fill(9), 1);
+            const sender = tweetnacl.box.keyPair();
+            const nonce = tweetnacl.randomBytes(24);
+            const boxed = tweetnacl.box(plain, nonce, ephemeralPublicKey, sender.secretKey);
+            const bundle = Buffer.concat([sender.publicKey, nonce, boxed]).toString('base64');
+            return { status: 200, body: { accountId: 'acc_1', accessToken: makeJwt(900), refreshToken: 'rt-1', keyBundle: bundle } };
+        }]);
+        await expect(deviceLogin({ serverUrl: server.url, clientInfo, io: io().io })).rejects.toThrow(DeviceLoginError);
+        expect(await readCredentials()).toBeNull();
+    });
+
+    it('rejects a properly boxed bundle with the wrong length', async () => {
+        server = await fakeDeviceServer([(ephemeralPublicKey) => {
+            const plain = new Uint8Array(32).fill(9); // missing the leading type byte
+            const sender = tweetnacl.box.keyPair();
+            const nonce = tweetnacl.randomBytes(24);
+            const boxed = tweetnacl.box(plain, nonce, ephemeralPublicKey, sender.secretKey);
+            const bundle = Buffer.concat([sender.publicKey, nonce, boxed]).toString('base64');
+            return { status: 200, body: { accountId: 'acc_1', accessToken: makeJwt(900), refreshToken: 'rt-1', keyBundle: bundle } };
+        }]);
+        await expect(deviceLogin({ serverUrl: server.url, clientInfo, io: io().io })).rejects.toThrow(DeviceLoginError);
+        expect(await readCredentials()).toBeNull();
+    });
+
     it('never prints tokens', async () => {
         const token = makeJwt(900);
         server = await fakeDeviceServer([approved(new Uint8Array(32), token)]);

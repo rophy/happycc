@@ -69,7 +69,7 @@ export async function deviceLogin(opts: {
     io.showQr(start.verifyUrlComplete);
     io.print('Waiting for approval...');
 
-    let intervalMs = start.interval * 1000;
+    let intervalMs = Math.max(1, start.interval) * 1000;
     const deadline = Date.now() + start.expiresIn * 1000;
     let tokens: DeviceTokens | null = null;
     while (!tokens) {
