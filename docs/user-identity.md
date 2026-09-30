@@ -51,6 +51,8 @@ All:  POST /v1/auth/refresh (rotating refresh tokens, reuse → device revoked)
 ```
 
 Access tokens are 15-minute JWTs `{ sub: accountId, did: deviceId }`.
+Sockets check the device (revoked, disabled, max session age) at connect and are
+closed 60 s after their access token expires.
 Local IdP for development and tests: `docker compose up -d oidc-mock` (users alice, bob).
 See `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 

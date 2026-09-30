@@ -60,8 +60,9 @@ replaces only *who generates the root secret* (server instead of app) and
   refresh token, encrypted with KeyTree), `idpCheckedAt`. `publicKey` stays and is
   populated from the generated root secret.
 - New `Device`: `id`, `accountId`, `kind` (`cli` | `web` | `mobile`), `name`,
-  `host`, `lastSeenAt`, `refreshTokenHash`, `previousRefreshTokenHash`,
-  `sessionStartedAt`, `revokedAt`.
+  `host`, `lastSeenAt`, `refreshTokenHash`, `sessionStartedAt`, `revokedAt`.
+- New `RetiredRefreshToken`: `tokenHash` (unique), `deviceId`. Every rotated-out
+  refresh token hash is kept here; presenting any retired token revokes its device.
 - New `DeviceAuthRequest`: `deviceCodeHash`, `userCode`, `status`
   (`pending` | `approved` | `denied` | `consumed`), `approvedAccountId`,
   `ephemeralPublicKey`, `clientInfo` (json), `lastPolledAt`, `expiresAt`.
@@ -91,6 +92,13 @@ replaces only *who generates the root secret* (server instead of app) and
 
 The server refuses to start if any required OIDC setting is missing. There
 is no fallback authentication.
+
+IdP discovery does not block startup: if it fails at boot the server starts
+anyway and retries discovery in the background (backoff 1 s doubling to 60 s,
+each failure logged at error level). Until it succeeds, `GET /v1/auth/oidc/login`
+answers 503 `{ error: 'idp_unavailable' }`, and `/v1/auth/oidc/callback` and
+`/activate` (when it would redirect to login) answer a 503 HTML page. Refresh
+keeps working; the IdP check treats the IdP as unavailable (allow).
 
 The existing 24h token verify cache is not used for OIDC access tokens;
 their short TTL bounds revocation latency.
@@ -151,10 +159,29 @@ refresh token. Server rejects when:
 - the account-level IdP check fails: at most every 15 min per account, when
   an IdP refresh token is held, the server refreshes it with the IdP.
   `invalid_grant` revokes all of the account's devices; IdP unreachable
-  is logged and allowed (fail open) until the next check.
+  is logged and allowed (fail open) until the next check. A stored IdP token
+  that cannot be decrypted fails closed: it is cleared and all of the
+  account's devices are revoked.
+
+The IdP check only works when the IdP issues refresh tokens (the
+`offline_access` scope). Without one (logged at warn on login), IdP
+deprovisioning takes effect only at `AUTH_MAX_SESSION_AGE`.
+
+Clients must serialize refresh per credentials file: one refresher at a time
+(the daemon and the foreground CLI share `~/.happy`), because replaying a
+rotated refresh token revokes the device.
 
 The daemon refreshes in the background. On refresh failure it stops
 syncing, logs out, and reports that `happy auth login` is required.
+
+### Sockets
+
+The access token is verified at the socket handshake, and the device is
+checked too: the socket is refused if the device is missing, revoked, not the
+token's account, the account is disabled, or the session is older than
+`AUTH_MAX_SESSION_AGE`. An accepted socket is disconnected 60 s after its
+access token expires; clients reconnect with a fresh token. Revoking a device
+disconnects its sockets immediately.
 
 ### Logout
 
@@ -236,10 +263,11 @@ Rules:
 
 ### Local deployment
 
-Root `docker-compose.yaml`: server, web app, Postgres, and
+Root `docker-compose.yaml`: server, Postgres, and
 [oidc-mock](https://github.com/rophy/oidc-mock) (`ghcr.io/rophy/oidc-mock`,
 pinned by date tag, test users in `deploy/oidc-mock/config.yaml`) for local
-development and integration tests.
+development and integration tests. The web app is added to the compose file
+in a later plan.
 
 The standalone image (`Dockerfile`, embedded PGlite) still needs an external
 IdP: it refuses to start without the `OIDC_*` settings.
