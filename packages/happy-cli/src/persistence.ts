@@ -164,6 +164,7 @@ export async function updateSettings(
 
 const credentialsSchema = z.object({
   token: z.string(),
+  refreshToken: z.string().nullish(),
   secret: z.string().base64().nullish(), // Legacy
   encryption: z.object({
     publicKey: z.string().base64(),
@@ -173,6 +174,7 @@ const credentialsSchema = z.object({
 
 export type Credentials = {
   token: string,
+  refreshToken: string,
   encryption: {
     type: 'legacy', secret: Uint8Array
   } | {
@@ -187,9 +189,13 @@ export async function readCredentials(): Promise<Credentials | null> {
   try {
     const keyBase64 = (await readFile(configuration.privateKeyFile, 'utf8'));
     const credentials = credentialsSchema.parse(JSON.parse(keyBase64));
+    if (!credentials.refreshToken) {
+      return null;
+    }
     if (credentials.secret) {
       return {
         token: credentials.token,
+        refreshToken: credentials.refreshToken,
         encryption: {
           type: 'legacy',
           secret: new Uint8Array(Buffer.from(credentials.secret, 'base64'))
@@ -198,6 +204,7 @@ export async function readCredentials(): Promise<Credentials | null> {
     } else if (credentials.encryption) {
       return {
         token: credentials.token,
+        refreshToken: credentials.refreshToken,
         encryption: {
           type: 'dataKey',
           publicKey: new Uint8Array(Buffer.from(credentials.encryption.publicKey, 'base64')),
@@ -229,6 +236,36 @@ export async function writeCredentialsDataKey(credentials: { publicKey: Uint8Arr
     encryption: { publicKey: encodeBase64(credentials.publicKey), machineKey: encodeBase64(credentials.machineKey) },
     token: credentials.token
   }, null, 2));
+}
+
+/** Atomic write (temp + rename, 0600). Callers hold the credentials lock (see tokenStore). */
+export async function writeCredentials(credentials: Credentials): Promise<void> {
+  if (credentials.encryption.type !== 'dataKey') {
+    throw new Error('Only dataKey credentials can be written');
+  }
+  if (!existsSync(configuration.happyHomeDir)) {
+    await mkdir(configuration.happyHomeDir, { recursive: true, mode: 0o700 })
+  }
+  const tmpFile = configuration.privateKeyFile + '.tmp';
+  await writeFile(tmpFile, JSON.stringify({
+    token: credentials.token,
+    refreshToken: credentials.refreshToken,
+    encryption: {
+      publicKey: encodeBase64(credentials.encryption.publicKey),
+      machineKey: encodeBase64(credentials.encryption.machineKey),
+    },
+  }, null, 2), { mode: 0o600 });
+  await rename(tmpFile, configuration.privateKeyFile);
+}
+
+/** Clears the credentials only if they still carry `refreshToken` (a newer login is kept). */
+export async function clearCredentialsIfRefreshToken(refreshToken: string): Promise<boolean> {
+  const current = await readCredentials();
+  if (!current || current.refreshToken !== refreshToken) {
+    return false;
+  }
+  await clearCredentials();
+  return true;
 }
 
 export async function clearCredentials(): Promise<void> {

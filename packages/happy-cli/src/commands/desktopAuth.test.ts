@@ -34,6 +34,11 @@ const source = {
   token: 'synthetic-desktop-token',
   encryption: { publicKey: Buffer.alloc(32, 1).toString('base64'), machineKey: Buffer.alloc(32, 2).toString('base64') },
 };
+const cliSource = {
+  token: 'synthetic-desktop-token',
+  refreshToken: 'test-refresh',
+  encryption: { publicKey: Buffer.alloc(32, 1).toString('base64'), machineKey: Buffer.alloc(32, 2).toString('base64') },
+};
 let directory: string;
 let agentHome: string;
 const writeJson = (path: string, value: unknown) => writeFile(path, JSON.stringify(value));
@@ -210,7 +215,7 @@ describe('desktop daemon readiness', () => {
 
 it('CLI logout removes only CLI authentication and machine ID, preserving Agent and history', async () => {
   const { handleAuthCommand } = await import('./auth');
-  await writeJson(mocks.configuration.privateKeyFile, source);
+  await writeJson(mocks.configuration.privateKeyFile, cliSource);
   await writeJson(mocks.configuration.settingsFile, { machineId: 'cli-machine', chromeMode: true });
   await writeFile(join(directory, 'sessions.json'), 'synthetic-session-history');
   await writeFile(join(directory, 'agent.key'), 'synthetic-remote-controller-key');

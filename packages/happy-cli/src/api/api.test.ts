@@ -72,6 +72,7 @@ describe('Api server error handling', () => {
         // Create a mock credential
         const mockCredential = {
             token: 'fake-token',
+            refreshToken: 'test-refresh',
             encryption: {
                 type: 'legacy' as const,
                 secret: new Uint8Array(32)

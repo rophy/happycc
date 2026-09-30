@@ -184,7 +184,8 @@ async function waitForAuthentication(keypair: tweetnacl.BoxKeyPair): Promise<Cre
                                     type: 'legacy',
                                     secret: decrypted
                                 },
-                                token: token
+                                token: token,
+                                refreshToken: ''
                             };
                         } else {
                             if (decrypted[0] === 0) {
@@ -201,7 +202,8 @@ async function waitForAuthentication(keypair: tweetnacl.BoxKeyPair): Promise<Cre
                                         publicKey: credentials.publicKey,
                                         machineKey: credentials.machineKey
                                     },
-                                    token: token
+                                    token: token,
+                                    refreshToken: ''
                                 };
                             } else {
                                 console.log('\n\nFailed to decrypt response. Please try again.');

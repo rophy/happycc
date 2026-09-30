@@ -228,7 +228,7 @@ describe('runAcp', () => {
 
   it('wires backend messages through mapper into session envelopes', async () => {
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['--acp'],
@@ -274,7 +274,7 @@ describe('runAcp', () => {
 
   it('registers abort handler that cancels the ACP backend session', async () => {
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'gemini',
       command: 'gemini',
       args: ['--experimental-acp'],
@@ -298,7 +298,7 @@ describe('runAcp', () => {
 
   it('emits thinking messages in default mode', async () => {
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['--acp'],
@@ -336,7 +336,7 @@ describe('runAcp', () => {
 
   it('emits raw backend and envelope logs when verbose is enabled', async () => {
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
@@ -403,7 +403,7 @@ describe('runAcp', () => {
     ];
 
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'gemini',
       command: 'gemini',
       args: ['--experimental-acp'],
@@ -437,7 +437,7 @@ describe('runAcp', () => {
     ];
 
     await runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
@@ -455,7 +455,7 @@ describe('runAcp', () => {
   it('surfaces a prompt exception when no backend error status was emitted', async () => {
     mocks.backendState.sendPromptError = new Error('model switch failed');
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
@@ -515,7 +515,7 @@ describe('runAcp', () => {
     ];
 
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
@@ -592,7 +592,7 @@ describe('runAcp', () => {
     ];
 
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
@@ -661,7 +661,7 @@ describe('runAcp', () => {
     ];
 
     const runPromise = runAcp({
-      credentials: { token: 'token', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
       agentName: 'opencode',
       command: 'opencode',
       args: ['acp'],
