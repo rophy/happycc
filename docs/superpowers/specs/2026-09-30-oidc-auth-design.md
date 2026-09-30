@@ -56,11 +56,12 @@ replaces only *who generates the root secret* (server instead of app) and
 ### Schema (Prisma)
 
 - `Account`: add `oidcIssuer`, `oidcSubject` (`@@unique([oidcIssuer, oidcSubject])`),
-  `email`, `wrappedRootSecret`, `disabledAt`. `publicKey` stays and is
+  `email`, `wrappedRootSecret`, `disabledAt`, `idpRefreshToken` (latest IdP
+  refresh token, encrypted with KeyTree), `idpCheckedAt`. `publicKey` stays and is
   populated from the generated root secret.
 - New `Device`: `id`, `accountId`, `kind` (`cli` | `web` | `mobile`), `name`,
   `host`, `lastSeenAt`, `refreshTokenHash`, `previousRefreshTokenHash`,
-  `sessionStartedAt`, `revokedAt`, optional `idpRefreshToken` (encrypted with KeyTree).
+  `sessionStartedAt`, `revokedAt`.
 - New `DeviceAuthRequest`: `deviceCodeHash`, `userCode`, `status`
   (`pending` | `approved` | `denied` | `consumed`), `approvedAccountId`,
   `ephemeralPublicKey`, `clientInfo` (json), `lastPolledAt`, `expiresAt`.
@@ -85,7 +86,8 @@ replaces only *who generates the root secret* (server instead of app) and
 | `MOBILE_REDIRECT_URIS` | no | Allowed custom-scheme callbacks, e.g. `corpapp://auth/callback` |
 | `AUTH_ACCESS_TOKEN_TTL` | no | Default 15m |
 | `AUTH_MAX_SESSION_AGE` | no | Default 30d; forces re-login |
-| `HANDY_MASTER_SECRET` | yes | Must meet minimum length; startup fails otherwise |
+| `HANDY_MASTER_SECRET` | yes | At least 32 characters; startup fails otherwise |
+| `OIDC_ALLOW_INSECURE_ISSUER` | no | `true` allows an `http://` issuer (local dev only) |
 
 The server refuses to start if any required OIDC setting is missing. There
 is no fallback authentication.
@@ -146,7 +148,10 @@ refresh token. Server rejects when:
 - `Device.revokedAt` is set,
 - `Account.disabledAt` is set,
 - `now - Device.sessionStartedAt > AUTH_MAX_SESSION_AGE`,
-- an IdP refresh (when an IdP refresh token is held) fails.
+- the account-level IdP check fails: at most every 15 min per account, when
+  an IdP refresh token is held, the server refreshes it with the IdP.
+  `invalid_grant` revokes all of the account's devices; IdP unreachable
+  is logged and allowed (fail open) until the next check.
 
 The daemon refreshes in the background. On refresh failure it stops
 syncing, logs out, and reports that `happy auth login` is required.
