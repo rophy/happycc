@@ -51,6 +51,8 @@ type RefreshOptions = {
     checkIdp?: (accountId: string) => Promise<boolean>;
 };
 
+const LOST_RACE = Symbol('lost-race');
+
 type DeviceWithAccount = NonNullable<Awaited<ReturnType<typeof findDeviceWithAccount>>>;
 
 function findDeviceWithAccount(where: { id: string } | { refreshTokenHash: string }) {
@@ -62,9 +64,18 @@ export async function refreshDevice(refreshToken: string, opts: RefreshOptions):
     const hash = hashToken(refreshToken);
     const device = await findDeviceWithAccount({ refreshTokenHash: hash });
     if (device) {
-        return rotate(device, opts, now, null);
+        const result = await rotate(device, opts, now, null);
+        if (result !== LOST_RACE) {
+            return result;
+        }
+        // A concurrent rotation of this same token won (typically a timed-out
+        // request the client is retrying while the original still runs). The
+        // token is now retired, so handle it like a lost-response retry.
     }
+    return redeemRetired(hash, opts, now);
+}
 
+async function redeemRetired(hash: string, opts: RefreshOptions, now: Date): Promise<RefreshResult> {
     const retired = await db.retiredRefreshToken.findUnique({ where: { tokenHash: hash } });
     if (!retired) {
         return { ok: false, reason: 'invalid' };
@@ -73,7 +84,10 @@ export async function refreshDevice(refreshToken: string, opts: RefreshOptions):
     if (retired.graceEligible && graceMs > 0 && now.getTime() - retired.retiredAt.getTime() <= graceMs) {
         const current = await findDeviceWithAccount({ id: retired.deviceId });
         if (current) {
-            return rotate(current, opts, now, retired.tokenHash);
+            const result = await rotate(current, opts, now, retired.tokenHash);
+            if (result !== LOST_RACE) {
+                return result;
+            }
         }
     }
     await revokeDevice(retired.deviceId);
@@ -86,15 +100,15 @@ export async function refreshDevice(refreshToken: string, opts: RefreshOptions):
  * `graceFrom` is the retired token hash a lost-response retry presented. The
  * rotation then only proceeds if that token is still the device's most
  * recently retired one (checked inside the transaction), and the token it
- * retires is not itself eligible for another grace retry. A rotation that
- * loses a race means two holders used the same chain: the device is revoked.
+ * retires is not itself eligible for another grace retry. Returns LOST_RACE
+ * when another rotation of the device won; the caller decides what that means.
  */
 async function rotate(
     device: DeviceWithAccount,
     opts: RefreshOptions,
     now: Date,
     graceFrom: string | null,
-): Promise<RefreshResult> {
+): Promise<RefreshResult | typeof LOST_RACE> {
     if (device.revokedAt) {
         return { ok: false, reason: 'revoked' };
     }
@@ -135,8 +149,7 @@ async function rotate(
         return true;
     });
     if (!rotated) {
-        await revokeDevice(device.id);
-        return { ok: false, reason: 'reused' };
+        return LOST_RACE;
     }
     return {
         ok: true,

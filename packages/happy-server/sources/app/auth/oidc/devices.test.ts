@@ -71,7 +71,7 @@ describe('devices', () => {
     });
 
     describe('reuse grace window', () => {
-        const GRACE = { maxSessionAgeSec: MAX_AGE, reuseGraceSec: 30 };
+        const GRACE = { maxSessionAgeSec: MAX_AGE, reuseGraceSec: 60 };
         const base = Date.now() + 60_000;
         const at = (ms: number) => new Date(base + ms);
 
@@ -83,13 +83,14 @@ describe('devices', () => {
             if (!first.ok) return;
 
             // The client never received `first` (lost response) and retries with the old token.
-            const retry = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(10_000) });
+            // CLI timings: 10 s request timeout, then a 30 s retry delay.
+            const retry = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(40_000) });
             expect(retry.ok).toBe(true);
             if (!retry.ok) return;
             expect(retry.tokens.refreshToken).not.toBe(first.tokens.refreshToken);
             expect(tokens.verifyAccessToken(retry.tokens.accessToken)?.deviceId).toBe(created.deviceId);
 
-            const next = await devices.refreshDevice(retry.tokens.refreshToken, { ...GRACE, now: at(20_000) });
+            const next = await devices.refreshDevice(retry.tokens.refreshToken, { ...GRACE, now: at(50_000) });
             expect(next.ok).toBe(true);
         });
 
@@ -100,9 +101,9 @@ describe('devices', () => {
             expect(first.ok).toBe(true);
             if (!first.ok) return;
 
-            const late = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(31_000) });
+            const late = await devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(61_000) });
             expect(late).toEqual({ ok: false, reason: 'reused' });
-            expect(await devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(32_000) }))
+            expect(await devices.refreshDevice(first.tokens.refreshToken, { ...GRACE, now: at(62_000) }))
                 .toEqual({ ok: false, reason: 'revoked' });
         });
 
@@ -181,6 +182,28 @@ describe('devices', () => {
             expect(results.filter((r) => r.ok).length).toBeLessThanOrEqual(1);
             const device = await db.device.findUniqueOrThrow({ where: { id: created.deviceId } });
             expect(device.revokedAt).not.toBeNull();
+        });
+
+        it('treats a retry racing the still-running original as a lost-response retry', async () => {
+            const account = await newAccount();
+            const created = await devices.createDevice({ accountId: account.id, kind: 'cli', name: 'cli' });
+
+            const [a, b] = await Promise.all([
+                devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) }),
+                devices.refreshDevice(created.refreshToken, { ...GRACE, now: at(0) }),
+            ]);
+            expect(a.ok && b.ok).toBe(true);
+            if (!a.ok || !b.ok) return;
+            const device = await db.device.findUniqueOrThrow({ where: { id: created.deviceId } });
+            expect(device.revokedAt).toBeNull();
+
+            // Exactly one of the two pairs survives; presenting the other one later is a fork.
+            const outcomes = await Promise.all([
+                devices.refreshDevice(a.tokens.refreshToken, { ...GRACE, now: at(1_000) }),
+            ]);
+            const aValid = outcomes[0].ok;
+            const other = await devices.refreshDevice(b.tokens.refreshToken, { ...GRACE, now: at(2_000) });
+            expect(aValid && other.ok).toBe(false);
         });
 
         it('keeps strict reuse detection when the window is 0', async () => {

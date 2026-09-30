@@ -87,7 +87,7 @@ replaces only *who generates the root secret* (server instead of app) and
 | `MOBILE_REDIRECT_URIS` | no | Allowed custom-scheme callbacks, e.g. `corpapp://auth/callback` |
 | `AUTH_ACCESS_TOKEN_TTL` | no | Default 15m |
 | `AUTH_MAX_SESSION_AGE` | no | Default 30d; forces re-login |
-| `AUTH_REFRESH_REUSE_GRACE` | no | Default 30s; how long the immediately previous refresh token stays redeemable after a rotation. `0s` disables it |
+| `AUTH_REFRESH_REUSE_GRACE` | no | Default 60s (covers the CLI's 10 s timeout + 30 s retry); how long the immediately previous refresh token stays redeemable after a rotation. `0s` disables it |
 | `HANDY_MASTER_SECRET` | yes | At least 32 characters; startup fails otherwise |
 | `OIDC_ALLOW_INSECURE_ISSUER` | no | `true` allows an `http://` issuer (local dev only) |
 

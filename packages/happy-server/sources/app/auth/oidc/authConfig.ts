@@ -59,7 +59,7 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig
             .filter((uri) => uri.length > 0),
         accessTokenTtlSec: parseDuration(env.AUTH_ACCESS_TOKEN_TTL ?? '15m'),
         maxSessionAgeSec: parseDuration(env.AUTH_MAX_SESSION_AGE ?? '30d'),
-        refreshReuseGraceSec: parseDuration(env.AUTH_REFRESH_REUSE_GRACE ?? '30s'),
+        refreshReuseGraceSec: parseDuration(env.AUTH_REFRESH_REUSE_GRACE ?? '60s'),
         allowInsecureIssuer,
         masterSecret,
     };

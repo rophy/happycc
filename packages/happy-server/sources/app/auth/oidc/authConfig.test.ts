@@ -36,7 +36,7 @@ describe('loadAuthConfig', () => {
             mobileRedirectUris: [],
             accessTokenTtlSec: 900,
             maxSessionAgeSec: 2_592_000,
-            refreshReuseGraceSec: 30,
+            refreshReuseGraceSec: 60,
             allowInsecureIssuer: false,
             masterSecret: 'x'.repeat(32),
         });
