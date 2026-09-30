@@ -163,7 +163,12 @@ export async function authAndSetupMachineIfNeeded(): Promise<{
     } else {
         logger.debug('[AUTH] Using existing credentials');
     }
-    tokenStore.init(credentials);
+    // replace(), not init(): init() is a no-op once a token is already held,
+    // which would silently keep serving a stale (possibly just-revoked) token
+    // from an earlier tokenStore.getAccessToken() call in this same process
+    // (e.g. `auth login --force`'s performLogout, before the device login
+    // above wrote fresh credentials).
+    tokenStore.replace(credentials);
 
     const settings = await updateSettings(async s => {
         if (newAuth || !s.machineId) {

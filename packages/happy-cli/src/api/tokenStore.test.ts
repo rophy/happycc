@@ -271,4 +271,82 @@ describe('tokenStore', () => {
         expect(other.calls).toHaveLength(1);
         await other.close();
     });
+
+    describe('replace()', () => {
+        it('adopts new credentials even when a token is already held, unlike init()', async () => {
+            const oldToken = makeJwt(900);
+            tokenStore.init(await seed(oldToken, 'rt-old'));
+            expect(tokenStore.current()).toBe(oldToken);
+
+            // init() is a no-op once a token is held — this is the bug: a
+            // fresh login after e.g. `auth login --force` loaded the old
+            // (about-to-be-revoked) token would otherwise keep serving it.
+            const freshToken = makeJwt(900);
+            tokenStore.init({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+            expect(tokenStore.current()).toBe(oldToken);
+
+            tokenStore.replace({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+            expect(tokenStore.current()).toBe(freshToken);
+        });
+
+        it('discards a pending rotation left over from the old credentials', async () => {
+            let refreshCalls = 0;
+            server = await startFakeAuthServer({
+                'POST /v1/auth/refresh': () => {
+                    refreshCalls++;
+                    return { status: 200, body: { accessToken: makeJwt(900), refreshToken: 'rt-rotated' } };
+                },
+            });
+            mockConfiguration.serverUrl = server.url;
+            const stale = makeJwt(30);
+            tokenStore.init(await seed(stale, 'rt-1'));
+
+            // Force a pending rotation: refresh succeeds against the server but
+            // the write to disk fails, so the rotated pair is held in memory only.
+            const writeSpy = vi.spyOn(persistence, 'writeCredentials').mockRejectedValueOnce(new Error('disk full'));
+            await tokenStore.refresh(stale);
+            writeSpy.mockRestore();
+
+            const freshToken = makeJwt(900);
+            tokenStore.replace({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+
+            // If the stale pending rotation survived, the next refresh would try
+            // to persist it (and return its token) instead of adopting/refreshing
+            // the credentials replace() just installed.
+            expect(tokenStore.current()).toBe(freshToken);
+            await writeCredentials({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+            const adopted = await tokenStore.refresh(makeJwt(30));
+            expect(adopted).toBe(freshToken);
+            expect(refreshCalls).toBe(1);
+        });
+
+        it('reschedules the proactive refresh against the new token instead of the old one', async () => {
+            vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+            try {
+                let refreshCalls = 0;
+                server = await startFakeAuthServer({
+                    'POST /v1/auth/refresh': () => {
+                        refreshCalls++;
+                        return { status: 200, body: { accessToken: makeJwt(900), refreshToken: `rt-${refreshCalls + 1}` } };
+                    },
+                });
+                mockConfiguration.serverUrl = server.url;
+                tokenStore.init(await seed(makeJwt(900), 'rt-old'));
+
+                const freshToken = makeJwt(30); // expires soon, triggering the proactive timer quickly
+                await writeCredentials({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+                tokenStore.replace({ token: freshToken, refreshToken: 'rt-new', encryption: keys });
+
+                await vi.advanceTimersByTimeAsync(10_000);
+                // The timer fires a fire-and-forget refresh(); its lock acquisition and
+                // network call are real async I/O that fake timers do not drive.
+                vi.useRealTimers();
+                await vi.waitFor(() => {
+                    expect(refreshCalls).toBeGreaterThan(0);
+                }, { timeout: 2000, interval: 20 });
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+    });
 });

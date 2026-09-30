@@ -74,6 +74,26 @@ class TokenStore {
         this.installInterceptor();
     }
 
+    /**
+     * Like init(), but always adopts the given credentials instead of being a
+     * no-op when a token is already held. A successful login must discard
+     * whatever token was already in memory — e.g. `auth login --force` loads
+     * the old (about-to-be-revoked) token into the store via
+     * performLogout()'s getAccessToken() call before clearing it from disk;
+     * without this, the later init() after the new device login is silently
+     * ignored and the process keeps serving the revoked token.
+     */
+    replace(credentials: Credentials): void {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+        this.pendingRotation = null;
+        this.token = credentials.token;
+        this.schedule();
+        this.installInterceptor();
+    }
+
     current(): string {
         if (this.token === null) {
             throw new Error('Token store is not initialized');
