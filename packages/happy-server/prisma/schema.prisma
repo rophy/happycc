@@ -38,10 +38,22 @@ model Account {
     /// [ImageRef]
     avatar    Json?
 
+    // OIDC identity (corporate fork)
+    oidcIssuer        String?
+    oidcSubject       String?
+    email             String?
+    /// Root secret wrapped by keyVault (base64)
+    wrappedRootSecret String?
+    disabledAt        DateTime?
+    /// Latest IdP refresh token, KeyTree-encrypted (base64)
+    idpRefreshToken   String?
+    idpCheckedAt      DateTime?
+
     Session             Session[]
     AccountPushToken    AccountPushToken[]
-    TerminalAuthRequest TerminalAuthRequest[]
-    AccountAuthRequest  AccountAuthRequest[]
+    Device              Device[]
+    DeviceAuthRequest   DeviceAuthRequest[]
+    OidcExchangeCode    OidcExchangeCode[]
     UsageReport         UsageReport[]
     Machine             Machine[]
     Project             Project[]
@@ -54,27 +66,53 @@ model Account {
     UserFeedItem        UserFeedItem[]
     UserKVStore         UserKVStore[]
     VoiceConversation   VoiceConversation[]
+
+    @@unique([oidcIssuer, oidcSubject])
 }
 
-model TerminalAuthRequest {
-    id                String   @id @default(cuid())
-    publicKey         String   @unique
-    supportsV2        Boolean  @default(false)
-    response          String?
-    responseAccountId String?
-    responseAccount   Account? @relation(fields: [responseAccountId], references: [id])
-    createdAt         DateTime @default(now())
-    updatedAt         DateTime @updatedAt
+model Device {
+    id                       String    @id @default(cuid())
+    accountId                String
+    account                  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+    kind                     String
+    name                     String
+    host                     String?
+    refreshTokenHash         String    @unique
+    previousRefreshTokenHash String?
+    sessionStartedAt         DateTime
+    lastSeenAt               DateTime
+    revokedAt                DateTime?
+    createdAt                DateTime  @default(now())
+    updatedAt                DateTime  @updatedAt
+
+    @@index([previousRefreshTokenHash])
+    @@index([accountId])
 }
 
-model AccountAuthRequest {
-    id                String   @id @default(cuid())
-    publicKey         String   @unique
-    response          String?
-    responseAccountId String?
-    responseAccount   Account? @relation(fields: [responseAccountId], references: [id])
-    createdAt         DateTime @default(now())
-    updatedAt         DateTime @updatedAt
+model DeviceAuthRequest {
+    id                 String    @id @default(cuid())
+    deviceCodeHash     String    @unique
+    userCode           String    @unique
+    status             String    @default("pending")
+    approvedAccountId  String?
+    approvedAccount    Account?  @relation(fields: [approvedAccountId], references: [id], onDelete: SetNull)
+    ephemeralPublicKey String
+    clientInfo         Json
+    lastPolledAt       DateTime?
+    expiresAt          DateTime
+    createdAt          DateTime  @default(now())
+}
+
+model OidcExchangeCode {
+    id            String    @id @default(cuid())
+    codeHash      String    @unique
+    accountId     String
+    account       Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+    clientKind    String
+    pkceChallenge String
+    expiresAt     DateTime
+    usedAt        DateTime?
+    createdAt     DateTime  @default(now())
 }
 
 model AccountPushToken {
