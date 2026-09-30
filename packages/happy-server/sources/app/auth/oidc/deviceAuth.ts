@@ -88,7 +88,8 @@ export async function pollDeviceAuth(deviceCode: string, now: Date = new Date())
     if (row.status === 'denied') {
         return { status: 'denied' };
     }
-    const tooFast = row.lastPolledAt && now.getTime() - row.lastPolledAt.getTime() < POLL_INTERVAL_SEC * 1000;
+    // 1 s tolerance for client timer jitter and request latency.
+    const tooFast = row.lastPolledAt && now.getTime() - row.lastPolledAt.getTime() < (POLL_INTERVAL_SEC - 1) * 1000;
     await db.deviceAuthRequest.update({ where: { id: row.id }, data: { lastPolledAt: now } });
     if (tooFast) {
         return { status: 'slow_down' };

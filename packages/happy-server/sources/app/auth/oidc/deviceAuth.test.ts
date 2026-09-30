@@ -47,6 +47,13 @@ describe('device flow', () => {
         expect((await flow.pollDeviceAuth(deviceCode, new Date(t0.getTime() + 1000))).status).toBe('slow_down');
     });
 
+    it('tolerates up to 1 s of polling jitter', async () => {
+        const { deviceCode } = await flow.startDeviceAuth({ ephemeralPublicKey: 'eph', clientInfo });
+        const t0 = new Date();
+        expect((await flow.pollDeviceAuth(deviceCode, t0)).status).toBe('pending');
+        expect((await flow.pollDeviceAuth(deviceCode, new Date(t0.getTime() + 4500))).status).toBe('pending');
+    });
+
     it('reports denial', async () => {
         const { deviceCode, userCode } = await flow.startDeviceAuth({ ephemeralPublicKey: 'eph', clientInfo });
         expect(await flow.decideDeviceAuth(userCode, accountId, 'deny')).toBe(true);
