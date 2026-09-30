@@ -165,6 +165,25 @@ The app generates a PKCE `codeVerifier` before step 1 and passes the
 `code_challenge` to `/v1/auth/oidc/login`; the server binds it to the
 exchange code. This is separate from the server↔IdP PKCE.
 
+App credentials are `{token, refreshToken, secret}` (`secret` = the root
+secret from `keyBundle`). Stored credentials without `refreshToken` are
+treated as logged out. The web app keeps the PKCE verifier and ephemeral key
+in `sessionStorage` across the redirect and removes the `#code` fragment from
+the URL before exchanging it.
+
+App token handling mirrors the CLI: a process-wide token store refreshes 2
+minutes before expiry with single-flight; one `authFetch` wrapper attaches the
+token to every server request and retries once on 401; the socket `auth`
+callback awaits a fresh token. On the web, refresh runs under the Web Locks
+API (`navigator.locks`, lock `happy-auth-refresh`), re-reads storage inside
+the lock and adopts a token another tab already rotated; tabs follow each
+other's rotations and logouts through the `storage` event. `invalid_grant`
+from refresh runs the normal logout path.
+
+The web app's server URL comes from build-time `EXPO_PUBLIC_HAPPY_SERVER_URL`
+or deploy-time `window.__HAPPY_CONFIG__.serverUrl`; there is no user-facing
+picker.
+
 ### Mobile
 
 Same as web, except step 1 opens the system browser
@@ -228,7 +247,10 @@ credentials.
 - App: QR scanner "connect terminal" (`useConnectTerminal`), secret key
   backup/restore (`secretKeyBackup`), `authChallenge`, `authGetToken`,
   `authQRStart`, `authQRWait`, `authApprove`, `authAccountApprove`, and
-  the server URL picker.
+  the server URL picker (and its stored override), the account-restore
+  screens, the terminal-connect screens, the dev-token harness variables,
+  and the "link computer" onboarding (replaced by a hint to run
+  `happy auth login`).
 - CLI: `happy://terminal` QR generation, the mobile/web auth method
   picker, web-auth URL, legacy `/v1/auth` helper, `/v1/auth/request`
   polling, `happy auth desktop`, and `happy server`.
@@ -305,8 +327,9 @@ Rules:
 Root `docker-compose.yaml`: server, Postgres, and
 [oidc-mock](https://github.com/rophy/oidc-mock) (`ghcr.io/rophy/oidc-mock`,
 pinned by date tag, test users in `deploy/oidc-mock/config.yaml`) for local
-development and integration tests. The web app is added to the compose file
-in a later plan.
+development and integration tests. The web app is a compose service behind a
+profile, built with the compose server URL, and used by the Playwright e2e
+suite in `e2e/`.
 
 The standalone image (`Dockerfile`, embedded PGlite) still needs an external
 IdP: it refuses to start without the `OIDC_*` settings.
@@ -319,7 +342,7 @@ IdP: it refuses to start without the `OIDC_*` settings.
 | Unit (CLI) | Device flow client: polling/backoff, error rendering, credential persistence, background refresh and logout-on-failure. |
 | Unit (app) | Callback parsing, exchange, token storage, refresh; `app.config.js` fails fast without required env. |
 | Integration | Real server + oidc-mock via compose: CLI `auth login` → Playwright approves `/activate` → credentials written → CLI creates a session → web app (logged in via OIDC) decrypts and displays it. Revoke device → CLI refresh fails. Revoke the user's IdP refresh token at oidc-mock (`/revoke`) → the next due IdP check revokes all of the account's devices. |
-| E2E (web) | Playwright: login, logout, expired session redirect. |
+| E2E (web) | Playwright: login, logout, revoked/expired session returns to sign-in, two tabs share one refresh without revoking the device. The CLI-session-in-web scenario moves to the agent compatibility suite. |
 | Mobile | Manual verification in v1 (login via system browser, push delivery). |
 
 All automated levels above run in CI.
