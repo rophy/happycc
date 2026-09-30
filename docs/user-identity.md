@@ -5,7 +5,7 @@ How a single Happy user is identified across every external service.
 ## Primary ID: Happy Account CUID
 
 - **Type:** CUID (collision-resistant unique ID, string)
-- **Created:** On first auth via public-key signature verification (`Account.upsert` by `publicKey`)
+- **Created:** Account upsert by (oidcIssuer, oidcSubject) on first OIDC login
 - **Stored:** `Account.id` in Prisma, JWT payload (`{ user: CUID }`)
 - **In code:** `request.userId` on server, `sync.serverID` on mobile
 - **Visible in app:** Settings > Developer > Purchases page shows `sync.serverID`
@@ -35,22 +35,24 @@ Happy Account CUID (e.g. cm4x7k2...)
 
 ## Auth Flow
 
+Accounts are created on first OIDC login and keyed by `(oidcIssuer, oidcSubject)`.
+The server generates each account's 32-byte root secret, stores it wrapped
+(`keyVault`, KeyTree from `HANDY_MASTER_SECRET`), and derives `Account.publicKey`
+from it. Content encryption formats are unchanged; the server can decrypt.
+
 ```
-Client keypair (libsodium/NaCl)
-  │
-  ├─ sign challenge with private key
-  │
-  ▼
-POST /v1/auth { publicKey, challenge, signature }
-  │
-  ├─ server verifies signature (tweetnacl)
-  ├─ Account.upsert({ where: { publicKey } })  →  CUID
-  ├─ auth.createToken(CUID)  →  JWT (signed with HANDY_MASTER_SECRET)
-  │
-  ▼
-Client stores JWT, sends as Authorization header on all requests
-Server extracts CUID from JWT via app.authenticate decorator
+CLI:  POST /v1/auth/device/start → user opens /activate, signs in with the IdP, approves
+      POST /v1/auth/device/token → { accessToken, refreshToken, keyBundle = box([0|contentPublicKey]) }
+Web:  GET /v1/auth/oidc/login?client=web&code_challenge=… → IdP → /v1/auth/oidc/callback
+      → WEBAPP_URL/auth/callback#code=… → POST /v1/auth/oidc/exchange
+      → { accessToken, refreshToken, keyBundle = box(rootSecret) }
+All:  POST /v1/auth/refresh (rotating refresh tokens, reuse → device revoked)
+      POST /v1/auth/logout
 ```
+
+Access tokens are 15-minute JWTs `{ sub: accountId, did: deviceId }`.
+Local IdP for development and tests: `docker compose up -d oidc-mock` (users alice, bob).
+See `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 
 ## Key Design Decisions
 

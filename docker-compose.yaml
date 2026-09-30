@@ -1,0 +1,56 @@
+# Local corporate deployment: oidc-mock (IdP) + Postgres + happy-server.
+# The server shares oidc-mock's network namespace so that "localhost:8180" is the
+# same issuer URL for the server and for the browser on the host.
+#
+#   docker compose up -d oidc-mock         # IdP only (for integration tests)
+#   docker compose up -d --build           # full stack; open http://localhost:3005/activate
+#
+# Users (no password, pick in the UI): alice, bob.
+services:
+  oidc-mock:
+    image: ghcr.io/rophy/oidc-mock:20260913-34fdbaf
+    command: ["serve"]
+    environment:
+      OIDC_CONFIG_FILE: /config.yaml
+    volumes:
+      - ./deploy/oidc-mock/config.yaml:/config.yaml:ro
+    ports:
+      - "8180:8180"   # oidc-mock
+      - "3005:3005"   # happy-server (shares this network namespace)
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: happy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    network_mode: "service:oidc-mock"
+    depends_on:
+      oidc-mock: { condition: service_started }
+      postgres: { condition: service_healthy }
+    environment:
+      PORT: "3005"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/happy
+      HANDY_MASTER_SECRET: local-dev-master-secret-change-me-0000000000
+      PUBLIC_URL: http://localhost:3005
+      WEBAPP_URL: http://localhost:8080
+      OIDC_ISSUER: http://localhost:8180
+      OIDC_CLIENT_ID: happy-server
+      OIDC_CLIENT_SECRET: happy-dev-secret
+      OIDC_ALLOW_INSECURE_ISSUER: "true"
+    command: ["sh", "-c", "pnpm exec prisma migrate deploy && pnpm run start"]
+
+volumes:
+  pgdata:

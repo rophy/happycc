@@ -1,0 +1,15 @@
+port: 8180
+issuer: http://localhost:8180
+clients:
+  - id: happy-server
+    secret: happy-dev-secret
+    redirect_uris:
+      # loopback redirects accept any port (RFC 8252), so this also covers the test port 3999
+      - http://localhost:3005/v1/auth/oidc/callback
+users:
+  - sub: alice
+    email: alice@example.com
+    name: Alice Example
+  - sub: bob
+    email: bob@example.com
+    name: Bob Example

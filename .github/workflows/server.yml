@@ -16,6 +16,8 @@ on:
       - 'scripts/**'
       - 'patches/**'
       - '.github/workflows/server.yml'
+      - 'deploy/oidc-mock/**'
+      - 'docker-compose.yaml'
   pull_request:
     branches: [ main ]
     paths:
@@ -31,6 +33,8 @@ on:
       - 'scripts/**'
       - 'patches/**'
       - '.github/workflows/server.yml'
+      - 'deploy/oidc-mock/**'
+      - 'docker-compose.yaml'
   workflow_dispatch:
 
 jobs:
@@ -69,6 +73,46 @@ jobs:
 
     - name: Unit tests
       run: pnpm --filter happy-server --fail-if-no-match test
+
+  oidc-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build wire package
+      run: pnpm --filter @slopus/happy-wire --fail-if-no-match build
+
+    - name: Start oidc-mock
+      run: |
+        docker compose up -d oidc-mock
+        for i in $(seq 1 30); do
+          curl -sf http://localhost:8180/.well-known/openid-configuration >/dev/null && exit 0
+          sleep 1
+        done
+        docker compose logs oidc-mock
+        exit 1
+
+    - name: OIDC integration tests
+      run: pnpm --filter happy-server --fail-if-no-match test:integration
+
+    - name: oidc-mock logs on failure
+      if: failure()
+      run: docker compose logs oidc-mock
 
   # Builds the production image and proves it actually serves traffic.
   # A container whose CMD silently no-ops exits 0 immediately and would pass
