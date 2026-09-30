@@ -53,6 +53,23 @@ describe('devices', () => {
         expect(afterReuse).toEqual({ ok: false, reason: 'revoked' });
     });
 
+    it('revokes the device when a token two rotations old is reused', async () => {
+        const account = await newAccount();
+        const created = await devices.createDevice({ accountId: account.id, kind: 'web', name: 'web' });
+        const first = await devices.refreshDevice(created.refreshToken, { maxSessionAgeSec: MAX_AGE });
+        expect(first.ok).toBe(true);
+        if (!first.ok) return;
+        const second = await devices.refreshDevice(first.tokens.refreshToken, { maxSessionAgeSec: MAX_AGE });
+        expect(second.ok).toBe(true);
+        if (!second.ok) return;
+
+        const replay = await devices.refreshDevice(created.refreshToken, { maxSessionAgeSec: MAX_AGE });
+        expect(replay).toEqual({ ok: false, reason: 'reused' });
+
+        const afterReuse = await devices.refreshDevice(second.tokens.refreshToken, { maxSessionAgeSec: MAX_AGE });
+        expect(afterReuse).toEqual({ ok: false, reason: 'revoked' });
+    });
+
     it('rejects unknown tokens', async () => {
         expect(await devices.refreshDevice('nope', { maxSessionAgeSec: MAX_AGE })).toEqual({ ok: false, reason: 'invalid' });
     });

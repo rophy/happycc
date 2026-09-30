@@ -71,22 +71,30 @@ model Account {
 }
 
 model Device {
-    id                       String    @id @default(cuid())
-    accountId                String
-    account                  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-    kind                     String
-    name                     String
-    host                     String?
-    refreshTokenHash         String    @unique
-    previousRefreshTokenHash String?
-    sessionStartedAt         DateTime
-    lastSeenAt               DateTime
-    revokedAt                DateTime?
-    createdAt                DateTime  @default(now())
-    updatedAt                DateTime  @updatedAt
+    id                   String                @id @default(cuid())
+    accountId            String
+    account              Account               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+    kind                 String
+    name                 String
+    host                 String?
+    refreshTokenHash     String                @unique
+    sessionStartedAt     DateTime
+    lastSeenAt           DateTime
+    revokedAt            DateTime?
+    createdAt            DateTime              @default(now())
+    updatedAt            DateTime              @updatedAt
+    retiredRefreshTokens RetiredRefreshToken[]
 
-    @@index([previousRefreshTokenHash])
     @@index([accountId])
+}
+
+model RetiredRefreshToken {
+    tokenHash String   @id
+    deviceId  String
+    device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+    retiredAt DateTime @default(now())
+
+    @@index([deviceId])
 }
 
 model DeviceAuthRequest {

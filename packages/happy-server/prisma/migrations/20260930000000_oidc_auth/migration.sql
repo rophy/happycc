@@ -19,7 +19,6 @@ CREATE TABLE "Device" (
     "name" TEXT NOT NULL,
     "host" TEXT,
     "refreshTokenHash" TEXT NOT NULL,
-    "previousRefreshTokenHash" TEXT,
     "sessionStartedAt" TIMESTAMP(3) NOT NULL,
     "lastSeenAt" TIMESTAMP(3) NOT NULL,
     "revokedAt" TIMESTAMP(3),
@@ -28,10 +27,19 @@ CREATE TABLE "Device" (
     CONSTRAINT "Device_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "Device_refreshTokenHash_key" ON "Device"("refreshTokenHash");
-CREATE INDEX "Device_previousRefreshTokenHash_idx" ON "Device"("previousRefreshTokenHash");
 CREATE INDEX "Device_accountId_idx" ON "Device"("accountId");
 ALTER TABLE "Device" ADD CONSTRAINT "Device_accountId_fkey"
     FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE "RetiredRefreshToken" (
+    "tokenHash" TEXT NOT NULL,
+    "deviceId" TEXT NOT NULL,
+    "retiredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "RetiredRefreshToken_pkey" PRIMARY KEY ("tokenHash")
+);
+CREATE INDEX "RetiredRefreshToken_deviceId_idx" ON "RetiredRefreshToken"("deviceId");
+ALTER TABLE "RetiredRefreshToken" ADD CONSTRAINT "RetiredRefreshToken_deviceId_fkey"
+    FOREIGN KEY ("deviceId") REFERENCES "Device"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "DeviceAuthRequest" (
     "id" TEXT NOT NULL,

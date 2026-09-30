@@ -47,9 +47,9 @@ export async function refreshDevice(
     const hash = hashToken(refreshToken);
     const device = await db.device.findUnique({ where: { refreshTokenHash: hash }, include: { account: true } });
     if (!device) {
-        const reused = await db.device.findFirst({ where: { previousRefreshTokenHash: hash } });
-        if (reused) {
-            await revokeDevice(reused.id);
+        const retired = await db.retiredRefreshToken.findUnique({ where: { tokenHash: hash } });
+        if (retired) {
+            await revokeDevice(retired.deviceId);
             return { ok: false, reason: 'reused' };
         }
         return { ok: false, reason: 'invalid' };
@@ -70,11 +70,18 @@ export async function refreshDevice(
 
     const next = generateOpaqueToken();
     // Conditional update: a concurrent refresh with the same token loses and gets 'invalid'.
-    const updated = await db.device.updateMany({
-        where: { id: device.id, refreshTokenHash: hash, revokedAt: null },
-        data: { refreshTokenHash: hashToken(next), previousRefreshTokenHash: hash, lastSeenAt: now },
+    const rotated = await db.$transaction(async (tx) => {
+        const updated = await tx.device.updateMany({
+            where: { id: device.id, refreshTokenHash: hash, revokedAt: null },
+            data: { refreshTokenHash: hashToken(next), lastSeenAt: now },
+        });
+        if (updated.count !== 1) {
+            return false;
+        }
+        await tx.retiredRefreshToken.create({ data: { tokenHash: hash, deviceId: device.id } });
+        return true;
     });
-    if (updated.count !== 1) {
+    if (!rotated) {
         return { ok: false, reason: 'invalid' };
     }
     return {
