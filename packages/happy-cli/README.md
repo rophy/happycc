@@ -24,7 +24,7 @@ happy claude
 
 This will:
 1. Start a Claude Code session
-2. Display a QR code to connect from your mobile device or browser
+2. Prompt you to sign in on first run (see Authentication below) and print a link to connect from your mobile device or browser
 3. Allow real-time session control — all communication is end-to-end encrypted
 4. Start new sessions directly from your phone or web while your computer is online
 
@@ -92,7 +92,7 @@ happy auth login
 happy auth logout
 ```
 
-Happy uses cryptographic key pairs for authentication — your private key stays on your machine. All session data is end-to-end encrypted before leaving your device.
+`happy auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
 
 To connect third-party agent APIs:
 

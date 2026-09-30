@@ -49,7 +49,7 @@ Handles server communication and encryption.
 
 - **`api.ts`**: Main API client class for session management
 - **`apiSession.ts`**: WebSocket-based real-time session client with RPC support
-- **`auth.ts`**: Authentication flow using TweetNaCl for cryptographic signatures
+- **`tokenStore.ts`**: Holds the access token in memory, refreshes it before it expires, and single-flights refresh across concurrent callers (see `ui/auth.ts` for the OAuth device-flow login itself)
 - **`encryption.ts`**: End-to-end encryption utilities using TweetNaCl
 - **`types.ts`**: Zod schemas for type-safe API communication
 
@@ -81,12 +81,12 @@ Core Claude Code integration layer.
 User interface components.
 
 - **`logger.ts`**: Centralized logging system with file output
-- **`qrcode.ts`**: QR code generation for mobile authentication
+- **`qrcode.ts`**: Renders the device-login sign-in URL as a QR code so it can be scanned instead of typed
 - **`start.ts`**: Main application startup and orchestration
 
 **Key Features:**
 - Clean console UI with chalk styling
-- QR code display for easy mobile connection
+- QR code display for easy opening of the sign-in link on a phone
 - Graceful mode switching between interactive and remote
 
 ### 4. Core Files
@@ -98,7 +98,7 @@ User interface components.
 ## Data Flow
 
 1. **Authentication**: 
-   - Generate/load secret key → Create signature challenge → Get auth token
+   - OAuth 2.0 device flow: CLI requests a device code → user approves the sign-in link (browser or QR) via the org's identity provider → CLI polls and receives a short-lived access token + refresh token
 
 2. **Session Creation**:
    - Create encrypted session with server → Establish WebSocket connection
@@ -120,9 +120,9 @@ User interface components.
 
 ## Security Considerations
 
-- Private keys stored in `~/.handy/access.key` with restricted permissions
-- All communications encrypted using TweetNaCl
-- Challenge-response authentication prevents replay attacks
+- Access/refresh tokens stored in `~/.happy/access.key` (mode 0600, written atomically) with restricted permissions
+- All session data encrypted end-to-end using TweetNaCl
+- Access tokens are short-lived and refreshed automatically; a rotated refresh token cannot be replayed
 - Session isolation through unique session IDs
 
 ## Dependencies
