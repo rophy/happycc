@@ -47,16 +47,24 @@ function form(fields: Record<string, string>) {
     return { 'content-type': 'application/x-www-form-urlencoded', payload: new URLSearchParams(fields).toString() };
 }
 
-/** Full loopback flow through the confirm gate: login → callback → GET confirm page → POST decision. */
-async function loopbackConfirm(query: string, subject: string, decision: 'allow' | 'deny') {
+/** Full confirm flow for a target: login → callback → GET confirm page → POST decision. */
+async function confirmFlow(target: 'loopback' | 'mobile', query: string, subject: string, decision: 'allow' | 'deny') {
     const callback = await login(query, subject);
     expect(callback.statusCode).toBe(302);
-    expect(callback.headers.location).toBe('/v1/auth/oidc/loopback/confirm');
+    expect(callback.headers.location).toBe(`/v1/auth/oidc/${target}/confirm`);
     const cookie = cookieHeader(callback);
-    const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/loopback/confirm', headers: { cookie } });
+    const confirmPageRes = await app.inject({ method: 'GET', url: `/v1/auth/oidc/${target}/confirm`, headers: { cookie } });
     expect(confirmPageRes.statusCode).toBe(200);
     const { payload, ...headers } = form({ csrf: csrfFrom(confirmPageRes.body), decision });
-    return app.inject({ method: 'POST', url: '/v1/auth/oidc/loopback/confirm', headers: { ...headers, cookie }, payload });
+    return app.inject({ method: 'POST', url: `/v1/auth/oidc/${target}/confirm`, headers: { ...headers, cookie }, payload });
+}
+
+async function loopbackConfirm(query: string, subject: string, decision: 'allow' | 'deny') {
+    return confirmFlow('loopback', query, subject, decision);
+}
+
+async function mobileConfirm(query: string, subject: string, decision: 'allow' | 'deny') {
+    return confirmFlow('mobile', query, subject, decision);
 }
 
 describe('oidcRoutes', () => {
@@ -134,14 +142,106 @@ describe('oidcRoutes', () => {
         expect(exchange.statusCode).toBe(400);
     });
 
-    it('mobile: redirects to an allowed custom scheme with the code', async () => {
-        const { challenge } = pkce();
-        const callback = await login(
-            `client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`,
+    it('mobile: redirects to an allowed custom scheme with a redeemable code after confirming', async () => {
+        const { verifier, challenge } = pkce();
+        const redirectUri = 'corpapp://auth/callback';
+        const decided = await mobileConfirm(
+            `client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
             'r-mobile',
+            'allow',
         );
+        expect(decided.statusCode).toBe(302);
+        const location = new URL(decided.headers.location as string);
+        expect(`${location.protocol}//${location.host}${location.pathname}`).toBe(redirectUri);
+        expect([...location.searchParams.keys()]).toEqual(['code']);
+        const code = location.searchParams.get('code')!;
+
+        const exchange = await app.inject({
+            method: 'POST',
+            url: '/v1/auth/oidc/exchange',
+            payload: { code, codeVerifier: verifier, ephemeralPublicKey: privacyKit.encodeBase64(new Uint8Array(tweetnacl.box.keyPair().publicKey)) },
+        });
+        expect(exchange.statusCode).toBe(200);
+        const account = await db.account.findUniqueOrThrow({ where: { id: exchange.json().accountId } });
+        const device = await db.device.findFirstOrThrow({ where: { accountId: account.id } });
+        expect(device.kind).toBe('mobile');
+    });
+
+    it('mobile: issues no code until the confirm page is submitted', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'corpapp://auth/callback';
+        const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`, 'r-mobile-pending');
         expect(callback.statusCode).toBe(302);
-        expect((callback.headers.location as string)).toMatch(/^corpapp:\/\/auth\/callback\?code=/);
+        expect(callback.headers.location).toBe('/v1/auth/oidc/mobile/confirm');
+        const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/mobile/confirm', headers: { cookie: cookieHeader(callback) } });
+        expect(confirmPageRes.statusCode).toBe(200);
+        expect(confirmPageRes.body).not.toContain('code=');
+    });
+
+    it('mobile: shows the default app name on the confirm page', async () => {
+        const { challenge } = pkce();
+        const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`, 'r-mobile-name');
+        const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/mobile/confirm', headers: { cookie: cookieHeader(callback) } });
+        expect(confirmPageRes.statusCode).toBe(200);
+        expect(confirmPageRes.body).toContain('Sign in to the Happy app on this device?');
+    });
+
+    it('mobile: shows a configured app name, HTML-escaped', async () => {
+        config.mobileAppName = 'Acme & <Co>';
+        try {
+            const { challenge } = pkce();
+            const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`, 'r-mobile-custom-name');
+            const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/mobile/confirm', headers: { cookie: cookieHeader(callback) } });
+            expect(confirmPageRes.statusCode).toBe(200);
+            expect(confirmPageRes.body).toContain('Sign in to Acme &amp; &lt;Co&gt; on this device?');
+            expect(confirmPageRes.body).not.toContain('Acme & <Co>');
+        } finally {
+            config.mobileAppName = 'the Happy app';
+        }
+    });
+
+    it('mobile: deny redirects with error=access_denied and issues no code', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'corpapp://auth/callback';
+        const decided = await mobileConfirm(
+            `client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+            'r-mobile-deny',
+            'deny',
+        );
+        expect(decided.statusCode).toBe(302);
+        expect(decided.headers.location).toBe(`${redirectUri}?error=access_denied`);
+    });
+
+    it('mobile: rejects a confirm decision with an invalid CSRF token', async () => {
+        const { challenge } = pkce();
+        const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`, 'r-mobile-badcsrf');
+        const cookie = cookieHeader(callback);
+        const { payload, ...headers } = form({ csrf: 'not-a-valid-token', decision: 'allow' });
+        const res = await app.inject({ method: 'POST', url: '/v1/auth/oidc/mobile/confirm', headers: { ...headers, cookie }, payload });
+        expect(res.statusCode).toBe(403);
+    });
+
+    it('mobile: rejects a confirm decision without the pending cookie', async () => {
+        const { payload, ...headers } = form({ csrf: 'whatever', decision: 'allow' });
+        const res = await app.inject({ method: 'POST', url: '/v1/auth/oidc/mobile/confirm', headers, payload });
+        expect(res.statusCode).toBe(401);
+    });
+
+    it('mobile: anti-framing headers are present on the confirm page', async () => {
+        const { challenge } = pkce();
+        const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`, 'r-mobile-frame');
+        const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/mobile/confirm', headers: { cookie: cookieHeader(callback) } });
+        expect(confirmPageRes.headers['x-frame-options']).toBe('DENY');
+        expect(confirmPageRes.headers['content-security-policy']).toBe("frame-ancestors 'none'");
+    });
+
+    it('loopback: anti-framing headers are present on the confirm page', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'http://127.0.0.1:53690/callback';
+        const callback = await login(`client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`, 'r-loopback-frame');
+        const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/loopback/confirm', headers: { cookie: cookieHeader(callback) } });
+        expect(confirmPageRes.headers['x-frame-options']).toBe('DENY');
+        expect(confirmPageRes.headers['content-security-policy']).toBe("frame-ancestors 'none'");
     });
 
     it('mobile: rejects redirect URIs that are not configured', async () => {

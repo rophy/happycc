@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 
 export const LOGIN_COOKIE = 'happy_oidc_login';
 export const SESSION_COOKIE = 'happy_session';
-export const LOOPBACK_COOKIE = 'happy_oidc_loopback';
+/** Pending loopback or mobile sign-in, held between the IdP callback and the confirm decision. */
+export const CONFIRM_COOKIE = 'happy_oidc_confirm';
 
 let signingKey: Buffer | null = null;
 let secureCookies = true;

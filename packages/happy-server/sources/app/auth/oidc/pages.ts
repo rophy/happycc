@@ -49,15 +49,37 @@ export function enterCodePage(opts: { code?: string; error?: string }): string {
 </form>`);
 }
 
-export function loopbackConfirmPage(opts: { port: string; csrf: string }): string {
-    return page('Allow happy-agent?', `
-<p>Allow happy-agent on this computer to access your account? It will be able to read all your sessions.</p>
-<p>Redirect port: <strong>${escapeHtml(opts.port)}</strong></p>
-<form method="post" action="/v1/auth/oidc/loopback/confirm">
+/** Shared body for a confirm/deny gate page: a paragraph plus a CSRF-protected form posting `decision=allow|deny`. */
+function confirmGatePage(title: string, bodyHtml: string, opts: { action: string; csrf: string; continueLabel: string; cancelLabel: string }): string {
+    return page(title, `
+${bodyHtml}
+<form method="post" action="${opts.action}">
 <input type="hidden" name="csrf" value="${escapeHtml(opts.csrf)}">
-<button type="submit" name="decision" value="allow">Allow</button>
-<button type="submit" name="decision" value="deny">Deny</button>
+<button type="submit" name="decision" value="allow">${escapeHtml(opts.continueLabel)}</button>
+<button type="submit" name="decision" value="deny">${escapeHtml(opts.cancelLabel)}</button>
 </form>`);
+}
+
+export function loopbackConfirmPage(opts: { port: string; csrf: string }): string {
+    return confirmGatePage('Allow happy-agent?', `
+<p>Allow happy-agent on this computer to access your account? It will be able to read all your sessions.</p>
+<p>Redirect port: <strong>${escapeHtml(opts.port)}</strong></p>`, {
+        action: '/v1/auth/oidc/loopback/confirm',
+        csrf: opts.csrf,
+        continueLabel: 'Allow',
+        cancelLabel: 'Deny',
+    });
+}
+
+export function mobileConfirmPage(opts: { appName: string; csrf: string }): string {
+    const safeName = escapeHtml(opts.appName);
+    return confirmGatePage(`Sign in to ${opts.appName} on this device?`, `
+<p>${safeName} on this phone will get full access to your account, including all your sessions.</p>`, {
+        action: '/v1/auth/oidc/mobile/confirm',
+        csrf: opts.csrf,
+        continueLabel: 'Continue',
+        cancelLabel: 'Cancel',
+    });
 }
 
 export function confirmPage(opts: { userCode: string; host: string; os: string; cliVersion: string; csrf: string }): string {

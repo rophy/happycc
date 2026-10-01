@@ -34,6 +34,7 @@ describe('loadAuthConfig', () => {
             publicUrl: 'https://happy.corp.example',
             webappUrl: 'https://app.corp.example',
             mobileRedirectUris: [],
+            mobileAppName: 'the Happy app',
             accessTokenTtlSec: 900,
             maxSessionAgeSec: 2_592_000,
             refreshReuseGraceSec: 60,
@@ -47,6 +48,7 @@ describe('loadAuthConfig', () => {
             ...base,
             OIDC_SCOPES: 'openid email',
             MOBILE_REDIRECT_URIS: 'corpapp://auth/callback, corpapp-dev://auth/callback',
+            MOBILE_APP_NAME: '  Acme Happy  ',
             AUTH_ACCESS_TOKEN_TTL: '5m',
             AUTH_MAX_SESSION_AGE: '7d',
             AUTH_REFRESH_REUSE_GRACE: '0s',
@@ -54,10 +56,16 @@ describe('loadAuthConfig', () => {
         });
         expect(cfg.scopes).toBe('openid email');
         expect(cfg.mobileRedirectUris).toEqual(['corpapp://auth/callback', 'corpapp-dev://auth/callback']);
+        expect(cfg.mobileAppName).toBe('Acme Happy');
         expect(cfg.accessTokenTtlSec).toBe(300);
         expect(cfg.maxSessionAgeSec).toBe(604_800);
         expect(cfg.refreshReuseGraceSec).toBe(0);
         expect(cfg.allowInsecureIssuer).toBe(true);
+    });
+
+    it('falls back to a default mobile app name when unset or blank', () => {
+        expect(loadAuthConfig(base).mobileAppName).toBe('the Happy app');
+        expect(loadAuthConfig({ ...base, MOBILE_APP_NAME: '   ' }).mobileAppName).toBe('the Happy app');
     });
 
     it.each(['OIDC_ISSUER', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'PUBLIC_URL', 'WEBAPP_URL', 'HANDY_MASTER_SECRET'])(

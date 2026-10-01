@@ -38,6 +38,9 @@ eas build --platform all
 - `MOBILE_REDIRECT_URIS` (comma-separated) must list `${APP_SCHEME}://auth/callback`
   for every native build, e.g. `acmehappy://auth/callback`. The server rejects any
   other redirect URI.
+- `MOBILE_APP_NAME` (optional) is the app name shown on the sign-in confirmation
+  page phones see before a code is issued, e.g. `Acme Happy`. Defaults to
+  `the Happy app`.
 - `WEBAPP_URL` is the origin the web app is served from, e.g.
   `https://happy.example.com`. Web sign-in returns to `${WEBAPP_URL}/auth/callback`.
 - `AUTH_ACCESS_TOKEN_TTL` must stay well above the clients' 2-minute refresh margin

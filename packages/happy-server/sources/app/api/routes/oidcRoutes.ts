@@ -13,10 +13,10 @@ import { createDevice } from '@/app/auth/oidc/devices';
 import { createExchangeCode, redeemExchangeCode } from '@/app/auth/oidc/exchangeCodes';
 import { parseLoopbackRedirectUri } from '@/app/auth/oidc/loopbackRedirect';
 import {
-    LOGIN_COOKIE, LOOPBACK_COOKIE, SESSION_COOKIE,
+    CONFIRM_COOKIE, LOGIN_COOKIE, SESSION_COOKIE,
     clearCookieHeader, readCookie, setCookieHeader, signValue, verifyValue,
 } from '@/app/auth/oidc/browserCookies';
-import { idpUnavailablePage, loopbackConfirmPage, messagePage, sendHtml } from '@/app/auth/oidc/pages';
+import { idpUnavailablePage, loopbackConfirmPage, messagePage, mobileConfirmPage, sendHtml } from '@/app/auth/oidc/pages';
 
 export interface AuthRouteDeps {
     config: AuthConfig;
@@ -35,12 +35,20 @@ interface LoginCookie extends OidcLoginParams {
 }
 
 /**
- * Pending loopback (happy-agent) sign-in, held in a short-lived signed cookie
+ * Confirmable login targets: the loopback (happy-agent) and mobile flows both
+ * gate code issuance behind an explicit tap, rather than handing a code
+ * straight to whatever is listening on the redirect URI.
+ */
+type ConfirmTarget = 'loopback' | 'mobile';
+
+/**
+ * Pending loopback or mobile sign-in, held in a short-lived signed cookie
  * between the IdP callback and the user's confirm/deny decision. Never put in
  * a URL: it carries the account and PKCE challenge that would otherwise let
  * anyone who can get a victim to click a crafted login link steal a code.
  */
-interface LoopbackPending {
+interface ConfirmPending {
+    target: ConfirmTarget;
     accountId: string;
     appChallenge: string;
     redirectUri: string;
@@ -48,8 +56,11 @@ interface LoopbackPending {
 
 const LOGIN_COOKIE_TTL_SEC = 600;
 export const SESSION_COOKIE_TTL_SEC = 600;
-const LOOPBACK_CONFIRM_TTL_SEC = 300;
-const LOOPBACK_CSRF_PURPOSE = 'loopback-confirm-csrf';
+const CONFIRM_TTL_SEC = 300;
+const CONFIRM_CSRF_PURPOSE: Record<ConfirmTarget, string> = {
+    loopback: 'loopback-confirm-csrf',
+    mobile: 'mobile-confirm-csrf',
+};
 const PKCE_CHALLENGE = /^[A-Za-z0-9_-]{43,128}$/;
 
 export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
@@ -155,66 +166,86 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
             return reply.redirect(target.userCode ? `/activate?code=${encodeURIComponent(target.userCode)}` : '/activate');
         }
 
-        if (target.kind === 'loopback') {
-            const pending: LoopbackPending = { accountId, appChallenge: target.appChallenge, redirectUri: target.redirectUri };
+        if (target.kind === 'loopback' || target.kind === 'mobile') {
+            const pending: ConfirmPending = {
+                target: target.kind,
+                accountId,
+                appChallenge: target.appChallenge,
+                redirectUri: target.redirectUri,
+            };
             reply.header('set-cookie', [
                 clearCookieHeader(LOGIN_COOKIE),
-                setCookieHeader(LOOPBACK_COOKIE, pending, LOOPBACK_CONFIRM_TTL_SEC),
+                setCookieHeader(CONFIRM_COOKIE, pending, CONFIRM_TTL_SEC),
             ]);
-            return reply.redirect('/v1/auth/oidc/loopback/confirm');
+            return reply.redirect(`/v1/auth/oidc/${target.kind}/confirm`);
         }
 
         const code = await createExchangeCode({ accountId, clientKind: target.kind, pkceChallenge: target.appChallenge });
         reply.header('set-cookie', clearCookieHeader(LOGIN_COOKIE));
-        if (target.kind === 'mobile') {
-            return reply.redirect(`${target.redirectUri}?code=${encodeURIComponent(code)}`);
-        }
         return reply.redirect(`${config.webappUrl}/auth/callback#code=${encodeURIComponent(code)}`);
     });
 
     /**
-     * Confirmation gate for the loopback (happy-agent) login target. Without
-     * it, anyone could send a victim a crafted
+     * Confirmation gate for the loopback (happy-agent) and mobile login
+     * targets. Without it, anyone could send a victim a crafted
      * `/v1/auth/oidc/login?client=loopback&redirect_uri=http://127.0.0.1:<attacker port>/callback`
+     * (or the mobile equivalent with an allowed custom-scheme redirect_uri)
      * link; a victim with a silent IdP session would deliver a code straight
      * to the attacker's listener. The pending account/challenge/redirect never
-     * appears in a URL — only in the signed `LOOPBACK_COOKIE` set by the
+     * appears in a URL — only in the signed `CONFIRM_COOKIE` set by the
      * callback above — and the decision is CSRF-protected the same way
-     * `/activate`'s confirm step is.
+     * `/activate`'s confirm step is, with the token bound to the account,
+     * redirect and PKCE challenge so it can't be replayed against another
+     * pending sign-in.
      */
-    app.get('/v1/auth/oidc/loopback/confirm', async (request, reply) => {
-        const pending = readCookie<LoopbackPending>(request.headers.cookie, LOOPBACK_COOKIE);
-        if (!pending) {
-            return sendHtml(reply, 400, messagePage('Sign-in expired', 'Your sign-in took too long or was started in another browser. Please start again.'));
-        }
-        const port = new URL(pending.redirectUri).port;
-        const csrf = signValue(LOOPBACK_CSRF_PURPOSE, { accountId: pending.accountId, redirectUri: pending.redirectUri }, LOOPBACK_CONFIRM_TTL_SEC);
-        return sendHtml(reply, 200, loopbackConfirmPage({ port, csrf }));
-    });
+    function registerConfirmRoutes(target: ConfirmTarget) {
+        const path = `/v1/auth/oidc/${target}/confirm`;
+        const csrfPurpose = CONFIRM_CSRF_PURPOSE[target];
 
-    app.post('/v1/auth/oidc/loopback/confirm', {
-        schema: {
-            body: z.object({
-                csrf: z.string().max(2048),
-                decision: z.enum(['allow', 'deny']),
-            }),
-        },
-    }, async (request, reply) => {
-        const pending = readCookie<LoopbackPending>(request.headers.cookie, LOOPBACK_COOKIE);
-        if (!pending) {
-            return sendHtml(reply, 401, messagePage('Sign-in expired', 'Please start again from happy-agent.'));
-        }
-        const csrf = verifyValue<{ accountId: string; redirectUri: string }>(LOOPBACK_CSRF_PURPOSE, request.body.csrf);
-        if (!csrf || csrf.accountId !== pending.accountId || csrf.redirectUri !== pending.redirectUri) {
-            return sendHtml(reply, 403, messagePage('Request rejected', 'This approval form is no longer valid. Please start again.'));
-        }
-        reply.header('set-cookie', clearCookieHeader(LOOPBACK_COOKIE));
-        if (request.body.decision === 'deny') {
-            return reply.redirect(`${pending.redirectUri}?error=access_denied`);
-        }
-        const code = await createExchangeCode({ accountId: pending.accountId, clientKind: 'agent', pkceChallenge: pending.appChallenge });
-        return reply.redirect(`${pending.redirectUri}?code=${encodeURIComponent(code)}`);
-    });
+        app.get(path, async (request, reply) => {
+            const pending = readCookie<ConfirmPending>(request.headers.cookie, CONFIRM_COOKIE);
+            if (!pending || pending.target !== target) {
+                return sendHtml(reply, 400, messagePage('Sign-in expired', 'Your sign-in took too long or was started in another browser. Please start again.'));
+            }
+            const csrf = signValue(csrfPurpose, { accountId: pending.accountId, redirectUri: pending.redirectUri, appChallenge: pending.appChallenge }, CONFIRM_TTL_SEC);
+            if (target === 'loopback') {
+                const port = new URL(pending.redirectUri).port;
+                return sendHtml(reply, 200, loopbackConfirmPage({ port, csrf }));
+            }
+            return sendHtml(reply, 200, mobileConfirmPage({ appName: config.mobileAppName, csrf }));
+        });
+
+        app.post(path, {
+            schema: {
+                body: z.object({
+                    csrf: z.string().max(2048),
+                    decision: z.enum(['allow', 'deny']),
+                }),
+            },
+        }, async (request, reply) => {
+            const pending = readCookie<ConfirmPending>(request.headers.cookie, CONFIRM_COOKIE);
+            if (!pending || pending.target !== target) {
+                return sendHtml(reply, 401, messagePage('Sign-in expired', 'Please start again.'));
+            }
+            const csrf = verifyValue<{ accountId: string; redirectUri: string; appChallenge: string }>(csrfPurpose, request.body.csrf);
+            if (!csrf || csrf.accountId !== pending.accountId || csrf.redirectUri !== pending.redirectUri || csrf.appChallenge !== pending.appChallenge) {
+                return sendHtml(reply, 403, messagePage('Request rejected', 'This approval form is no longer valid. Please start again.'));
+            }
+            reply.header('set-cookie', clearCookieHeader(CONFIRM_COOKIE));
+            if (request.body.decision === 'deny') {
+                return reply.redirect(`${pending.redirectUri}?error=access_denied`);
+            }
+            const code = await createExchangeCode({
+                accountId: pending.accountId,
+                clientKind: target === 'loopback' ? 'agent' : 'mobile',
+                pkceChallenge: pending.appChallenge,
+            });
+            return reply.redirect(`${pending.redirectUri}?code=${encodeURIComponent(code)}`);
+        });
+    }
+
+    registerConfirmRoutes('loopback');
+    registerConfirmRoutes('mobile');
 
     app.post('/v1/auth/oidc/exchange', {
         schema: {

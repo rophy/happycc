@@ -85,6 +85,7 @@ replaces only *who generates the root secret* (server instead of app) and
 | `PUBLIC_URL` | yes | Used for `redirect_uri = ${PUBLIC_URL}/v1/auth/oidc/callback` and `verifyUrl` |
 | `WEBAPP_URL` | yes | Web callback target |
 | `MOBILE_REDIRECT_URIS` | no | Allowed custom-scheme callbacks, e.g. `corpapp://auth/callback` |
+| `MOBILE_APP_NAME` | no | Name shown on the mobile sign-in confirmation page. Default `the Happy app` |
 | `AUTH_ACCESS_TOKEN_TTL` | no | Default 15m |
 | `AUTH_MAX_SESSION_AGE` | no | Default 30d; forces re-login |
 | `AUTH_REFRESH_REUSE_GRACE` | no | Default 60s (covers the CLI's 10 s timeout + 30 s retry); how long the immediately previous refresh token stays redeemable after a rotation. `0s` disables it |
@@ -190,7 +191,10 @@ Same as web, except step 1 opens the system browser
 (`expo-auth-session` / ASWebAuthenticationSession / Custom Tabs) and the
 callback returns to the build's configured scheme (see §3 Mobile builds).
 The exchange-code PKCE binding prevents another app that intercepts the
-custom-scheme redirect from redeeming the code.
+custom-scheme redirect from redeeming the code. After the IdP, like the
+loopback flow, the server shows a CSRF-protected confirmation page (naming
+`MOBILE_APP_NAME`) before issuing a code, so a crafted login link can't
+silently hand a code to an app that merely registered the same scheme.
 
 ### happy-agent (remote control CLI)
 
