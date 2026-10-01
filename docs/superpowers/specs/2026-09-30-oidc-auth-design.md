@@ -310,18 +310,40 @@ credentials.
 
 ### Third-party integrations
 
-Disabled unless explicitly configured; the corresponding routes are not
-registered and UI entry points are hidden:
+Third-party services are off unless explicitly configured.
 
-- PostHog analytics (app)
-- RevenueCat subscriptions and paywall UI (app, server)
-- ElevenLabs / LiveKit voice (app, server `voiceRoutes`)
-- GitHub connect / OAuth (server `connectRoutes` GitHub parts, app UI)
+- **RevenueCat** subscriptions and paywall are removed entirely (app SDKs,
+  paywall UI, purchases state, server subscription checks).
+- **Voice** (ElevenLabs / LiveKit): server `voiceRoutes` are registered only
+  when `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` are set (the agent id is
+  server configuration, not baked into the app). When enabled, voice is
+  available to every user; optional `VOICE_MONTHLY_LIMIT_MINUTES` caps usage
+  per user.
+- **GitHub connect**: the GitHub routes are registered only when the GitHub
+  OAuth settings are present; the OAuth callback returns to `WEBAPP_URL`.
+- **PostHog** analytics (app): only when the build sets
+  `EXPO_PUBLIC_POSTHOG_API_KEY`; `EXPO_PUBLIC_POSTHOG_HOST` selects a
+  self-hosted instance. The analytics settings row is hidden otherwise.
+- **Claude.ai account connect** (app talks to claude.ai directly): hidden
+  unless the build sets `EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT=1`.
 
-Push notifications (Expo push via `pushSend.ts`) are kept. Payloads carry
-generic text only (e.g. "Session needs attention") and ids; no session
-content passes through Expo/APNs/FCM. Push requires the corporation's own
-EAS project, APNs key, and FCM credentials.
+`GET /v1/features` (authenticated) returns `{ voice, githubConnect, push }`;
+the app reads it after sign-in and hides the corresponding UI (mic, GitHub
+connect, push registration) when a feature is off.
+
+Push notifications (Expo push via `pushSend.ts`) are kept but content-free.
+The server ignores client-supplied text and sends a fixed title per event kind
+and a generic body, with `data` limited to `{ sessionId, kind, url }`; the CLI
+no longer sends session summaries or directory names. `PUSH_ENABLED=false`
+disables Expo push entirely. Push requires the corporation's own EAS project,
+APNs key, and FCM credentials.
+
+The CLI has no built-in server or web app URL: without `HAPPY_SERVER_URL` /
+`HAPPY_WEBAPP_URL` (or the settings file) it exits with an error instead of
+contacting an upstream host.
+
+Static upstream links in the app (privacy, terms, community, docs) and the
+CLI's commit co-author trailer are out of scope for v1.
 
 ### Mobile builds (corporate private builds)
 
