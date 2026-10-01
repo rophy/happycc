@@ -41,14 +41,25 @@ The server generates each account's 32-byte root secret, stores it wrapped
 from it. Content encryption formats are unchanged; the server can decrypt.
 
 ```
-CLI:  POST /v1/auth/device/start → user opens /activate, signs in with the IdP, approves
-      POST /v1/auth/device/token → { accessToken, refreshToken, keyBundle = box([0|contentPublicKey]) }
-Web:  GET /v1/auth/oidc/login?client=web&code_challenge=… → IdP → /v1/auth/oidc/callback
-      → WEBAPP_URL/auth/callback#code=… → POST /v1/auth/oidc/exchange
-      → { accessToken, refreshToken, keyBundle = box(rootSecret) }
-All:  POST /v1/auth/refresh (rotating refresh tokens, reuse → device revoked)
-      POST /v1/auth/logout
+CLI:     POST /v1/auth/device/start → user opens /activate, signs in with the IdP, approves
+         POST /v1/auth/device/token → { accessToken, refreshToken, keyBundle = box([0|contentPublicKey]) }
+Web:     GET /v1/auth/oidc/login?client=web&code_challenge=… → IdP → /v1/auth/oidc/callback
+         → WEBAPP_URL/auth/callback#code=… → POST /v1/auth/oidc/exchange
+         → { accessToken, refreshToken, keyBundle = box(rootSecret) }
+Mobile:  GET /v1/auth/oidc/login?client=mobile&code_challenge=…&redirect_uri=<custom-scheme>
+         → IdP → /v1/auth/oidc/callback → confirmation page (/v1/auth/oidc/mobile/confirm)
+         → redirect_uri?code=… → POST /v1/auth/oidc/exchange
+Agent:   GET /v1/auth/oidc/login?client=loopback&code_challenge=…&redirect_uri=http://127.0.0.1:<port>/callback
+         (happy-agent, RFC 8252 loopback flow) → IdP → /v1/auth/oidc/callback
+         → confirmation page (/v1/auth/oidc/loopback/confirm) → redirect_uri?code=…
+         → POST /v1/auth/oidc/exchange
+All:     POST /v1/auth/refresh (rotating refresh tokens, reuse → device revoked)
+         POST /v1/auth/logout
 ```
+
+Mobile and agent logins stop at a CSRF-protected confirmation page before a
+code is ever issued, so a crafted login link can't deliver a code straight
+to an attacker's redirect URI.
 
 Access tokens are 15-minute JWTs `{ sub: accountId, did: deviceId }`.
 Sockets check the device (revoked, disabled, max session age) at connect and are

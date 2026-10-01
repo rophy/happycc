@@ -1,5 +1,11 @@
 # happy-agent CLI Tool
 
+> **Superseded (auth):** the QR-code account auth flow and `qrcode-terminal`
+> described below were replaced by OIDC-only sign-in (loopback
+> authorization-code flow, RFC 8252) in the corporate fork. See
+> `docs/superpowers/specs/2026-09-30-oidc-auth-design.md` (§happy-agent) for
+> the current flow; this plan's auth references are historical.
+
 ## Overview
 A new standalone CLI tool (`happy-agent`) in `packages/happy-agent` that acts as a dedicated client for controlling Happy Coder agents remotely. Unlike `happy-cli` which both runs and controls agents, `happy-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
 
@@ -196,7 +202,7 @@ This is a completely separate client from `happy-cli`. It has its own authentica
 
 ### CLI Commands Summary
 ```
-happy-agent auth login                          # Authenticate via QR code (scanned by Happy mobile app)
+happy-agent auth login                          # Authenticate via OIDC loopback flow (see superseded note above)
 happy-agent auth logout                         # Clear stored credentials
 happy-agent auth status                         # Show authentication status
 
@@ -211,7 +217,7 @@ happy-agent stop <session-id>                   # Stop a session
 happy-agent wait <session-id> [--timeout <s>]   # Wait for agent to become idle
 ```
 
-### Authentication Flow (Account Auth)
+### Authentication Flow (Account Auth) — superseded, see banner at top of this doc
 ```
 happy-agent                          Happy Server                    Happy Mobile App
      |                                    |                               |

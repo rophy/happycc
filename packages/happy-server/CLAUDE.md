@@ -220,9 +220,12 @@ The project includes a multi-stage Dockerfile:
 - **Tell**: "Response from the Engine was empty" = Prisma database connection lost
 
 #### Auth Flow Debugging
-- CLI must hit `/v1/auth/request` to create auth request
-- Mobile scans QR and hits `/v1/auth/response` to approve
-- **Tell**: 404 on `/v1/auth/response` = server likely restarted/crashed
+- All sign-in goes through the OIDC flow (`/v1/auth/oidc/*`) — there is no
+  signed-challenge or QR pairing anymore. See
+  `docs/superpowers/specs/2026-09-30-oidc-auth-design.md` for the CLI device
+  flow, web/mobile/agent (loopback) flows, and the confirmation pages.
+- **Tell**: 503 `idp_unavailable` on `/v1/auth/oidc/login` = IdP discovery
+  hasn't succeeded yet; refresh keeps working.
 - **Tell**: "Auth failed - user not found" = token issue or user doesn't exist
 
 #### Session Creation Flow

@@ -12,30 +12,49 @@ We intentionally avoid the full REST verb palette because many operations span m
 ## Authentication
 Most endpoints require `Authorization: Bearer <token>`.
 
-Auth flows:
-- `POST /v1/auth`
-  - Body: `{ publicKey, challenge, signature }` (base64 strings)
-  - Verifies signature using the provided public key.
-  - Upserts account by public key and returns `{ success, token }`.
+Sign-in is OIDC-only (no signed-challenge or QR pairing). Every client
+(CLI, web, mobile, and the happy-agent remote-control CLI) ends up with
+`{ accessToken, refreshToken, keyBundle }` from the identity provider via
+one of the flows below. Full design, including the confirmation pages and
+security rationale, is in
+`docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 
-- `POST /v1/auth/request`
-  - Body: `{ publicKey, supportsV2? }`
-  - Creates or returns a terminal auth request.
-  - Response: `{ state: "requested" }` or `{ state: "authorized", token, response }`.
+- `GET /v1/auth/oidc/login?client=<web|loopback|mobile|device>&...`
+  - Redirects to the IdP. `loopback` (happy-agent) and `mobile` require
+    `code_challenge` + `redirect_uri`; the CLI instead starts the device
+    flow below.
+  - `503 { error: 'idp_unavailable' }` while IdP discovery hasn't
+    succeeded yet.
 
-- `GET /v1/auth/request/status?publicKey=...`
-  - Response: `{ status: "not_found" | "pending" | "authorized", supportsV2 }`.
+- `GET /v1/auth/oidc/callback`
+  - IdP redirect target. For `web`/`device`, redirects with an exchange
+    code. For `loopback`/`mobile`, redirects to a CSRF-protected
+    confirmation page (`/v1/auth/oidc/loopback/confirm` or
+    `/v1/auth/oidc/mobile/confirm`) before any code is issued.
 
-- `POST /v1/auth/response`
-  - Body: `{ response, publicKey }` (requires Bearer auth)
-  - Approves a terminal auth request.
+- `POST /v1/auth/oidc/exchange`
+  - Body: `{ code, codeVerifier, ephemeralPublicKey, deviceName? }`
+  - Response: `{ accountId, accessToken, refreshToken, keyBundle }`.
+  - Errors: `400 { error: 'invalid_request' | 'invalid_grant' }`,
+    `500 { error: 'server_error' }`.
 
-- `POST /v1/auth/account/request`
-  - Body: `{ publicKey }`
-  - Similar to terminal auth, but for account linking.
+- `POST /v1/auth/device/start`
+  - Body: `{ ephemeralPublicKey, clientInfo }` (CLI device flow)
+  - Response: `{ deviceCode, userCode, verifyUrl, interval, expiresIn }`.
 
-- `POST /v1/auth/account/response`
-  - Body: `{ response, publicKey }` (requires Bearer auth)
+- `POST /v1/auth/device/token`
+  - Body: `{ deviceCode }` — polled until the user approves at
+    `verifyUrl`/`/activate`.
+  - Response on approval: `{ accessToken, refreshToken, keyBundle }`.
+
+- `POST /v1/auth/refresh`
+  - Body: `{ refreshToken }`
+  - Response: `{ accessToken, refreshToken }` (refresh tokens rotate).
+  - `401 { error: 'invalid_grant', reason }` when rejected.
+
+- `POST /v1/auth/logout`
+  - Requires Bearer auth. Revokes the current device.
+  - Response: `{ success: true }`.
 
 ## Endpoint catalog
 ### Sessions

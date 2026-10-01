@@ -146,29 +146,36 @@ HTTP routes are organized by domain:
 sequenceDiagram
     participant Client
     participant Server
+    participant IdP as OIDC Provider
     participant DB as Postgres
-    participant Cache as Token Cache
 
-    Client->>Server: POST /v1/auth (signed challenge + public key)
-    Server->>DB: Upsert account by public key
+    Client->>Server: GET /v1/auth/oidc/login (or /v1/auth/device/start for the CLI)
+    Server->>IdP: Authorization code + PKCE
+    IdP-->>Server: GET /v1/auth/oidc/callback (code)
+    Server->>DB: Upsert account by (oidcIssuer, oidcSubject)
     DB-->>Server: Account record
-    Server->>Server: Generate Bearer token (privacy-kit)
-    Server->>Cache: Cache token
-    Server-->>Client: Bearer token
+    Client->>Server: POST /v1/auth/oidc/exchange (code, codeVerifier)
+    Server-->>Client: accessToken, refreshToken, keyBundle
 
-    Note over Client,Cache: Subsequent requests
+    Note over Client,Server: Subsequent requests
 
-    Client->>Server: Request + Bearer token
-    Server->>Cache: Verify token
-    Cache-->>Server: Valid / Account ID
-    Server-->>Client: Response
+    Client->>Server: Request + Bearer accessToken
+    Server-->>Client: Response (or 401 invalid_grant → POST /v1/auth/refresh)
 ```
 
 The backend does not store passwords. Instead:
-- Clients authenticate with a signed challenge (`/v1/auth`) using a public key.
-- The server upserts the account by public key and returns a Bearer token.
-- Tokens are generated and verified by privacy-kit using `HANDY_MASTER_SECRET`.
-- Tokens are cached in-memory for fast verification.
+- Every client (CLI, web, mobile, and the happy-agent remote-control CLI)
+  signs in through the org's OIDC identity provider; there is no
+  signed-challenge or QR pairing. See
+  `docs/superpowers/specs/2026-09-30-oidc-auth-design.md` for the CLI device
+  flow, web/mobile flows, the happy-agent loopback flow, and the
+  confirmation pages that gate loopback/mobile logins.
+- On first login the server upserts the account by `(oidcIssuer, oidcSubject)`
+  and generates its root secret; `publicKey` is derived from that secret so
+  existing content-encryption code paths are unchanged.
+- Access tokens are short-lived JWTs; refresh tokens rotate on every use
+  (`POST /v1/auth/refresh`) and logout revokes the device
+  (`POST /v1/auth/logout`).
 
 GitHub OAuth uses short-lived "ephemeral" tokens to protect the callback and is separate from normal auth.
 
