@@ -1,10 +1,8 @@
 import React from 'react';
-import { View, Text, Platform, Pressable, Linking, ScrollView } from 'react-native';
+import { View, Text, Platform, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { RoundButton } from '@/components/RoundButton';
-import { useConnectTerminal } from '@/hooks/useConnectTerminal';
-import { Modal } from '@/modal';
 import { t } from '@/text';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useAllMachines } from '@/sync/storage';
@@ -141,6 +139,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
 }));
 
+/** Commands that link a computer in the corporate fork (OIDC device login, no QR pairing). */
+const LINK_COMMANDS = ['$ npm install -g happy', '$ happy auth login', '$ happy'];
+
 export function EmptyMainScreen({
     hasArchivedSessions = false,
     onShowArchived,
@@ -148,11 +149,9 @@ export function EmptyMainScreen({
     hasArchivedSessions?: boolean;
     onShowArchived?: () => void;
 }) {
-    const { connectTerminal, connectWithUrl, isLoading } = useConnectTerminal();
     const { theme } = useUnistyles();
     const styles = stylesheet;
     const router = useRouter();
-    const [showManualSetup, setShowManualSetup] = React.useState(false);
     const machines = useAllMachines({ includeOffline: true });
     const machineChoices = React.useMemo(() => collectMachineChoices(machines), [machines]);
     const showArchivedAction = hasArchivedSessions && onShowArchived ? (
@@ -167,21 +166,6 @@ export function EmptyMainScreen({
             <Text style={styles.secondaryActionText}>{t('sidebar.showArchived')}</Text>
         </Pressable>
     ) : null;
-    const enterUrlManually = React.useCallback(async () => {
-        const url = await Modal.prompt(
-            t('modals.authenticateTerminal'),
-            t('modals.pasteUrlFromTerminal'),
-            {
-                placeholder: 'happy://terminal?...',
-                cancelText: t('common.cancel'),
-                confirmText: t('common.authenticate'),
-            },
-        );
-
-        if (url?.trim()) {
-            connectWithUrl(url.trim());
-        }
-    }, [connectWithUrl]);
 
     // A linked computer with nothing on it yet. The all-offline case never
     // reaches here: the list wrapper shows the offline checklist for it.
@@ -201,88 +185,19 @@ export function EmptyMainScreen({
         <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1, flex: undefined, paddingVertical: 24 }]}>
             <Text style={styles.title}>{t('components.emptyMainScreen.connectComputer')}</Text>
             <Text style={styles.stateDescription}>
-                {t('components.emptyMainScreen.desktopSetupInstructions')}
-                {'\n\n'}{t('components.emptyMainScreen.harnessDescription')}
+                Install the Happy CLI on your computer, sign in with your organization account, and start it.
+                Your computer shows up here as soon as it connects.
             </Text>
-            <RoundButton
-                title={t('components.emptyMainScreen.getDesktop')}
-                action={async () => { await Linking.openURL('https://happy.engineering'); }}
-            />
-            <Pressable
-                onPress={() => setShowManualSetup(value => !value)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showManualSetup }}
-                style={styles.secondaryAction}
-            >
-                <Text style={styles.secondaryActionText}>{t('components.emptyMainScreen.terminalAlternative')}</Text>
-            </Pressable>
-            {showManualSetup && <View style={styles.terminalBlock}>
-                <Text style={[styles.terminalText, styles.terminalTextFirst]}>
-                    $ npm i -g happy
-                </Text>
-                <Text style={[styles.terminalText, styles.terminalTextFirst]}>
-                    $ happy claude
-                </Text>
-                <Text style={styles.terminalText}>
-                    $ happy codex
-                </Text>
-            </View>}
-
-
-            {Platform.OS !== 'web' && (
-                <>
-                    {showManualSetup && <View style={styles.stepsContainer}>
-                        <View style={styles.stepRow}>
-                            <View style={styles.stepNumber}>
-                                <Text style={styles.stepNumberText}>1</Text>
-                            </View>
-                            <Text style={styles.stepText}>
-                                {t('components.emptyMainScreen.installCli')}
-                            </Text>
-                        </View>
-                        <View style={styles.stepRow}>
-                            <View style={styles.stepNumber}>
-                                <Text style={styles.stepNumberText}>2</Text>
-                            </View>
-                            <Text style={styles.stepText}>
-                                {t('components.emptyMainScreen.runIt')}
-                            </Text>
-                        </View>
-                        <View style={styles.stepRowLast}>
-                            <View style={styles.stepNumber}>
-                                <Text style={styles.stepNumberText}>3</Text>
-                            </View>
-                            <Text style={styles.stepText}>
-                                {t('components.emptyMainScreen.scanQrCode')}
-                            </Text>
-                        </View>
-                    </View>}
-                    <View style={styles.buttonsContainer}>
-                        <View style={styles.buttonWrapper}>
-                            <RoundButton
-                                title={t('components.emptyMainScreen.openCamera')}
-                                size="large"
-                                loading={isLoading}
-                                onPress={connectTerminal}
-                            />
-                        </View>
-                        <Pressable
-                            onPress={enterUrlManually}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('connect.enterUrlManually')}
-                            style={({ pressed }) => [
-                                styles.manualUrlButton,
-                                pressed && styles.manualUrlButtonPressed,
-                            ]}
-                        >
-                            <Ionicons name="link-outline" size={17} color={theme.colors.textSecondary} />
-                            <Text style={styles.manualUrlButtonText}>
-                                {t('connect.enterUrlManually')}
-                            </Text>
-                        </Pressable>
-                    </View>
-                </>
-            )}
+            <View style={styles.terminalBlock}>
+                {LINK_COMMANDS.map((line, index) => (
+                    <Text
+                        key={line}
+                        style={[styles.terminalText, index < LINK_COMMANDS.length - 1 && styles.terminalTextFirst]}
+                    >
+                        {line}
+                    </Text>
+                ))}
+            </View>
             {showArchivedAction}
         </ScrollView>
     );

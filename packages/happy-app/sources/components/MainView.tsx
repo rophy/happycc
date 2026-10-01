@@ -25,7 +25,6 @@ import { HeaderLogo } from './HeaderLogo';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
-import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackFriendsSearch } from '@/track';
 import { MOBILE_GLASS_HEADER_HEIGHT } from './navigation/headerMetrics';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
@@ -148,7 +147,6 @@ type ActiveTabType = TabType;
 const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => {
     const router = useRouter();
     const { theme } = useUnistyles();
-    const isCustomServer = isUsingCustomServer();
     const [sessionListGrouping, setSessionListGrouping] = useSettingMutable('sessionListGrouping');
 
     if (activeTab === 'sessions') {
@@ -237,18 +235,7 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
     }
 
     if (activeTab === 'settings') {
-        if (!isCustomServer) {
-            return Platform.OS === 'web' ? <View style={styles.headerButton} /> : null;
-        }
-        return (
-            <Pressable
-                onPress={() => router.push('/server')}
-                hitSlop={15}
-                style={styles.headerButton}
-            >
-                <Ionicons name="server-outline" size={24} color={theme.colors.header.tint} />
-            </Pressable>
-        );
+        return Platform.OS === 'web' ? <View style={styles.headerButton} /> : null;
     }
 
     return null;
@@ -273,7 +260,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     // NOTE: Zen tab removed - the feature never got to a useful state
     const [activeTab, setActiveTab] = React.useState<ActiveTabType>('sessions');
     const [homePrompt, setHomePrompt] = React.useState('');
-    const showHeaderRight = activeTab !== 'settings' || isUsingCustomServer();
+    const showHeaderRight = activeTab !== 'settings';
     const topChromeInset = Platform.OS === 'web'
         ? 0
         : safeArea.top

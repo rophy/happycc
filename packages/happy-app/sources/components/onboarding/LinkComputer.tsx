@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,16 +8,12 @@ import { Typography } from '@/constants/Typography';
 import { RoundButton } from '../RoundButton';
 import { TerminalBlock } from './TerminalBlock';
 import { OnboardingHeader } from './OnboardingHeader';
-import { useConnectTerminal } from '@/hooks/useConnectTerminal';
 import { useAllMachines, useLocalSettingMutable } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { Modal } from '@/modal';
-import { trackConnectAttempt } from '@/track';
 import { t } from '@/text';
-import { getServerInfo } from '@/sync/serverConfig';
+import { getServerLabel } from '@/sync/serverConfig';
 import { openExternalUrl } from '@/utils/openExternalUrl';
-
-const DESKTOP_URL = 'https://happy.engineering';
 
 /**
  * Where somebody stuck on this screen can turn, and to whom. The same list
@@ -30,13 +26,13 @@ const HELP_LINKS: readonly { label: () => string; url: string }[] = [
     { label: () => t('onboarding.helpIssues'), url: 'https://github.com/slopus/happy/issues' },
 ];
 
-/**
- * How long to keep saying "connected" after a successful scan while the linked
- * machine syncs in. The screen underneath swaps itself out the moment the
- * machine arrives; this only bounds how long the button stays busy if it never
- * does.
- */
-const MACHINE_ARRIVAL_TIMEOUT_MS = 10_000;
+// Corporate fork: a computer links itself by signing in with `happy auth login`
+// (OIDC device flow). English-only copy until it goes through translation.
+const SIGN_IN_STEP_TITLE = 'Sign in on your computer';
+const SIGN_IN_STEP_BODY = 'Run this in a terminal and approve the sign-in in your browser.';
+const SIGN_IN_COMMAND = 'happy auth login';
+const START_STEP_TITLE = 'Start Happy';
+const START_STEP_BODY = 'This screen updates as soon as your computer connects.';
 
 /** Room kept under the checklist so the corner button never covers its last row. */
 const GET_HELP_RESERVED_HEIGHT = 56;
@@ -96,38 +92,10 @@ const ChecklistRow = React.memo(function ChecklistRow({
     );
 });
 
-function useScanActions(onSuccess: () => void) {
-    const { connectTerminal, connectWithUrl, isLoading } = useConnectTerminal({ onSuccess });
-
-    const scan = React.useCallback(() => {
-        trackConnectAttempt();
-        void connectTerminal();
-    }, [connectTerminal]);
-
-    const pasteLink = React.useCallback(async () => {
-        const url = await Modal.prompt(
-            t('onboarding.pasteLinkTitle'),
-            t('onboarding.pasteLinkMessage'),
-            {
-                placeholder: 'happy://terminal?...',
-                cancelText: t('common.cancel'),
-                confirmText: t('onboarding.pasteLinkConfirm'),
-            },
-        );
-        if (url?.trim()) {
-            trackConnectAttempt();
-            void connectWithUrl(url.trim());
-        }
-    }, [connectWithUrl]);
-
-    return { scan, pasteLink, isLoading };
-}
-
 /**
- * The link-your-computer checklist. `link` is the first run: nothing is
- * linked yet, three boxes to tick. `offline` is the same list once a computer
- * is linked but none can be reached: the install box is already ticked and
- * the job is to get Happy running again.
+ * The link-your-computer checklist. `link` is the first run: nothing is linked
+ * yet. `offline` is the same list once a computer is linked but none can be
+ * reached: the job is to get Happy running again.
  */
 export const LinkComputerChecklist = React.memo(function LinkComputerChecklist({
     variant,
@@ -144,60 +112,10 @@ export const LinkComputerChecklist = React.memo(function LinkComputerChecklist({
     const machines = useAllMachines({ includeOffline: true });
     const choices = React.useMemo(() => collectMachineChoices(machines), [machines]);
     const [ticked, setTicked] = useLocalSettingMutable('linkComputerChecklist');
-    const [approved, setApproved] = React.useState(false);
-    const { scan, pasteLink, isLoading } = useScanActions(() => setApproved(true));
-
-    // A scan that never brings a machine in gets its button back after a
-    // while, so a person is not stuck on a spinner with nothing to tap.
-    React.useEffect(() => {
-        if (!approved) return;
-        const timer = setTimeout(() => setApproved(false), MACHINE_ARRIVAL_TIMEOUT_MS);
-        return () => clearTimeout(timer);
-    }, [approved]);
 
     const toggle = React.useCallback((key: 'install' | 'open') => {
         setTicked({ ...ticked, [key]: !ticked[key] });
     }, [setTicked, ticked]);
-
-    const busy = isLoading || approved;
-    const canScan = Platform.OS !== 'web';
-
-    const openDesktopSite = React.useCallback(() => {
-        void Linking.openURL(DESKTOP_URL);
-    }, []);
-
-    const downloadLine = (
-        <Text style={styles.body}>
-            {t('onboarding.installBodyPrefix')}
-            <Text style={styles.link} accessibilityRole="link" onPress={openDesktopSite}>
-                {t('onboarding.installBodyLink')}
-            </Text>
-            {t('onboarding.installBodySuffix')}
-        </Text>
-    );
-
-    const scanActions = (
-        <View style={styles.actions}>
-            {canScan ? (
-                <View style={styles.button}>
-                    <RoundButton
-                        title={approved ? t('onboarding.connecting') : t('onboarding.scanButton')}
-                        loading={busy}
-                        onPress={scan}
-                    />
-                </View>
-            ) : null}
-            <View style={styles.button}>
-                <RoundButton
-                    size="normal"
-                    display={canScan ? 'inverted' : 'default'}
-                    title={t('onboarding.pasteLink')}
-                    disabled={busy}
-                    onPress={() => { void pasteLink(); }}
-                />
-            </View>
-        </View>
-    );
 
     if (variant === 'offline') {
         const title = choices.length === 1
@@ -225,17 +143,6 @@ export const LinkComputerChecklist = React.memo(function LinkComputerChecklist({
                                 onPress={() => router.push('/troubleshoot')}
                             />
                         </View>
-                        {canScan ? (
-                            <View style={styles.button}>
-                                <RoundButton
-                                    size="normal"
-                                    display="inverted"
-                                    title={approved ? t('onboarding.connecting') : t('onboarding.linkAnother')}
-                                    loading={busy}
-                                    onPress={scan}
-                                />
-                            </View>
-                        ) : null}
                         {onShowArchived ? (
                             <View style={styles.button}>
                                 <RoundButton
@@ -260,33 +167,26 @@ export const LinkComputerChecklist = React.memo(function LinkComputerChecklist({
                     title={t('onboarding.installStep')}
                     onToggle={() => toggle('install')}
                 >
-                    {downloadLine}
                     <TerminalBlock
                         style={styles.terminal}
-                        lines={[
-                            { kind: 'comment', text: t('onboarding.terminalComment') },
-                            { kind: 'command', text: t('onboarding.terminalInstall') },
-                            { kind: 'command', text: t('onboarding.terminalRun') },
-                        ]}
+                        lines={[{ kind: 'command', text: t('onboarding.terminalInstall') }]}
                     />
                 </ChecklistRow>
                 <ChecklistRow
                     checked={!!ticked.open}
-                    title={t('onboarding.openStep')}
+                    title={SIGN_IN_STEP_TITLE}
                     onToggle={() => toggle('open')}
                 >
-                    <Text style={styles.body}>{t('onboarding.openBody')}</Text>
+                    <Text style={styles.body}>{SIGN_IN_STEP_BODY}</Text>
+                    <TerminalBlock style={styles.terminal} lines={[{ kind: 'command', text: SIGN_IN_COMMAND }]} />
                 </ChecklistRow>
-                <ChecklistRow
-                    checked={approved}
-                    title={t('onboarding.scanStep')}
-                    busy={isLoading}
-                >
-                    {scanActions}
+                <ChecklistRow checked={false} title={START_STEP_TITLE}>
+                    <Text style={styles.body}>{START_STEP_BODY}</Text>
+                    <TerminalBlock
+                        style={styles.terminal}
+                        lines={[{ kind: 'command', text: t('onboarding.terminalRun') }]}
+                    />
                 </ChecklistRow>
-                {approved ? (
-                    <Text style={[styles.body, styles.connected]}>{t('onboarding.connected')}</Text>
-                ) : null}
             </View>
         </ScrollView>
     );
@@ -337,12 +237,11 @@ export const OnboardingLinkComputer = React.memo(function OnboardingLinkComputer
     const router = useRouter();
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
-    const serverInfo = getServerInfo();
     return (
         <View style={styles.root}>
             <OnboardingHeader
                 title={t('onboarding.linkTitle')}
-                subtitle={serverInfo.isCustom ? serverInfo.hostname + (serverInfo.port ? `:${serverInfo.port}` : '') : undefined}
+                subtitle={getServerLabel()}
                 headerRight={() => (
                     <Pressable
                         onPress={() => router.push('/onboarding/settings')}

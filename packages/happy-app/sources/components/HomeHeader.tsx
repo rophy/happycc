@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Header } from './navigation/Header';
 import { Platform, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { getServerInfo } from '@/sync/serverConfig';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -12,6 +12,10 @@ import { HomeHeaderTitle } from './HomeHeaderTitle';
 import { OnboardingHeader } from './onboarding/OnboardingHeader';
 
 const HEADER_LOGO_SIZE = 19;
+
+function formatServer(info: { hostname: string; port?: number }): string {
+    return info.hostname + (info.port ? `:${info.port}` : '');
+}
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     headerButton: {
@@ -65,17 +69,13 @@ export const HomeHeader = React.memo(() => {
 })
 
 /**
- * The create-account screen's header. No title, no logo, and no socket
- * status: nothing is connected yet, so the only chrome is the server
- * settings action and, for self-hosters, the hostname they are pointed at.
+ * The sign-in screen's header: no title, logo or socket status; only the
+ * server this build signs in to.
  */
 export const HomeHeaderNotAuth = React.memo(() => {
-    useSegments(); // Re-rendered automatically when screen navigates back
-    const serverInfo = getServerInfo();
     return (
         <OnboardingHeader
-            subtitle={serverInfo.isCustom ? serverInfo.hostname + (serverInfo.port ? `:${serverInfo.port}` : '') : undefined}
-            headerRight={() => <HeaderRightNotAuth />}
+            subtitle={formatServer(getServerInfo())}
         />
     )
 });
@@ -97,26 +97,6 @@ function HeaderRight() {
         >
             <Ionicons name="add-outline" size={28} color={theme.colors.header.tint} />
             <ShortcutHintBadge shortcutKey="N" style={styles.headerShortcutBadge} />
-        </Pressable>
-    );
-}
-
-function HeaderRightNotAuth() {
-    const router = useRouter();
-    const { theme } = useUnistyles();
-    const styles = stylesheet;
-
-    // Same gear the signed-in home uses: this is a settings action, and the
-    // server-rack glyph named an object most people have never seen.
-    return (
-        <Pressable
-            onPress={() => router.push('/server')}
-            hitSlop={15}
-            accessibilityRole="button"
-            accessibilityLabel={t('server.title')}
-            style={styles.headerButton}
-        >
-            <Ionicons name="settings-outline" size={22} color={theme.colors.header.tint} />
         </Pressable>
     );
 }

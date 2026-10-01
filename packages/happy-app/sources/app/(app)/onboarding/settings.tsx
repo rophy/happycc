@@ -1,30 +1,21 @@
 import * as React from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useAuth } from '@/auth/AuthContext';
-import { getServerInfo } from '@/sync/serverConfig';
+import { getServerLabel } from '@/sync/serverConfig';
 import { Modal } from '@/modal';
 import { t } from '@/text';
 
 /**
- * The gear on the link-your-computer screen. Two things a person might need
- * before a computer is linked: point at a different server, or throw the
- * account away and start again. Logging out here is safe: nothing is linked
- * to the account yet, so there is nothing to lose.
+ * The gear on the link-your-computer screen: which server this account lives on, and a way to throw the account away and start again.
  */
 export default function OnboardingSettingsScreen() {
     const { theme } = useUnistyles();
-    const router = useRouter();
     const auth = useAuth();
-    useSegments(); // Re-render on return so a changed server shows.
-    const serverInfo = getServerInfo();
-    const serverLabel = serverInfo.isCustom
-        ? serverInfo.hostname + (serverInfo.port ? `:${serverInfo.port}` : '')
-        : t('onboarding.settingsServerDefault');
 
     const logout = React.useCallback(async () => {
         const confirmed = await Modal.confirm(
@@ -51,10 +42,9 @@ export default function OnboardingSettingsScreen() {
                 <ItemGroup>
                     <Item
                         title={t('onboarding.settingsServer')}
-                        detail={serverLabel}
+                        detail={getServerLabel()}
                         icon={<Ionicons name="server-outline" size={28} color={theme.colors.textSecondary} />}
-                        showChevron={true}
-                        onPress={() => router.push('/server')}
+                        showChevron={false}
                     />
                 </ItemGroup>
                 <ItemGroup footer={t('onboarding.logoutFooter')}>

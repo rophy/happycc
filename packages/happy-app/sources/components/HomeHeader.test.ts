@@ -42,10 +42,7 @@ vi.mock('expo-router', () => ({
     useSegments: () => [],
 }));
 
-vi.mock('@/sync/serverConfig', () => ({
-    getServerInfo: () => ({ isCustom: true, hostname: '192.168.0.108', port: 3005 }),
-    isUsingCustomServer: () => true,
-}));
+vi.mock('@/sync/serverConfig', () => ({ getServerInfo: () => ({ hostname: '192.168.0.108', port: 3005 }) }));
 
 vi.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 59 }) }));
 vi.mock('@/utils/responsive', () => ({ useIsTablet: () => false }));
@@ -177,11 +174,10 @@ describe('HomeHeaderNotAuth', () => {
         expect(texts).not.toContain('status.disconnected');
     });
 
-    it('opens server settings from a gear, not a server-rack glyph', () => {
+    it('offers no server picker', () => {
         const renderer = render(React.createElement(HomeHeaderNotAuth));
         const header = renderer.root.findByType('Header' as any);
-        const right = render(header.props.headerRight());
-        expect(right.root.findByType('Ionicons' as any).props.name).toBe('settings-outline');
+        expect(header.props.headerRight).toBeUndefined();
     });
 });
 

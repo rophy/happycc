@@ -1,22 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from '@react-navigation/native';
-import { Typography } from '@/constants/Typography';
-import { formatSecretKeyForBackup } from '@/auth/secretKeyBackup';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Modal } from '@/modal';
 import { t } from '@/text';
-import { layout } from '@/components/layout';
 import { useSettingMutable, useProfile } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { useUnistyles } from 'react-native-unistyles';
 import { Switch } from '@/components/Switch';
-import { useConnectAccount } from '@/hooks/useConnectAccount';
 import { getDisplayName } from '@/sync/profile';
 import { Image } from 'expo-image';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -103,10 +97,7 @@ function buildPushTokenSubtitle(pushToken: PushToken, options: {
 export default React.memo(() => {
     const { theme } = useUnistyles();
     const auth = useAuth();
-    const [showSecret, setShowSecret] = useState(false);
-    const [copiedRecently, setCopiedRecently] = useState(false);
     const [analyticsOptOut, setAnalyticsOptOut] = useSettingMutable('analyticsOptOut');
-    const { connectAccount, isLoading: isConnecting } = useConnectAccount();
     const profile = useProfile();
     const currentPushDevice = useMemo(() => getCurrentPushDeviceMetadata(), []);
     const [pushTokens, setPushTokens] = useState<PushToken[]>([]);
@@ -116,10 +107,6 @@ export default React.memo(() => {
     const [requestingPushPermission, setRequestingPushPermission] = useState(false);
     const [refreshingPushToken, setRefreshingPushToken] = useState(false);
     const [deletingPushToken, setDeletingPushToken] = useState<string | null>(null);
-
-    // Get the current secret key
-    const currentSecret = auth.credentials?.secret || '';
-    const formattedSecret = currentSecret ? formatSecretKeyForBackup(currentSecret) : '';
 
     // Profile display values
     const displayName = getDisplayName(profile);
@@ -194,21 +181,6 @@ export default React.memo(() => {
             } finally {
                 setDisconnectingService(null);
             }
-        }
-    };
-
-    const handleShowSecret = () => {
-        setShowSecret(!showSecret);
-    };
-
-    const handleCopySecret = async () => {
-        try {
-            await Clipboard.setStringAsync(formattedSecret);
-            setCopiedRecently(true);
-            setTimeout(() => setCopiedRecently(false), 2000);
-            Modal.alert(t('common.success'), t('settingsAccount.secretKeyCopied'));
-        } catch (error) {
-            Modal.alert(t('common.error'), t('settingsAccount.secretKeyCopyFailed'));
         }
     };
 
@@ -330,16 +302,6 @@ export default React.memo(() => {
                         showChevron={false}
                         copy={!!sync.serverID}
                     />
-                    {Platform.OS !== 'web' && (
-                        <Item
-                            title={t('settingsAccount.linkNewDevice')}
-                            subtitle={isConnecting ? t('common.scanning') : t('settingsAccount.linkNewDeviceSubtitle')}
-                            icon={<Ionicons name="qr-code-outline" size={29} color="#007AFF" />}
-                            onPress={connectAccount}
-                            disabled={isConnecting}
-                            showChevron={false}
-                        />
-                    )}
                 </ItemGroup>
 
                 {/* Profile Section */}
@@ -422,62 +384,6 @@ export default React.memo(() => {
                         </ItemGroup>
                     );
                 })()}
-
-                {/* Backup Section */}
-                <ItemGroup
-                    title={t('settingsAccount.backup')}
-                    footer={t('settingsAccount.backupDescription')}
-                >
-                    <Item
-                        title={t('settingsAccount.secretKey')}
-                        subtitle={showSecret ? t('settingsAccount.tapToHide') : t('settingsAccount.tapToReveal')}
-                        icon={<Ionicons name={showSecret ? "eye-off-outline" : "eye-outline"} size={29} color="#FF9500" />}
-                        onPress={handleShowSecret}
-                        showChevron={false}
-                    />
-                </ItemGroup>
-
-                {/* Secret Key Display */}
-                {showSecret && (
-                    <ItemGroup>
-                        <Pressable onPress={handleCopySecret}>
-                            <View style={{
-                                backgroundColor: Platform.select({ web: theme.colors.surface, default: 'transparent' }),
-                                paddingHorizontal: 16,
-                                paddingVertical: 14,
-                                width: '100%',
-                                maxWidth: layout.maxWidth,
-                                alignSelf: 'center'
-                            }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                    <Text style={{
-                                        fontSize: 11,
-                                        color: theme.colors.textSecondary,
-                                        letterSpacing: 0.5,
-                                        textTransform: 'uppercase',
-                                        ...Typography.default('semiBold')
-                                    }}>
-                                        {t('settingsAccount.secretKeyLabel')}
-                                    </Text>
-                                    <Ionicons
-                                        name={copiedRecently ? "checkmark-circle" : "copy-outline"}
-                                        size={18}
-                                        color={copiedRecently ? "#34C759" : theme.colors.textSecondary}
-                                    />
-                                </View>
-                                <Text style={{
-                                    fontSize: 13,
-                                    letterSpacing: 0.5,
-                                    lineHeight: 20,
-                                    color: theme.colors.text,
-                                    ...Typography.mono()
-                                }}>
-                                    {formattedSecret}
-                                </Text>
-                            </View>
-                        </Pressable>
-                    </ItemGroup>
-                )}
 
                 {/* Analytics Section */}
                 <ItemGroup
