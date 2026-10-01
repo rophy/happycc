@@ -192,6 +192,28 @@ callback returns to the build's configured scheme (see §3 Mobile builds).
 The exchange-code PKCE binding prevents another app that intercepts the
 custom-scheme redirect from redeeming the code.
 
+### happy-agent (remote control CLI)
+
+`happy-agent` reads history of sessions other machines created, so it needs
+the account root secret, not the CLI's public-key bundle. It signs in with a
+loopback authorization-code flow (RFC 8252):
+
+1. Starts a one-shot listener on `http://127.0.0.1:<random port>/callback`,
+   generates a PKCE verifier and an ephemeral box keypair, and opens (and
+   prints) `GET /v1/auth/oidc/login?client=loopback&code_challenge=…&redirect_uri=…`.
+2. The server accepts only loopback IP literals (`127.0.0.1`, `[::1]`), any
+   port, path `/callback`; after the IdP it redirects to
+   `${redirect_uri}?code=<exchangeCode>`.
+3. The agent calls `POST /v1/auth/oidc/exchange` exactly like the web app and
+   receives the root secret in `keyBundle`. The device is recorded with kind
+   `agent` and is revocable like any other.
+
+Credentials live in `~/.happy/agent.key` as `{token, refreshToken, secret}`
+(mode 0600, written atomically under a lock); `happy resume` in the CLI reads
+the same file. Token refresh, the single 401 retry and socket auth follow the
+CLI rules. `happy-agent auth logout` revokes the device on the server, then
+deletes the file.
+
 ### Refresh
 
 `POST /v1/auth/refresh {refreshToken}` → new access token, rotated
@@ -254,8 +276,9 @@ credentials.
 - CLI: `happy://terminal` QR generation, the mobile/web auth method
   picker, web-auth URL, legacy `/v1/auth` helper, `/v1/auth/request`
   polling, `happy auth desktop`, and `happy server`.
-- Other packages still calling the removed endpoints (`happy-agent`,
-  `happy-mobile-gym`) are migrated in a later plan.
+- `happy-mobile-gym` (local mobile dev harness) is removed, with the app's
+  `EXPO_PUBLIC_HARNESS_MODE` server-URL pinning; mobile automation will use
+  the compose stack instead.
 
 ## 3. Hardening, integrations, packaging
 
@@ -352,5 +375,5 @@ All automated levels above run in CI.
 - Admin UI, RBAC, group-based allowlists, content audit views.
 - KMS-backed `keyVault` (interface only).
 - Migrating existing keypair accounts.
-- CLI loopback + PKCE login (possible later addition).
+- Loopback + PKCE login for `happy` itself (it is used only by `happy-agent`).
 - Mobile app distribution tooling.
