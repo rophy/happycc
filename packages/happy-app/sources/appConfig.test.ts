@@ -86,6 +86,11 @@ describe('buildExpoConfig', () => {
         expect(expo.web.favicon).toBe('./acme/assets/favicon.png');
     });
 
+    it('takes the slug from APP_SLUG, defaulting to happy', () => {
+        expect(buildExpoConfig(production).expo.slug).toBe('happy');
+        expect(buildExpoConfig({ ...production, APP_SLUG: 'acme-happy' }).expo.slug).toBe('acme-happy');
+    });
+
     it('rejects an unknown APP_ENV', () => {
         expect(() => buildExpoConfig({ APP_ENV: 'staging' })).toThrow(/Unknown APP_ENV "staging"/);
     });

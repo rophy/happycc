@@ -36,6 +36,7 @@ function buildExpoConfig(env, buildMetadata = {}) {
     }
 
     const name = value(env, 'APP_NAME') || defaults.name;
+    const slug = value(env, 'APP_SLUG') || 'happy';
     const bundleId = value(env, 'APP_BUNDLE_ID') || defaults.bundleId;
     const scheme = value(env, 'APP_SCHEME') || defaults.scheme;
     const linksHost = value(env, 'APP_LINKS_HOST');
@@ -47,7 +48,7 @@ function buildExpoConfig(env, buildMetadata = {}) {
 
     const expo = {
         name,
-        slug: 'happy',
+        slug,
         version: '1.8.0',
         runtimeVersion: '21',
         orientation: 'default',
