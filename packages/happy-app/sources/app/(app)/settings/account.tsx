@@ -116,7 +116,7 @@ export default React.memo(() => {
     const githubUsername = profile.github?.login;
 
     const loadPushSettings = useCallback(async (showError = false) => {
-        if (!auth.credentials) {
+        if (!auth.credentials || !pushEnabled) {
             setPushTokens([]);
             setPushPermission(null);
             setCurrentPushToken(null);
@@ -141,7 +141,7 @@ export default React.memo(() => {
         } finally {
             setLoadingPushSettings(false);
         }
-    }, [auth.credentials]);
+    }, [auth.credentials, pushEnabled]);
 
     useEffect(() => {
         void loadPushSettings();
