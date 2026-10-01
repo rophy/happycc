@@ -13,6 +13,15 @@ export type RefetchedState = {
     agentStateVersion: number;
 };
 
+export type CatchUpMessage = {
+    id: string;
+    seq: number;
+    content: unknown;
+    localId: string | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
 export type SessionClientOptions = {
     sessionId: string;
     encryptionKey: Uint8Array;
@@ -25,6 +34,13 @@ export type SessionClientOptions = {
      *  version that isn't newer than what's cached, just leave the cached state as-is
      *  until the next socket update arrives. */
     refetchState?: () => Promise<RefetchedState | null>;
+    /** Called after the socket reconnects, to catch up on messages missed while
+     *  disconnected (e.g. the turn-end event for a turn that finished during the gap).
+     *  Returned messages are deduplicated against what's already been seen and replayed
+     *  through the same handling as a live message, so a pending `waitForTurnCompletion`
+     *  still sees the turn end. Best-effort: errors just leave it to the state catch-up
+     *  (`refetchState`) or the next live update. */
+    refetchMessages?: () => Promise<CatchUpMessage[]>;
     /** Test hooks: base/cap for the reconnect backoff, and the grace period before a
      *  disconnect that never reconnects fails pending waits. Defaults match production. */
     reconnectBaseDelayMs?: number;
@@ -113,8 +129,10 @@ export class SessionClient extends EventEmitter {
     private metadataVersion = 0;
     private agentState: unknown | null = null;
     private agentStateVersion = 0;
+    private lastSeenSeq = 0;
 
     private readonly refetchState?: () => Promise<RefetchedState | null>;
+    private readonly refetchMessages?: () => Promise<CatchUpMessage[]>;
     private readonly reconnectBaseDelayMs: number;
     private readonly reconnectMaxDelayMs: number;
     private readonly disconnectGraceMs: number;
@@ -134,6 +152,7 @@ export class SessionClient extends EventEmitter {
             this.agentState = opts.initialAgentState;
         }
         this.refetchState = opts.refetchState;
+        this.refetchMessages = opts.refetchMessages;
         this.reconnectBaseDelayMs = opts.reconnectBaseDelayMs ?? 1_000;
         this.reconnectMaxDelayMs = opts.reconnectMaxDelayMs ?? 30_000;
         this.disconnectGraceMs = opts.disconnectGraceMs ?? 60_000;
@@ -215,7 +234,7 @@ export class SessionClient extends EventEmitter {
                         decodeBase64(msg.content.c),
                     );
                     if (decrypted === null) return;
-                    this.emit('message', {
+                    this.emitMessageIfNew({
                         id: msg.id,
                         seq: msg.seq,
                         content: decrypted,
@@ -428,8 +447,16 @@ export class SessionClient extends EventEmitter {
                 sawNonReadyMessage = true;
             };
 
-            const onStateChange = () => {
-                if (!sawActivity || sawTurnStart) {
+            const onStateChange = (payload?: { viaReconnect?: boolean }) => {
+                if (!sawActivity) {
+                    return;
+                }
+                // Normally, once a turn has started, only an explicit turn-end message
+                // (handled in onMessage above) counts as completion — idle state can lag
+                // or race. But a state-change from the post-reconnect catch-up is a fresh
+                // REST snapshot taken *after* the gap, not a live push that might race the
+                // turn-end message; if it says idle, trust it even mid-turn.
+                if (sawTurnStart && !payload?.viaReconnect) {
                     return;
                 }
 
@@ -514,8 +541,44 @@ export class SessionClient extends EventEmitter {
         }
     }
 
+    /** Shared by the live 'update' handler and the post-reconnect message catch-up, so a
+     *  replayed message runs through the exact same `waitForTurnCompletion` detection as
+     *  a live one. Deduplicates by `seq` — the server assigns it as a strictly increasing
+     *  per-session counter, so the catch-up fetch can safely overlap with messages the
+     *  live socket already delivered. */
+    private emitMessageIfNew(message: CatchUpMessage): void {
+        if (message.seq <= this.lastSeenSeq) return;
+        this.lastSeenSeq = message.seq;
+        this.emit('message', message);
+    }
+
     private async catchUpAfterReconnect(): Promise<void> {
+        if (this.closed) return;
+
+        // Replay any message missed while disconnected (e.g. the turn-end for a turn
+        // that finished during the gap) through the normal message handling, so a
+        // pending waitForTurnCompletion can still detect it precisely.
+        if (this.refetchMessages) {
+            let messages: CatchUpMessage[] | null;
+            try {
+                messages = await this.refetchMessages();
+            } catch {
+                messages = null;
+            }
+            if (this.closed) return;
+            if (messages) {
+                const missed = messages
+                    .filter((m) => m.seq > this.lastSeenSeq)
+                    .sort((a, b) => a.seq - b.seq);
+                for (const message of missed) {
+                    this.emitMessageIfNew(message);
+                }
+            }
+        }
+
+        if (this.closed) return;
         if (!this.refetchState) return;
+
         let fresh: RefetchedState | null;
         try {
             fresh = await this.refetchState();
@@ -523,6 +586,7 @@ export class SessionClient extends EventEmitter {
             // Best-effort: keep serving cached state until the next socket update.
             return;
         }
+        if (this.closed) return;
         if (!fresh) return;
 
         let changed = false;
@@ -537,9 +601,13 @@ export class SessionClient extends EventEmitter {
             changed = true;
         }
         if (changed) {
+            // `viaReconnect` lets waitForTurnCompletion trust a re-fetched idle state as
+            // completion even after it has seen a turn-start — unlike a live update, there's
+            // no better signal left once we're relying on a REST snapshot taken after the gap.
             this.emit('state-change', {
                 metadata: this.metadata,
                 agentState: this.agentState,
+                viaReconnect: true,
             });
         }
     }

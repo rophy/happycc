@@ -57,6 +57,16 @@ function createClient(session: DecryptedSession, tokens: TokenSource, config: Co
         tokens,
         serverUrl: config.serverUrl,
         initialAgentState: session.agentState ?? null,
+        // Catches up on any message missed while the socket was down for a reconnect
+        // (e.g. the turn-end for a turn that finished during the 60s-after-expiry
+        // disconnect), instead of only trusting the next live update.
+        refetchMessages: async () => {
+            try {
+                return await getSessionMessages(config, creds, tokens, session.id, session.encryption);
+            } catch {
+                return [];
+            }
+        },
         // Catches up on anything the server pushed while the socket was down for a
         // reconnect (e.g. the 60s-after-expiry disconnect), instead of only trusting
         // the next live update.

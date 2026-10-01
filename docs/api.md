@@ -19,18 +19,19 @@ one of the flows below. Full design, including the confirmation pages and
 security rationale, is in
 `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 
-- `GET /v1/auth/oidc/login?client=<web|loopback|mobile|device>&...`
+- `GET /v1/auth/oidc/login?client=<web|mobile|loopback|activate>&...`
   - Redirects to the IdP. `loopback` (happy-agent) and `mobile` require
-    `code_challenge` + `redirect_uri`; the CLI instead starts the device
-    flow below.
+    `code_challenge` + `redirect_uri`; `activate` is the CLI device-flow
+    approval page, not a separate `device` client value.
   - `503 { error: 'idp_unavailable' }` while IdP discovery hasn't
     succeeded yet.
 
 - `GET /v1/auth/oidc/callback`
-  - IdP redirect target. For `web`/`device`, redirects with an exchange
-    code. For `loopback`/`mobile`, redirects to a CSRF-protected
-    confirmation page (`/v1/auth/oidc/loopback/confirm` or
-    `/v1/auth/oidc/mobile/confirm`) before any code is issued.
+  - IdP redirect target. For `web`/`activate`, redirects with an exchange
+    code (or, for `activate`, to `/activate`). For `loopback`/`mobile`,
+    redirects to a CSRF-protected confirmation page
+    (`/v1/auth/oidc/loopback/confirm` or `/v1/auth/oidc/mobile/confirm`)
+    before any code is issued.
 
 - `POST /v1/auth/oidc/exchange`
   - Body: `{ code, codeVerifier, ephemeralPublicKey, deviceName? }`

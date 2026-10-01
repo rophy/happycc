@@ -960,6 +960,64 @@ describe('SessionClient', () => {
             client.close();
         });
 
+        it('replays a message missed during a disconnect so a pending waitForTurnCompletion still resolves', async () => {
+            let fetchCount = 0;
+            const missedMessages = [
+                {
+                    id: 'msg-turn-start',
+                    seq: 1,
+                    content: { role: 'session', content: { turn: 'turn-1', ev: { t: 'turn-start' } } },
+                    localId: null,
+                    createdAt: 1_000,
+                    updatedAt: 1_000,
+                },
+                {
+                    id: 'msg-turn-end',
+                    seq: 2,
+                    content: { role: 'session', content: { turn: 'turn-1', ev: { t: 'turn-end', status: 'completed' } } },
+                    localId: null,
+                    createdAt: 2_000,
+                    updatedAt: 2_000,
+                },
+            ];
+            const opts = makeOptions({
+                reconnectBaseDelayMs: 5,
+                disconnectGraceMs: 5_000,
+                refetchMessages: async () => {
+                    fetchCount++;
+                    return missedMessages;
+                },
+            });
+            const client = new SessionClient(opts);
+            await new Promise((r) => setTimeout(r, 0));
+
+            // The turn-start arrives live, before the disconnect.
+            mockSocketInstance!.simulateServerEvent('update', makeEncryptedUpdate(
+                opts.encryptionKey,
+                opts.encryptionVariant,
+                { role: 'session', content: { turn: 'turn-1', ev: { t: 'turn-start' } } },
+                opts.sessionId,
+                { id: 'msg-turn-start', seq: 1 },
+            ));
+
+            const completion = client.waitForTurnCompletion(5_000);
+
+            // The server cuts the socket mid-turn (e.g. the 60s-after-expiry disconnect).
+            // The turn finishes during the gap — nothing is there to receive the live
+            // turn-end message.
+            mockSocketInstance!.serverDisconnect();
+
+            // Let the client's scheduled reconnect fire, the mock socket reconnect, and the
+            // resulting message catch-up run.
+            await new Promise((r) => setTimeout(r, 30));
+            expect(mockSocketInstance!.connected).toBe(true);
+            expect(fetchCount).toBeGreaterThan(0);
+
+            await completion;
+
+            client.close();
+        });
+
         it('rejects a pending wait promptly when the token store is logged out, without waiting for the grace period', async () => {
             const { LoggedOutError } = await import('./tokenStore');
             const client = new SessionClient(makeOptions({
