@@ -9,7 +9,7 @@ export function parseToken(token: string) {
     const [header, payload, signature] = parts;
 
     try {
-        const sub = JSON.parse(decodeUTF8(decodeBase64(payload))).sub;
+        const sub = JSON.parse(decodeUTF8(decodeBase64(payload, 'base64url'))).sub;
         if (typeof sub !== 'string') {
             throw new Error('Invalid token: missing or invalid sub claim');
         }
