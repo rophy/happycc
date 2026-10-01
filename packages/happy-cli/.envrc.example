@@ -12,6 +12,7 @@
 
 export HAPPY_HOME_DIR="$HOME/.happy-dev"
 export HAPPY_VARIANT="dev"
-export HAPPY_SERVER_URL="${HAPPY_SERVER_URL:-https://api.cluster-fluster.com}"
+# Required: point this at your own server. There is no upstream default.
+export HAPPY_SERVER_URL="https://happy.example.com"
 
 echo "🔧 DEV environment activated (data: $HAPPY_HOME_DIR)"
