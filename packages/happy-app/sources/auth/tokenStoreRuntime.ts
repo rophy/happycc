@@ -33,7 +33,8 @@ function webRefreshLock(): WithLock | undefined {
         if (typeof navigator !== 'undefined' && navigator.locks) {
             webLock = <T>(fn: () => Promise<T>) => navigator.locks.request(REFRESH_LOCK_NAME, fn) as Promise<T>;
         } else {
-            // Non-secure origins (plain HTTP) have no navigator.locks; see leaseLock.ts.
+            // Browsers without navigator.locks. (The web app requires a secure context
+            // — HTTPS or localhost — which has it in current browsers; see leaseLock.ts.)
             webLock = createLeaseLock(window.localStorage).withLock;
         }
     }

@@ -32,6 +32,11 @@ export function getAppScheme(): string {
  * system auth session and resolves credentials, or null if the user cancelled.
  */
 export async function signIn(): Promise<AuthCredentials | null> {
+    // PKCE and the key exchange need crypto.subtle, which browsers only expose in a
+    // secure context. Say so instead of failing somewhere inside the redirect.
+    if (Platform.OS === 'web' && !window.isSecureContext) {
+        throw new OidcLoginError('This web app must be served over HTTPS (or localhost).');
+    }
     const serverUrl = getServerUrl();
     const pending = await createPendingLogin();
     if (Platform.OS === 'web') {

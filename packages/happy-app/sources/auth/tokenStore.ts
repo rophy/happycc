@@ -84,10 +84,10 @@ export interface TokenStoreDeps {
     /**
      * Cross-tab mutual exclusion for refresh (web: navigator.locks). When
      * navigator.locks is unavailable, wire `createLeaseLock(...).withLock`
-     * from `./leaseLock` instead (see that module's header comment). Note:
-     * on a non-secure origin (plain HTTP) the lease-lock fallback only
-     * narrows the window for two tabs refreshing concurrently — it doesn't
-     * eliminate it. Deployments should serve the web app over HTTPS.
+     * from `./leaseLock` instead (see that module's header comment); it only
+     * narrows the window for two tabs refreshing concurrently. The web app
+     * must be served over HTTPS (or localhost): sign-in needs crypto.subtle,
+     * which only exists in a secure context, where navigator.locks exists too.
      *
      * Also note: if persisting a rotation fails, this store clears the
      * refresh token it just rotated past (see `persist`'s write-failure
