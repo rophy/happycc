@@ -202,8 +202,12 @@ loopback authorization-code flow (RFC 8252):
    generates a PKCE verifier and an ephemeral box keypair, and opens (and
    prints) `GET /v1/auth/oidc/login?client=loopback&code_challenge=…&redirect_uri=…`.
 2. The server accepts only loopback IP literals (`127.0.0.1`, `[::1]`), any
-   port, path `/callback`; after the IdP it redirects to
-   `${redirect_uri}?code=<exchangeCode>`.
+   port, path `/callback`; after the IdP, instead of issuing a code right
+   away, it shows a CSRF-protected, anti-framed confirmation page naming the
+   redirect port so a crafted login link can't silently hand a code to an
+   attacker's listener, and only on "Allow" redirects to
+   `${redirect_uri}?code=<exchangeCode>` ("Deny" redirects to
+   `${redirect_uri}?error=access_denied`).
 3. The agent calls `POST /v1/auth/oidc/exchange` exactly like the web app and
    receives the root secret in `keyBundle`. The device is recorded with kind
    `agent` and is revocable like any other.

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 export const LOGIN_COOKIE = 'happy_oidc_login';
 export const SESSION_COOKIE = 'happy_session';
+export const LOOPBACK_COOKIE = 'happy_oidc_loopback';
 
 let signingKey: Buffer | null = null;
 let secureCookies = true;

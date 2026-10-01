@@ -143,15 +143,24 @@ describe('OIDC against oidc-mock', () => {
         expect(web.accountId).not.toBe(cliAccountId);
     });
 
-    it('loopback (happy-agent): redirects to 127.0.0.1 and exchanges for the root secret', async () => {
+    it('loopback (happy-agent): confirms, then redirects to 127.0.0.1 and exchanges for the root secret', async () => {
         const verifier = randomBytes(32).toString('base64url');
         const challenge = createHash('sha256').update(verifier).digest('base64url');
         const redirectUri = 'http://127.0.0.1:9/callback';
-        const result = await idpLogin(
-            new HttpBrowser(),
+        const browser = new HttpBrowser();
+        const confirm = await idpLogin(
+            browser,
             `${BASE}/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
             'alice',
-            (url) => url.startsWith('http://127.0.0.1:9/'),
+        );
+        expect(confirm.status).toBe(200);
+        expect(confirm.url).toBe(`${BASE}/v1/auth/oidc/loopback/confirm`);
+        const csrf = /name="csrf" value="([^"]+)"/.exec(confirm.body)![1];
+
+        const result = await browser.postForm(
+            `${BASE}/v1/auth/oidc/loopback/confirm`,
+            { csrf, decision: 'allow' },
+            { stopAt: (url) => url.startsWith('http://127.0.0.1:9/') },
         );
         const location = new URL(result.location!);
         expect(`${location.origin}${location.pathname}`).toBe(redirectUri);

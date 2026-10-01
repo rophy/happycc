@@ -39,6 +39,26 @@ async function login(query: string, subject: string) {
     });
 }
 
+function csrfFrom(html: string): string {
+    return /name="csrf" value="([^"]+)"/.exec(html)![1];
+}
+
+function form(fields: Record<string, string>) {
+    return { 'content-type': 'application/x-www-form-urlencoded', payload: new URLSearchParams(fields).toString() };
+}
+
+/** Full loopback flow through the confirm gate: login → callback → GET confirm page → POST decision. */
+async function loopbackConfirm(query: string, subject: string, decision: 'allow' | 'deny') {
+    const callback = await login(query, subject);
+    expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toBe('/v1/auth/oidc/loopback/confirm');
+    const cookie = cookieHeader(callback);
+    const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/loopback/confirm', headers: { cookie } });
+    expect(confirmPageRes.statusCode).toBe(200);
+    const { payload, ...headers } = form({ csrf: csrfFrom(confirmPageRes.body), decision });
+    return app.inject({ method: 'POST', url: '/v1/auth/oidc/loopback/confirm', headers: { ...headers, cookie }, payload });
+}
+
 describe('oidcRoutes', () => {
     it('web: login → callback → exchange yields tokens and the root secret', async () => {
         const { verifier, challenge } = pkce();
@@ -131,11 +151,13 @@ describe('oidcRoutes', () => {
             url: `/v1/auth/oidc/login?client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('evil://steal')}`,
         });
         expect(res.statusCode).toBe(400);
+        expect(res.json()).toEqual({ error: 'redirect_uri is not allowed' });
     });
 
     it('web: requires a code challenge', async () => {
         const res = await app.inject({ method: 'GET', url: '/v1/auth/oidc/login?client=web' });
         expect(res.statusCode).toBe(400);
+        expect(res.json()).toEqual({ error: 'code_challenge is required' });
     });
 
     it('activate: sets a browser session and returns to /activate', async () => {
@@ -205,12 +227,13 @@ describe('oidcRoutes', () => {
     it('loopback: redirects to the agent listener and records an agent device holding the root secret', async () => {
         const { verifier, challenge } = pkce();
         const redirectUri = 'http://127.0.0.1:53682/callback';
-        const callback = await login(
+        const decided = await loopbackConfirm(
             `client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
             'r-loopback',
+            'allow',
         );
-        expect(callback.statusCode).toBe(302);
-        const location = new URL(callback.headers.location as string);
+        expect(decided.statusCode).toBe(302);
+        const location = new URL(decided.headers.location as string);
         expect(`${location.origin}${location.pathname}`).toBe(redirectUri);
         expect([...location.searchParams.keys()]).toEqual(['code']);
         const code = location.searchParams.get('code')!;
@@ -239,12 +262,53 @@ describe('oidcRoutes', () => {
 
     it('loopback: accepts the IPv6 loopback literal', async () => {
         const { challenge } = pkce();
-        const callback = await login(
+        const decided = await loopbackConfirm(
             `client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('http://[::1]:8123/callback')}`,
             'r-loopback-v6',
+            'allow',
         );
+        expect(decided.statusCode).toBe(302);
+        expect(decided.headers.location as string).toMatch(/^http:\/\/\[::1\]:8123\/callback\?code=/);
+    });
+
+    it('loopback: issues no code until the confirm page is submitted', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'http://127.0.0.1:53683/callback';
+        const callback = await login(`client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`, 'r-loopback-pending');
         expect(callback.statusCode).toBe(302);
-        expect(callback.headers.location as string).toMatch(/^http:\/\/\[::1\]:8123\/callback\?code=/);
+        expect(callback.headers.location).toBe('/v1/auth/oidc/loopback/confirm');
+        const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/loopback/confirm', headers: { cookie: cookieHeader(callback) } });
+        expect(confirmPageRes.statusCode).toBe(200);
+        expect(confirmPageRes.body).toContain('53683');
+        expect(confirmPageRes.body).not.toContain('code=');
+    });
+
+    it('loopback: rejects a confirm decision with an invalid CSRF token', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'http://127.0.0.1:53684/callback';
+        const callback = await login(`client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`, 'r-loopback-badcsrf');
+        const cookie = cookieHeader(callback);
+        const { payload, ...headers } = form({ csrf: 'not-a-valid-token', decision: 'allow' });
+        const res = await app.inject({ method: 'POST', url: '/v1/auth/oidc/loopback/confirm', headers: { ...headers, cookie }, payload });
+        expect(res.statusCode).toBe(403);
+    });
+
+    it('loopback: rejects a confirm decision without the pending cookie', async () => {
+        const { payload, ...headers } = form({ csrf: 'whatever', decision: 'allow' });
+        const res = await app.inject({ method: 'POST', url: '/v1/auth/oidc/loopback/confirm', headers, payload });
+        expect(res.statusCode).toBe(401);
+    });
+
+    it('loopback: deny redirects with error=access_denied and issues no code', async () => {
+        const { challenge } = pkce();
+        const redirectUri = 'http://127.0.0.1:53685/callback';
+        const decided = await loopbackConfirm(
+            `client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+            'r-loopback-deny',
+            'deny',
+        );
+        expect(decided.statusCode).toBe(302);
+        expect(decided.headers.location).toBe(`${redirectUri}?error=access_denied`);
     });
 
     it.each([
@@ -261,16 +325,19 @@ describe('oidcRoutes', () => {
             url: `/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(uri)}`,
         });
         expect(res.statusCode).toBe(400);
+        expect(res.json()).toEqual({ error: 'redirect_uri is not allowed' });
     });
 
     it('loopback: requires a redirect_uri and a code challenge', async () => {
         const { challenge } = pkce();
         const noRedirect = await app.inject({ method: 'GET', url: `/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}` });
         expect(noRedirect.statusCode).toBe(400);
+        expect(noRedirect.json()).toEqual({ error: 'redirect_uri is not allowed' });
         const noChallenge = await app.inject({
             method: 'GET',
             url: `/v1/auth/oidc/login?client=loopback&redirect_uri=${encodeURIComponent('http://127.0.0.1:53682/callback')}`,
         });
         expect(noChallenge.statusCode).toBe(400);
+        expect(noChallenge.json()).toEqual({ error: 'code_challenge is required' });
     });
 });

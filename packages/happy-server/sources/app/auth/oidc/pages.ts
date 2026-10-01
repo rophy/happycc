@@ -49,6 +49,17 @@ export function enterCodePage(opts: { code?: string; error?: string }): string {
 </form>`);
 }
 
+export function loopbackConfirmPage(opts: { port: string; csrf: string }): string {
+    return page('Allow happy-agent?', `
+<p>Allow happy-agent on this computer to access your account? It will be able to read all your sessions.</p>
+<p>Redirect port: <strong>${escapeHtml(opts.port)}</strong></p>
+<form method="post" action="/v1/auth/oidc/loopback/confirm">
+<input type="hidden" name="csrf" value="${escapeHtml(opts.csrf)}">
+<button type="submit" name="decision" value="allow">Allow</button>
+<button type="submit" name="decision" value="deny">Deny</button>
+</form>`);
+}
+
 export function confirmPage(opts: { userCode: string; host: string; os: string; cliVersion: string; csrf: string }): string {
     return page('Authorize terminal?', `
 <p>A terminal is asking to sign in to your account.</p>
