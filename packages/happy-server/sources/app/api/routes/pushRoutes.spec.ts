@@ -220,11 +220,28 @@ describe('POST /v1/sessions/:sessionId/push-event', () => {
 
     it('skips Expo entirely when PUSH_ENABLED is false', async () => {
         const disabled = await buildApp(false);
+        const emit = vi.spyOn(eventRouter, 'emitEphemeral');
         const res = await postPushEvent(disabled);
         expect(res.statusCode).toBe(200);
         expect(res.json()).toEqual({ success: true, result: 'disabled' });
         expect(state.sent).toHaveLength(0);
         expect(dbMock.accountPushToken.findMany).not.toHaveBeenCalled();
+        // The socket ephemeral (in-app tab counter, no third party) is still emitted.
+        expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+            payload: expect.objectContaining({ type: 'session-event', title: "It's ready!", body: 'Open the session to continue.' }),
+        }));
+        emit.mockRestore();
         await disabled.close();
+    });
+
+    it('400s and sends nothing for an unknown kind', async () => {
+        const res = await app.inject({
+            method: 'POST',
+            url: `/v1/sessions/${SESSION}/push-event`,
+            headers: { authorization: 'Bearer t' },
+            payload: { kind: 'bogus' },
+        });
+        expect(res.statusCode).toBe(400);
+        expect(state.sent).toHaveLength(0);
     });
 });

@@ -49,6 +49,7 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
   - Voice is available to every signed-in user. There are no subscriptions.
   - Optional `VOICE_MONTHLY_LIMIT_MINUTES` caps each user over the rolling 30 days ElevenLabs reports. Unset means no cap.
 - Push notifications: Expo push, on by default; `PUSH_ENABLED=false` turns it off. Pushes are content-free: a fixed title per event (`It's ready!`, `Permission request`, `Clarification needed`), the body `Open the session to continue.`, and data `{ sessionId, kind, url }`. Client-supplied text is ignored. Delivery to your own app builds needs your EAS project, APNs key and FCM credentials.
+  - CLI releases before this fork (e.g. `happy notify`) could send pushes directly to Expo using tokens from `GET /v1/push-tokens`; deploy only this fork's clients.
 - Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).
 
 ## Docker image
