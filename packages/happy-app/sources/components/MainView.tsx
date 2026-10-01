@@ -234,10 +234,6 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
         );
     }
 
-    if (activeTab === 'settings') {
-        return Platform.OS === 'web' ? <View style={styles.headerButton} /> : null;
-    }
-
     return null;
 });
 

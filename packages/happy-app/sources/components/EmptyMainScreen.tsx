@@ -60,67 +60,6 @@ const stylesheet = StyleSheet.create((theme) => ({
     terminalTextFirst: {
         marginBottom: 8,
     },
-    stepsContainer: {
-        marginTop: 12,
-        marginHorizontal: 24,
-        marginBottom: 48,
-        width: 250,
-    },
-    stepRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    stepRowLast: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    stepNumber: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: Platform.select({ web: theme.colors.surfaceHigh, default: theme.colors.surfaceHighest }),
-        borderWidth: Platform.OS === 'web' ? 0 : 1,
-        borderColor: theme.colors.divider,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    stepNumberText: {
-        ...Typography.default('semiBold'),
-        fontSize: 14,
-        color: theme.colors.text,
-    },
-    stepText: {
-        ...Typography.default(),
-        fontSize: 18,
-        color: theme.colors.textSecondary,
-    },
-    buttonsContainer: {
-        alignItems: 'center',
-        width: '100%',
-    },
-    buttonWrapper: {
-        width: 240,
-        marginBottom: 12,
-    },
-    manualUrlButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 7,
-        minHeight: 40,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-    },
-    manualUrlButtonPressed: {
-        backgroundColor: theme.colors.surfacePressedOverlay,
-    },
-    manualUrlButtonText: {
-        fontSize: 15,
-        color: theme.colors.textSecondary,
-        ...Typography.default('semiBold'),
-    },
     secondaryAction: {
         minHeight: 40,
         marginTop: 4,
