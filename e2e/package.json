@@ -1,0 +1,11 @@
+{
+  "name": "happy-e2e",
+  "private": true,
+  "description": "Playwright end-to-end tests against the docker compose stack (docker compose --profile e2e up -d --build).",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
