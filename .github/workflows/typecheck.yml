@@ -34,3 +34,15 @@ jobs:
 
             - name: TypeScript typecheck
               run: pnpm --filter happy-app typecheck
+
+            # The auth-related unit tests (spec §4 "Unit (app)"). The full app suite
+            # is not green upstream (sessionPresentation.test.ts fails at import), so
+            # these files run explicitly.
+            - name: App auth unit tests
+              run: >-
+                  pnpm --filter happy-app exec vitest run
+                  sources/auth
+                  sources/appConfig.test.ts
+                  sources/utils/parseToken.test.ts
+                  sources/sync/serverUrl.test.ts
+                  sources/sync/apiSocket.auth.test.ts
