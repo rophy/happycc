@@ -45,8 +45,9 @@ export const TokenStorage = {
         if (!raw || parseStoredCredentials(raw)) {
             return false;
         }
-        await TokenStorage.removeCredentials();
-        return true;
+        // Only report success when the delete worked: the caller wipes local data and
+        // reloads, and a failed delete would otherwise reload forever.
+        return await TokenStorage.removeCredentials();
     },
 
     async setCredentials(credentials: AuthCredentials): Promise<boolean> {

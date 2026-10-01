@@ -40,6 +40,8 @@ eas build --platform all
   other redirect URI.
 - `WEBAPP_URL` is the origin the web app is served from, e.g.
   `https://happy.example.com`. Web sign-in returns to `${WEBAPP_URL}/auth/callback`.
+- `AUTH_ACCESS_TOKEN_TTL` must stay well above the clients' 2-minute refresh margin
+  (5m or more; default 15m). At 2 minutes or less, clients refresh on every request.
 
 ## Web app
 
