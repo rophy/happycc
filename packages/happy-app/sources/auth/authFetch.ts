@@ -12,12 +12,26 @@ let provider: AccessTokenProvider | null = null;
  * LoggedOutError before we ever look at their origin.
  */
 let lastKnownServerUrl: string | null = null;
+/**
+ * A pure accessor for the app's configured server URL (e.g. `getServerUrl` from
+ * `sources/sync/serverConfig.ts`), injected by the runtime at startup — *before* any
+ * provider has ever been set — so other-origin requests pass through even on an app's
+ * very first, signed-out request. Injected rather than imported directly because the
+ * real `serverConfig.ts` pulls in `react-native-mmkv`, which would break this module's
+ * importability under vitest (see the global constraints on pure modules).
+ */
+let configuredServerUrl: (() => string) | null = null;
 
 export function setAccessTokenProvider(next: AccessTokenProvider | null): void {
     provider = next;
     if (next) {
         lastKnownServerUrl = next.serverUrl();
     }
+}
+
+/** Runtime wiring only (e.g. tokenStoreRuntime.ts); tests should use `staticAccessTokenProvider`. */
+export function setServerUrlAccessor(next: (() => string) | null): void {
+    configuredServerUrl = next;
 }
 
 export function getAccessToken(): Promise<string> {
@@ -75,7 +89,7 @@ function isReadableStreamBody(body: BodyInit | null | undefined): boolean {
  */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
     const current = provider;
-    const knownServerUrl = current ? current.serverUrl() : lastKnownServerUrl;
+    const knownServerUrl = current ? current.serverUrl() : (lastKnownServerUrl ?? configuredServerUrl?.() ?? null);
     if (knownServerUrl !== null && !sameOrigin(url, knownServerUrl)) {
         return fetch(url, init);
     }

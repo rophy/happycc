@@ -12,6 +12,7 @@ export const RETRY_AFTER_ERROR_MS = 30_000;
 const MIN_TIMER_MS = 5_000;
 const DEFAULT_REFRESH_TIMEOUT_MS = 10_000;
 const DEFAULT_LOGOUT_TIMEOUT_MS = 5_000;
+const STOP_AND_SETTLE_TIMEOUT_MS = 6_000;
 
 export interface StoredCredentials {
     token: string;
@@ -78,7 +79,17 @@ export interface TokenStoreDeps {
     /**
      * Cross-tab mutual exclusion for refresh (web: navigator.locks). When
      * navigator.locks is unavailable, wire `createLeaseLock(...).withLock`
-     * from `./leaseLock` instead (see that module's header comment).
+     * from `./leaseLock` instead (see that module's header comment). Note:
+     * on a non-secure origin (plain HTTP) the lease-lock fallback only
+     * narrows the window for two tabs refreshing concurrently — it doesn't
+     * eliminate it. Deployments should serve the web app over HTTPS.
+     *
+     * Also note: if persisting a rotation fails, this store clears the
+     * refresh token it just rotated past (see `persist`'s write-failure
+     * branch) so other tabs don't redeem a token the server already retired.
+     * A tab that was mid-request against that same token will see it gone
+     * and log out locally — a deliberate side effect of favoring "log out"
+     * over "silently retry a dead token" when persistence itself is failing.
      */
     withLock?<T>(fn: () => Promise<T>): Promise<T>;
     fetch?: typeof fetch;
@@ -86,6 +97,13 @@ export interface TokenStoreDeps {
     now?(): number;
     refreshTimeoutMs?: number;
 }
+
+/** Outcome of `POST /v1/auth/refresh`, decided entirely within its timeout window (body included). */
+type RefreshResult =
+    | { kind: 'rotated'; accessToken: string; refreshToken: string }
+    | { kind: 'invalid_grant' }
+    | { kind: 'http_error'; status: number }
+    | { kind: 'invalid_response' };
 
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
@@ -99,8 +117,14 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export class TokenStore implements AccessTokenProvider {
     private credentials: StoredCredentials;
-    /** A rotation the server already issued but storage rejected. Never re-send the older refresh token. */
-    private pendingRotation: StoredCredentials | null = null;
+    /**
+     * A rotation the server already issued but storage rejected. `supersedes`
+     * is the refresh token this pair replaced — remembered so a retry can
+     * tell "storage still has what we rotated past" (ours, keep retrying;
+     * never adopt it back) apart from "storage has something else" (another
+     * tab's write, worth adopting or reloading for).
+     */
+    private pendingRotation: { supersedes: string; rotated: StoredCredentials } | null = null;
     private inflight: Promise<string> | null = null;
     private timer: ReturnType<typeof setTimeout> | null = null;
     private stopped = false;
@@ -236,7 +260,11 @@ export class TokenStore implements AccessTokenProvider {
     async stopAndSettle(): Promise<void> {
         this.stop();
         if (this.inflight) {
-            await this.inflight.catch(() => {});
+            // Bounded independently of refreshTimeoutMs: logout must never hang even if
+            // the in-flight refresh's own network/body-read timeout is longer than this.
+            // `stopped` is already true above, so persist() will refuse to write regardless
+            // of whether we actually wait for it here.
+            await withTimeout(this.inflight.catch(() => {}), STOP_AND_SETTLE_TIMEOUT_MS).catch(() => {});
         }
     }
 
@@ -257,7 +285,8 @@ export class TokenStore implements AccessTokenProvider {
             throw new StoppedError();
         }
         if (this.pendingRotation) {
-            const persisted = await this.persist(null, this.pendingRotation);
+            const { supersedes, rotated } = this.pendingRotation;
+            const persisted = await this.persist(supersedes, rotated, { treatMissingAsOurOwnClear: true });
             if (persisted.token !== rejectedToken && this.isFresh(persisted.token)) {
                 return persisted;
             }
@@ -284,7 +313,8 @@ export class TokenStore implements AccessTokenProvider {
         if (!this.pendingRotation) {
             return this.credentials;
         }
-        const persisted = await this.persist(null, this.pendingRotation);
+        const { supersedes, rotated } = this.pendingRotation;
+        const persisted = await this.persist(supersedes, rotated, { treatMissingAsOurOwnClear: true });
         if (this.isFresh(persisted.token)) {
             return persisted;
         }
@@ -292,60 +322,57 @@ export class TokenStore implements AccessTokenProvider {
     }
 
     private async redeem(base: StoredCredentials): Promise<StoredCredentials> {
-        let response: Response;
+        let result: RefreshResult;
         try {
-            response = await this.fetchWithTimeout(`${this.deps.serverUrl()}/v1/auth/refresh`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...this.clientHeader() },
-                body: JSON.stringify({ refreshToken: base.refreshToken }),
-            }, this.deps.refreshTimeoutMs ?? DEFAULT_REFRESH_TIMEOUT_MS);
+            result = await this.performRefreshRequest(base);
         } catch (error) {
             throw new Error(`Token refresh failed: ${error instanceof Error ? error.message : 'network error'}`);
         }
         if (this.stopped) {
             throw new StoppedError();
         }
-        if (response.status === 401) {
-            const body = await response.json().catch(() => null) as { error?: string } | null;
-            if (this.stopped) {
-                throw new StoppedError();
+        if (result.kind === 'invalid_grant') {
+            try {
+                await this.deps.clearIfRefreshToken(base.refreshToken);
+            } catch {
+                // The logout path wipes storage anyway.
             }
-            if (body?.error === 'invalid_grant') {
-                try {
-                    await this.deps.clearIfRefreshToken(base.refreshToken);
-                } catch {
-                    // The logout path wipes storage anyway.
-                }
-                throw new LoggedOutError();
-            }
+            throw new LoggedOutError();
         }
-        if (!response.ok) {
-            throw new Error(`Token refresh failed: HTTP ${response.status}`);
+        if (result.kind === 'http_error') {
+            throw new Error(`Token refresh failed: HTTP ${result.status}`);
         }
-        const data = await response.json() as { accessToken?: unknown; refreshToken?: unknown };
-        if (this.stopped) {
-            throw new StoppedError();
-        }
-        if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') {
+        if (result.kind === 'invalid_response') {
             throw new Error('Token refresh failed: invalid response');
         }
-        const rotated: StoredCredentials = { ...base, token: data.accessToken, refreshToken: data.refreshToken };
-        return this.persist(base.refreshToken, rotated);
+        const rotated: StoredCredentials = { ...base, token: result.accessToken, refreshToken: result.refreshToken };
+        // Storage is only expected to be empty on a retry (treatMissingAsOurOwnClear),
+        // never on this fresh redemption — a null read here means another tab logged out.
+        return this.persist(base.refreshToken, rotated, { treatMissingAsOurOwnClear: false });
     }
 
     /**
      * Compare-and-set persistence: refuses to overwrite storage unless it
-     * still holds `expected` (the refresh token we read before deciding to
-     * write `next`; `null` means "we expect it empty/cleared", used when
-     * retrying a pending rotation). On a mismatch — another tab already
-     * rotated or logged out — follows that external state like
-     * `applyExternalChange` would, instead of clobbering it.
+     * still holds `supersedes` (the refresh token this `next` pair replaces)
+     * or — only when retrying a pending rotation (`treatMissingAsOurOwnClear`)
+     * — is empty (our own earlier best-effort clear). Finding storage still
+     * holding exactly `supersedes` is *not* "another tab rotated" — it's our
+     * own stale state (e.g. a failed write whose clear also failed) — so
+     * that case is never treated as an external change and `next` is never
+     * dropped in favor of re-adopting the token we already rotated past.
+     * Anything else found in storage is a genuine external change, handled
+     * like `applyExternalChange` would (adopt a newer same-account pair, or
+     * stop on a null/different-account read for the *initial* redemption).
      *
-     * Must run inside the same lock as the read that produced `expected`
+     * Must run inside the same lock as the read that produced `supersedes`
      * (the caller's `withLock`), and every await here re-checks `stopped`
      * before touching storage.
      */
-    private async persist(expected: string | null, next: StoredCredentials): Promise<StoredCredentials> {
+    private async persist(
+        supersedes: string,
+        next: StoredCredentials,
+        options: { treatMissingAsOurOwnClear: boolean },
+    ): Promise<StoredCredentials> {
         if (this.stopped) {
             throw new StoppedError();
         }
@@ -355,7 +382,9 @@ export class TokenStore implements AccessTokenProvider {
                 throw new StoppedError();
             }
             const storedRefreshToken = stored?.refreshToken ?? null;
-            if (storedRefreshToken !== expected) {
+            const isOurOwnState = storedRefreshToken === supersedes
+                || (storedRefreshToken === null && options.treatMissingAsOurOwnClear);
+            if (!isOurOwnState) {
                 const outcome = this.applyExternalChange(stored ? JSON.stringify(stored) : null);
                 if (this.stopped) {
                     throw new StoppedError();
@@ -363,9 +392,9 @@ export class TokenStore implements AccessTokenProvider {
                 if (outcome === 'adopted') {
                     return this.credentials;
                 }
-                // 'ignored': storage didn't match what we expected to overwrite, but also
-                // doesn't look like a real external change. Don't lose `next`; keep retrying.
-                this.pendingRotation = next;
+                // 'ignored' (or storage looked external but applyExternalChange didn't act on
+                // it): don't lose `next`; keep it pending and retry later.
+                this.pendingRotation = { supersedes, rotated: next };
                 return next;
             }
         }
@@ -375,15 +404,14 @@ export class TokenStore implements AccessTokenProvider {
             return next;
         } catch {
             // Keep serving `next` from memory and retry persisting it later. Also drop the
-            // now-stale `expected` token from storage so other tabs don't try to redeem it
-            // (the server already rotated past it).
-            this.pendingRotation = next;
-            if (expected !== null) {
-                try {
-                    await this.deps.clearIfRefreshToken(expected);
-                } catch {
-                    // Best effort.
-                }
+            // now-stale `supersedes` token from storage so other tabs don't try to redeem it
+            // (the server already rotated past it) — see the side-effect note on
+            // `TokenStoreDeps.withLock` above.
+            this.pendingRotation = { supersedes, rotated: next };
+            try {
+                await this.deps.clearIfRefreshToken(supersedes);
+            } catch {
+                // Best effort.
             }
             return next;
         }
@@ -426,14 +454,53 @@ export class TokenStore implements AccessTokenProvider {
         return this.deps.clientId ? { 'X-Happy-Client': this.deps.clientId() } : {};
     }
 
-    private async fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+    private fetchImpl(): typeof fetch {
+        return this.deps.fetch ?? ((input: RequestInfo | URL, options?: RequestInit) => fetch(input, options));
+    }
+
+    /**
+     * Runs `run` under both an `AbortController` (so a real `fetch` actually stops
+     * the underlying request) and a hard `withTimeout` ceiling (so the operation is
+     * bounded even against a `fetch`/`Response` stand-in — real or a test double —
+     * that doesn't honor the abort signal, e.g. a `response.json()` that never
+     * settles). Used so the *whole* round trip, including reading and parsing the
+     * response body, happens within the timeout — not just getting headers back.
+     */
+    private requestWithTimeout<T>(timeoutMs: number, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            const fetchImpl = this.deps.fetch ?? ((input: RequestInfo | URL, options?: RequestInit) => fetch(input, options));
-            return await fetchImpl(url, { ...init, signal: controller.signal });
-        } finally {
-            clearTimeout(timer);
-        }
+        const guarded = run(controller.signal).finally(() => clearTimeout(timer));
+        return withTimeout(guarded, timeoutMs);
+    }
+
+    private fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+        return this.requestWithTimeout(timeoutMs, (signal) => this.fetchImpl()(url, { ...init, signal }));
+    }
+
+    /** `POST /v1/auth/refresh`, deciding the outcome (status + parsed body) within the timeout window. */
+    private performRefreshRequest(base: StoredCredentials): Promise<RefreshResult> {
+        const timeoutMs = this.deps.refreshTimeoutMs ?? DEFAULT_REFRESH_TIMEOUT_MS;
+        return this.requestWithTimeout(timeoutMs, async (signal) => {
+            const response = await this.fetchImpl()(`${this.deps.serverUrl()}/v1/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...this.clientHeader() },
+                body: JSON.stringify({ refreshToken: base.refreshToken }),
+                signal,
+            });
+            if (response.status === 401) {
+                const body = await response.json().catch(() => null) as { error?: string } | null;
+                return body?.error === 'invalid_grant'
+                    ? { kind: 'invalid_grant' as const }
+                    : { kind: 'http_error' as const, status: 401 };
+            }
+            if (!response.ok) {
+                return { kind: 'http_error' as const, status: response.status };
+            }
+            const data = await response.json() as { accessToken?: unknown; refreshToken?: unknown };
+            if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') {
+                return { kind: 'invalid_response' as const };
+            }
+            return { kind: 'rotated' as const, accessToken: data.accessToken, refreshToken: data.refreshToken };
+        });
     }
 }

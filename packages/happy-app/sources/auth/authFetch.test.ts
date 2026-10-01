@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { authFetch, getAccessToken, headersToRecord, setAccessTokenProvider, staticAccessTokenProvider } from './authFetch';
+import { authFetch, getAccessToken, headersToRecord, setAccessTokenProvider, setServerUrlAccessor, staticAccessTokenProvider } from './authFetch';
 import { LoggedOutError, type AccessTokenProvider } from './tokenStore';
 
 const SERVER = 'https://happy.test';
 
 afterEach(() => {
     setAccessTokenProvider(null);
+    setServerUrlAccessor(null);
     vi.unstubAllGlobals();
 });
 
@@ -79,6 +80,14 @@ describe('authFetch', () => {
     it('passes other-origin requests through even when nobody is signed in', async () => {
         setAccessTokenProvider(staticAccessTokenProvider('tok-1', SERVER));
         setAccessTokenProvider(null); // signed out; the server's origin is still remembered
+        const fetchMock = stubFetch(200);
+        const response = await authFetch('https://files.test/blob?sig=1');
+        expect(response.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalledWith('https://files.test/blob?sig=1', undefined);
+    });
+
+    it('passes other-origin requests through when no provider has ever been set, using the injected server URL accessor', async () => {
+        setServerUrlAccessor(() => SERVER);
         const fetchMock = stubFetch(200);
         const response = await authFetch('https://files.test/blob?sig=1');
         expect(response.status).toBe(200);

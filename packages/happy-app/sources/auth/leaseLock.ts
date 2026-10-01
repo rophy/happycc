@@ -12,6 +12,12 @@
  *   const withLock = typeof navigator !== 'undefined' && navigator.locks
  *       ? (fn) => navigator.locks.request('happy-auth-refresh', fn)
  *       : createLeaseLock(window.localStorage).withLock;
+ *
+ * Accepted as best-effort: on a non-secure origin (plain HTTP, no `navigator.locks`),
+ * this fallback only narrows the window in which two tabs can end up refreshing
+ * concurrently — it does not eliminate it (localStorage gives no atomic
+ * compare-and-swap). Deployments should serve the web app over HTTPS, where
+ * `navigator.locks` is available and this module isn't needed at all.
  */
 
 export const LEASE_LOCK_KEY = 'happy-auth-refresh-lease';

@@ -381,4 +381,73 @@ describe('TokenStore', () => {
         await store.logoutOnServer(50);
         expect(Date.now() - started).toBeLessThan(2000);
     });
+
+    it('fails a refresh with a non-auth error within the timeout when the response body hangs', async () => {
+        const stale = makeJwt(60);
+        const hangingJsonMock = vi.fn(async () => ({
+            status: 200,
+            ok: true,
+            json: () => new Promise(() => { /* never resolves, and never looks at the abort signal */ }),
+        }));
+        const hangingJsonFetch = hangingJsonMock as unknown as typeof fetch;
+        const storage = memoryStorage(creds(stale));
+        const store = track(new TokenStore(creds(stale), deps(storage, hangingJsonFetch, { refreshTimeoutMs: 50 })));
+
+        const started = Date.now();
+        const error = await store.refresh(stale).catch((e) => e);
+
+        expect(Date.now() - started).toBeLessThan(2000);
+        expect(error).toBeInstanceOf(Error);
+        expect(error).not.toBeInstanceOf(LoggedOutError);
+        expect(storage.write).not.toHaveBeenCalled();
+        expect(storage.state.value).toEqual(creds(stale));
+    });
+
+    it('stopAndSettle resolves within its own bound even if the in-flight refresh body hangs past it', async () => {
+        vi.useFakeTimers();
+        const stale = makeJwt(60);
+        const hangingJsonMock = vi.fn(async () => ({
+            status: 200,
+            ok: true,
+            json: () => new Promise(() => { /* never resolves */ }),
+        }));
+        const hangingJsonFetch = hangingJsonMock as unknown as typeof fetch;
+        const storage = memoryStorage(creds(stale));
+        // refreshTimeoutMs left at its 10s default, intentionally longer than stopAndSettle's
+        // own ~6s bound, so this proves stopAndSettle doesn't just inherit the refresh's timeout.
+        const store = track(new TokenStore(creds(stale), deps(storage, hangingJsonFetch)));
+
+        const pending = store.refresh(stale).catch(() => {});
+        let settled = false;
+        const settle = store.stopAndSettle().then(() => { settled = true; });
+
+        await vi.advanceTimersByTimeAsync(7_000);
+
+        expect(settled).toBe(true);
+        expect(storage.write).not.toHaveBeenCalled();
+        await settle;
+        await pending;
+    });
+
+    it('does not adopt the refresh token it just rotated past when a failed write\'s clear also fails', async () => {
+        const stale = makeJwt(60);
+        const server = rotatingServer();
+        const storage = memoryStorage(creds(stale));
+        storage.write.mockRejectedValueOnce(new Error('quota exceeded'));
+        storage.clearIfRefreshToken.mockRejectedValueOnce(new Error('clear failed too'));
+        const onLoggedOut = vi.fn();
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl, { onLoggedOut })));
+
+        const first = await store.getAccessToken();
+        expect(store.current().refreshToken).toBe('rt-2'); // kept the new pair in memory
+        expect(store.hasPendingRotation()).toBe(true);
+        // The clear also failed, so storage still literally holds 'rt-1' — the token we
+        // already rotated past. That must not be adopted back as current on the next retry.
+        expect(storage.state.value?.refreshToken).toBe('rt-1');
+
+        await store.refresh(first);
+
+        expect(store.current().refreshToken).not.toBe('rt-1');
+        expect(onLoggedOut).not.toHaveBeenCalled();
+    });
 });
