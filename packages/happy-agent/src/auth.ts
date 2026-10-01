@@ -6,6 +6,7 @@ import type { Config } from './config';
 import {
     CREDENTIALS_LOCK_OPTIONS,
     clearCredentials,
+    clearCredentialsIfRefreshToken,
     credentialsLockFile,
     readCredentials,
     type Credentials,
@@ -16,11 +17,17 @@ import { loopbackLogin } from './loopbackLogin';
 
 const LOGOUT_TIMEOUT_MS = 5_000;
 
+/** Mirrors packages/happy-cli/src/utils/browser.ts: never try to spawn a browser headlessly. */
+function shouldOpenBrowser(openBrowser: boolean): boolean {
+    return openBrowser && Boolean(process.stdout.isTTY) && !process.env.CI && !process.env.HEADLESS;
+}
+
 /**
  * Signs in through the browser (OIDC loopback + PKCE). By default it also
- * tries to open the login URL in the user's default browser; if that fails
- * (headless box, no `open` handler, etc.) it keeps going quietly — the URL
- * is always printed too. Pass `openBrowser: false` for `--no-browser`.
+ * tries to open the login URL in the user's default browser (skipped in a
+ * headless/CI environment, or with `openBrowser: false` for `--no-browser`);
+ * if opening fails for any reason it keeps going quietly — the URL is
+ * always printed too.
  */
 export async function authLogin(config: Config, opts?: { openBrowser?: boolean }): Promise<void> {
     const openBrowser = opts?.openBrowser ?? true;
@@ -30,11 +37,16 @@ export async function authLogin(config: Config, opts?: { openBrowser?: boolean }
         io: {
             print: (line) => console.log(line),
             onUrl: async (url) => {
-                if (!openBrowser) {
+                if (!shouldOpenBrowser(openBrowser)) {
                     return;
                 }
                 try {
-                    await open(url);
+                    // `open()` resolves with the spawned child process. Without an
+                    // 'error' listener, a failed spawn (missing xdg-open, WSL
+                    // without powershell.exe, ...) emits an unhandled 'error' that
+                    // would crash the process mid-login.
+                    const child = await open(url);
+                    child.on('error', () => {});
                 } catch {
                     // Best effort only; the URL was already printed to stdout.
                 }
@@ -64,7 +76,18 @@ export async function authLogout(config: Config): Promise<void> {
     const creds = readCredentials(config);
     const revoked = creds ? await revokeOnServer(config, creds) : null;
     if (existsSync(config.credentialPath)) {
-        await withFileLock(credentialsLockFile(config), async () => clearCredentials(config), CREDENTIALS_LOCK_OPTIONS);
+        await withFileLock(credentialsLockFile(config), async () => {
+            if (creds) {
+                // Only clear if the file still holds the refresh token we just
+                // revoked — a concurrent `auth login` may have replaced it with
+                // a newer session, which must survive this logout.
+                clearCredentialsIfRefreshToken(config, creds.refreshToken);
+            } else {
+                // No valid (post-OIDC) credentials were read — e.g. a pre-OIDC
+                // file with no refresh token — so there is nothing to race on.
+                clearCredentials(config);
+            }
+        }, CREDENTIALS_LOCK_OPTIONS);
     }
     console.log('## Authentication');
     console.log('- Status: Logged out');

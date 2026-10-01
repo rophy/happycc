@@ -1,9 +1,10 @@
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from './config';
-import { writeCredentials } from './credentials';
+import { readCredentials, writeCredentials } from './credentials';
 import { encodeBase64, getRandomBytes } from './encryption';
 import { makeJwt, startFakeServer } from './testing/fakeServer';
 
@@ -15,11 +16,32 @@ vi.mock('./loopbackLogin', () => ({
 }));
 
 // `open` must never actually launch a browser in tests; it is always mocked.
-vi.mock('open', () => ({ default: vi.fn(async () => ({})) }));
+// The real package resolves with the spawned child process, so the mock
+// returns an EventEmitter (a ChildProcess stand-in) to exercise the
+// 'error' handling in auth.ts.
+vi.mock('open', () => ({ default: vi.fn(async () => new EventEmitter()) }));
 
 import open from 'open';
 import { loopbackLogin } from './loopbackLogin';
 import { authLogin, authLogout, authStatus } from './auth';
+
+/** authLogin only attempts to open a browser in a TTY, non-CI, non-headless session. */
+function forceInteractiveTty(): () => void {
+    const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+    const { CI, HEADLESS } = process.env;
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
+    delete process.env.CI;
+    delete process.env.HEADLESS;
+    return () => {
+        if (descriptor) {
+            Object.defineProperty(process.stdout, 'isTTY', descriptor);
+        } else {
+            delete (process.stdout as { isTTY?: boolean }).isTTY;
+        }
+        if (CI !== undefined) process.env.CI = CI;
+        if (HEADLESS !== undefined) process.env.HEADLESS = HEADLESS;
+    };
+}
 
 let homeDir: string;
 let server: Awaited<ReturnType<typeof startFakeServer>> | null = null;
@@ -55,20 +77,71 @@ describe('authLogin', () => {
         expect(logs.join('\n')).not.toContain('access-token');
     });
 
-    it('opens the browser with the login URL by default', async () => {
-        await authLogin(configFor());
-        expect(vi.mocked(open)).toHaveBeenCalledWith('https://idp.example.test/login?loginUrl=1');
+    it('opens the browser with the login URL by default in an interactive session', async () => {
+        const restore = forceInteractiveTty();
+        try {
+            await authLogin(configFor());
+            expect(vi.mocked(open)).toHaveBeenCalledWith('https://idp.example.test/login?loginUrl=1');
+        } finally {
+            restore();
+        }
     });
 
     it('does not open the browser when openBrowser is false (--no-browser)', async () => {
-        await authLogin(configFor(), { openBrowser: false });
+        const restore = forceInteractiveTty();
+        try {
+            await authLogin(configFor(), { openBrowser: false });
+            expect(vi.mocked(open)).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    it('does not attempt to open a browser outside an interactive TTY', async () => {
+        await authLogin(configFor());
         expect(vi.mocked(open)).not.toHaveBeenCalled();
     });
 
-    it('keeps going quietly and still signs in when opening the browser fails', async () => {
-        vi.mocked(open).mockRejectedValueOnce(new Error('no display'));
-        await expect(authLogin(configFor())).resolves.toBeUndefined();
-        expect(logs).toContain('- Status: Authenticated');
+    it('does not attempt to open a browser when CI is set, even in a TTY', async () => {
+        const restore = forceInteractiveTty();
+        try {
+            process.env.CI = 'true';
+            await authLogin(configFor());
+            expect(vi.mocked(open)).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    it('keeps going quietly and still signs in when opening the browser fails to spawn', async () => {
+        const restore = forceInteractiveTty();
+        try {
+            vi.mocked(open).mockRejectedValueOnce(new Error('no display'));
+            await expect(authLogin(configFor())).resolves.toBeUndefined();
+            expect(logs).toContain('- Status: Authenticated');
+        } finally {
+            restore();
+        }
+    });
+
+    it('keeps waiting and still completes when the spawned browser process errors asynchronously', async () => {
+        const restore = forceInteractiveTty();
+        try {
+            const child = new EventEmitter();
+            vi.mocked(open).mockImplementationOnce(async () => {
+                // Simulate a real failed spawn (e.g. missing xdg-open): the
+                // 'error' event fires after open() has already resolved.
+                setImmediate(() => child.emit('error', new Error('spawn ENOENT')));
+                return child as unknown as Awaited<ReturnType<typeof open>>;
+            });
+            await expect(authLogin(configFor())).resolves.toBeUndefined();
+            expect(logs).toContain('- Status: Authenticated');
+            // The emitted 'error' must have had a listener — otherwise node
+            // would have thrown and this test would fail with an unhandled error.
+            expect(child.listenerCount('error')).toBeGreaterThan(0);
+        } finally {
+            restore();
+        }
     });
 });
 
@@ -102,6 +175,24 @@ describe('authLogout', () => {
         await authLogout(config);
         expect(server.calls).toEqual([]);
         expect(existsSync(config.credentialPath)).toBe(false);
+    });
+
+    it('keeps a newer login that replaced the credentials while revocation was in flight', async () => {
+        // Simulates: logout reads the old refresh token, starts revoking it on
+        // the server, and while that network call is in flight a concurrent
+        // `auth login` writes fresh credentials. The stale revoke must not
+        // delete the new session.
+        let config: Config;
+        server = await startFakeServer({
+            'POST /v1/auth/logout': async () => {
+                writeCredentials(config, { token: makeJwt(900), refreshToken: 'refresh-new', secret: getRandomBytes(32) });
+                return { status: 200, body: { success: true } };
+            },
+        });
+        config = configFor(server.url);
+        writeCredentials(config, { token: makeJwt(900), refreshToken: 'refresh-old', secret: getRandomBytes(32) });
+        await authLogout(config);
+        expect(readCredentials(config)?.refreshToken).toBe('refresh-new');
     });
 
     it('succeeds without credentials or a home directory', async () => {

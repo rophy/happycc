@@ -28,9 +28,9 @@ export interface LoopbackLoginIO {
     print(line: string): void;
     /**
      * Optional hook invoked once with the login URL, before it is printed.
-     * The CLI uses this to try opening the user's browser; it is never
-     * called by the tests, so no test launches a real browser. Errors are
-     * the caller's concern — loopbackLogin itself never throws from this.
+     * The CLI uses this to try opening the user's browser. loopbackLogin
+     * awaits it but swallows any error it throws, so a failed open never
+     * blocks or fails the login — the URL is still printed either way.
      */
     onUrl?(url: string): void | Promise<void>;
 }
@@ -159,8 +159,12 @@ export async function loopbackLogin(opts: {
         // Only status and the server's error code; never the request config (it holds the code verifier).
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
         const serverError = axios.isAxiosError(error) ? (error.response?.data as { error?: unknown } | undefined)?.error : undefined;
-        const detail = `${status ?? 'no response'}${typeof serverError === 'string' ? ` ${serverError}` : ''}`;
+        const detail = `${status ?? 'the server could not be reached'}${typeof serverError === 'string' ? ` ${serverError}` : ''}`;
         throw new LoginError(`Sign-in failed: the server rejected the code exchange (${detail}).`);
+    }
+
+    if (typeof tokens.accessToken !== 'string' || typeof tokens.refreshToken !== 'string' || typeof tokens.keyBundle !== 'string') {
+        throw new LoginError('Sign-in failed: the server returned an unexpected response.');
     }
 
     const secret = decryptBoxBundle(decodeBase64(tokens.keyBundle), ephemeral.secretKey);

@@ -26,7 +26,7 @@ Happy Agent signs in with your organization's identity provider through the Happ
 # Opens the sign-in URL in your default browser (and prints it too). Waits up to 5 minutes.
 happy-agent auth login
 
-# Only print the URL; happy-agent never opens a browser itself
+# Only print the sign-in URL; do not open a browser
 happy-agent auth login --no-browser
 
 # Check authentication status (never prints tokens)

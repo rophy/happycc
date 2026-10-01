@@ -158,4 +158,30 @@ describe('loopbackLogin', () => {
         expect(result.error?.message).toContain('400 invalid_grant');
         expect(existsSync(join(homeDir, 'home', 'agent.key'))).toBe(false);
     });
+
+    it('says the server could not be reached when the exchange request fails outright', async () => {
+        // Nothing is listening on this port, so axios never gets a response.
+        const result = await runLogin(configFor('http://127.0.0.1:1'), async (loginUrl) => {
+            await fetch(`${loginUrl.searchParams.get('redirect_uri')}?code=unreachable`);
+        });
+        expect(result.error).toBeInstanceOf(LoginError);
+        expect(result.error?.message).toContain('the server could not be reached');
+    });
+
+    it.each([
+        ['accessToken', { accessToken: 123, refreshToken: 'r', keyBundle: 'k' }],
+        ['refreshToken', { accessToken: 'a', refreshToken: null, keyBundle: 'k' }],
+        ['keyBundle', { accessToken: 'a', refreshToken: 'r', keyBundle: 42 }],
+    ])('rejects an exchange response with a non-string %s without writing credentials', async (_field, body) => {
+        server = await startFakeServer({
+            'POST /v1/auth/oidc/exchange': () => ({ status: 200, body: { accountId: 'acc_1', ...body } }),
+        });
+        const fake = server;
+        const result = await runLogin(configFor(fake.url), async (loginUrl) => {
+            await fetch(`${loginUrl.searchParams.get('redirect_uri')}?code=bad-shape`);
+        });
+        expect(result.error).toBeInstanceOf(LoginError);
+        expect(result.error?.message).toContain('unexpected response');
+        expect(existsSync(join(homeDir, 'home', 'agent.key'))).toBe(false);
+    });
 });

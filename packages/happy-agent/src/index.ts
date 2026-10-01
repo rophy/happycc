@@ -127,7 +127,7 @@ program
     .addCommand(
         new Command('login')
             .description('Sign in through your browser (prints a URL to open)')
-            .option('--no-browser', 'Only print the sign-in URL (happy-agent never opens a browser itself)')
+            .option('--no-browser', 'Only print the sign-in URL; do not open a browser')
             .action(async (opts: { browser?: boolean }) => {
                 const config = loadConfig();
                 await authLogin(config, { openBrowser: opts.browser });
