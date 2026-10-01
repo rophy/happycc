@@ -2,9 +2,16 @@ import { EventEmitter } from 'node:events';
 import { io, Socket } from 'socket.io-client';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
 import type { EncryptionVariant } from './api';
-import { socketAuth, type TokenSource } from './tokenStore';
+import { LoggedOutError, socketAuth, type TokenSource } from './tokenStore';
 
 // --- Types ---
+
+export type RefetchedState = {
+    metadata: unknown;
+    metadataVersion: number;
+    agentState: unknown | null;
+    agentStateVersion: number;
+};
 
 export type SessionClientOptions = {
     sessionId: string;
@@ -13,6 +20,16 @@ export type SessionClientOptions = {
     tokens: Pick<TokenSource, 'getAccessToken'>;
     serverUrl: string;
     initialAgentState?: unknown | null;
+    /** Called after the socket reconnects, to catch up on session state that may have
+     *  changed while disconnected (e.g. a turn completing). Best-effort: errors, or a
+     *  version that isn't newer than what's cached, just leave the cached state as-is
+     *  until the next socket update arrives. */
+    refetchState?: () => Promise<RefetchedState | null>;
+    /** Test hooks: base/cap for the reconnect backoff, and the grace period before a
+     *  disconnect that never reconnects fails pending waits. Defaults match production. */
+    reconnectBaseDelayMs?: number;
+    reconnectMaxDelayMs?: number;
+    disconnectGraceMs?: number;
 };
 
 type SessionContentEnvelope = {
@@ -97,6 +114,17 @@ export class SessionClient extends EventEmitter {
     private agentState: unknown | null = null;
     private agentStateVersion = 0;
 
+    private readonly refetchState?: () => Promise<RefetchedState | null>;
+    private readonly reconnectBaseDelayMs: number;
+    private readonly reconnectMaxDelayMs: number;
+    private readonly disconnectGraceMs: number;
+    private reconnectDelayMs: number;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private disconnectGraceTimer: ReturnType<typeof setTimeout> | null = null;
+    private closed = false;
+    private loggedOut = false;
+    private hasDisconnectedOnce = false;
+
     constructor(opts: SessionClientOptions) {
         super();
         this.sessionId = opts.sessionId;
@@ -105,6 +133,11 @@ export class SessionClient extends EventEmitter {
         if (opts.initialAgentState !== undefined) {
             this.agentState = opts.initialAgentState;
         }
+        this.refetchState = opts.refetchState;
+        this.reconnectBaseDelayMs = opts.reconnectBaseDelayMs ?? 1_000;
+        this.reconnectMaxDelayMs = opts.reconnectMaxDelayMs ?? 30_000;
+        this.disconnectGraceMs = opts.disconnectGraceMs ?? 60_000;
+        this.reconnectDelayMs = this.reconnectBaseDelayMs;
 
         // Prevent unhandled 'error' event from crashing the process
         this.on('error', () => {});
@@ -115,6 +148,9 @@ export class SessionClient extends EventEmitter {
                 { clientType: 'session-scoped', sessionId: opts.sessionId },
                 (error) => {
                     // Nothing will refresh a logged-out store: surface it and stop reconnecting.
+                    this.loggedOut = true;
+                    this.clearReconnectTimer();
+                    this.clearDisconnectGrace();
                     this.emit('connect_error', error);
                     this.socket.close();
                 },
@@ -129,15 +165,40 @@ export class SessionClient extends EventEmitter {
         });
 
         this.socket.on('connect', () => {
+            this.clearReconnectTimer();
+            this.clearDisconnectGrace();
+            this.reconnectDelayMs = this.reconnectBaseDelayMs;
+            const reconnected = this.hasDisconnectedOnce;
+            this.hasDisconnectedOnce = false;
             this.emit('connected');
+            if (reconnected) {
+                // Catch up on anything that changed while we were disconnected (e.g. a
+                // turn completing) instead of only trusting the next push from the server.
+                void this.catchUpAfterReconnect();
+            }
         });
 
         this.socket.on('disconnect', (reason: string) => {
             this.emit('disconnected', reason);
+            if (this.closed || this.loggedOut) return;
+            this.hasDisconnectedOnce = true;
+            this.armDisconnectGrace();
+            if (reason === 'io server disconnect') {
+                // socket.io-client never auto-reconnects after a server-initiated
+                // disconnect (e.g. the server cutting an expired-token handshake) —
+                // `socketAuth` fetches a fresh token on the next connect attempt.
+                this.scheduleReconnect();
+            }
         });
 
         this.socket.on('connect_error', (error: Error) => {
             this.emit('connect_error', error);
+            if (this.closed || this.loggedOut) return;
+            this.hasDisconnectedOnce = true;
+            this.armDisconnectGrace();
+            if (!this.socket.active) {
+                this.scheduleReconnect();
+            }
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -252,7 +313,9 @@ export class SessionClient extends EventEmitter {
             const cleanup = () => {
                 clearTimeout(timeout);
                 this.removeListener('state-change', onStateChange);
-                this.removeListener('disconnected', onDisconnect);
+                this.removeListener('disconnect-timeout', onDisconnectTimeout);
+                this.removeListener('connect_error', onConnectError);
+                this.removeListener('closed', onClosed);
             };
 
             const result = checkIdleState(this.metadata, this.agentState);
@@ -281,13 +344,30 @@ export class SessionClient extends EventEmitter {
                 }
             };
 
-            const onDisconnect = () => {
+            // A transient disconnect is not a failure — the socket reconnects on its own
+            // (see the constructor) and we catch up on any missed state. Only give up once
+            // the socket has been down past the grace period, the store is logged out, or
+            // the client is explicitly closed.
+            const onDisconnectTimeout = () => {
                 cleanup();
                 reject(new Error('Socket disconnected while waiting for agent to become idle'));
             };
 
+            const onConnectError = (error: Error) => {
+                if (!(error instanceof LoggedOutError)) return;
+                cleanup();
+                reject(error);
+            };
+
+            const onClosed = () => {
+                cleanup();
+                reject(new Error('Socket closed while waiting for agent to become idle'));
+            };
+
             this.on('state-change', onStateChange);
-            this.on('disconnected', onDisconnect);
+            this.on('disconnect-timeout', onDisconnectTimeout);
+            this.on('connect_error', onConnectError);
+            this.on('closed', onClosed);
         });
     }
 
@@ -302,7 +382,9 @@ export class SessionClient extends EventEmitter {
                 clearTimeout(timeout);
                 this.removeListener('message', onMessage);
                 this.removeListener('state-change', onStateChange);
-                this.removeListener('disconnected', onDisconnect);
+                this.removeListener('disconnect-timeout', onDisconnectTimeout);
+                this.removeListener('connect_error', onConnectError);
+                this.removeListener('closed', onClosed);
             };
 
             const finish = (error?: Error) => {
@@ -359,13 +441,27 @@ export class SessionClient extends EventEmitter {
                 }
             };
 
-            const onDisconnect = () => {
+            // Same rationale as waitForIdle: a transient disconnect recovers on its own,
+            // so only fail once the socket is down past the grace period, the store is
+            // logged out, or the client is explicitly closed.
+            const onDisconnectTimeout = () => {
                 finish(new Error('Socket disconnected while waiting for agent turn completion'));
+            };
+
+            const onConnectError = (error: Error) => {
+                if (!(error instanceof LoggedOutError)) return;
+                finish(error);
+            };
+
+            const onClosed = () => {
+                finish(new Error('Socket closed while waiting for agent turn completion'));
             };
 
             this.on('message', onMessage);
             this.on('state-change', onStateChange);
-            this.on('disconnected', onDisconnect);
+            this.on('disconnect-timeout', onDisconnectTimeout);
+            this.on('connect_error', onConnectError);
+            this.on('closed', onClosed);
         });
     }
 
@@ -377,6 +473,74 @@ export class SessionClient extends EventEmitter {
     }
 
     close(): void {
+        this.closed = true;
+        this.clearReconnectTimer();
+        this.clearDisconnectGrace();
+        this.emit('closed');
         this.socket.close();
+    }
+
+    private scheduleReconnect(): void {
+        if (this.closed || this.reconnectTimer) return;
+        const delay = this.reconnectDelayMs;
+        this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, this.reconnectMaxDelayMs);
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            if (!this.closed && !this.socket.connected) {
+                this.socket.connect();
+            }
+        }, delay);
+    }
+
+    private clearReconnectTimer(): void {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+    }
+
+    private armDisconnectGrace(): void {
+        if (this.disconnectGraceTimer) return;
+        this.disconnectGraceTimer = setTimeout(() => {
+            this.disconnectGraceTimer = null;
+            this.emit('disconnect-timeout');
+        }, this.disconnectGraceMs);
+    }
+
+    private clearDisconnectGrace(): void {
+        if (this.disconnectGraceTimer) {
+            clearTimeout(this.disconnectGraceTimer);
+            this.disconnectGraceTimer = null;
+        }
+    }
+
+    private async catchUpAfterReconnect(): Promise<void> {
+        if (!this.refetchState) return;
+        let fresh: RefetchedState | null;
+        try {
+            fresh = await this.refetchState();
+        } catch {
+            // Best-effort: keep serving cached state until the next socket update.
+            return;
+        }
+        if (!fresh) return;
+
+        let changed = false;
+        if (fresh.metadataVersion > this.metadataVersion) {
+            this.metadata = fresh.metadata;
+            this.metadataVersion = fresh.metadataVersion;
+            changed = true;
+        }
+        if (fresh.agentStateVersion > this.agentStateVersion) {
+            this.agentState = fresh.agentState;
+            this.agentStateVersion = fresh.agentStateVersion;
+            changed = true;
+        }
+        if (changed) {
+            this.emit('state-change', {
+                metadata: this.metadata,
+                agentState: this.agentState,
+            });
+        }
     }
 }

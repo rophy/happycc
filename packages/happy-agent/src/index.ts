@@ -49,7 +49,7 @@ async function resolveMachine(config: Config, creds: Credentials, tokens: TokenS
     return resolveByPrefix(machines, machineId, 'Machine ID');
 }
 
-function createClient(session: DecryptedSession, tokens: TokenSource, config: Config): SessionClient {
+function createClient(session: DecryptedSession, tokens: TokenSource, config: Config, creds: Credentials): SessionClient {
     return new SessionClient({
         sessionId: session.id,
         encryptionKey: session.encryption.key,
@@ -57,6 +57,24 @@ function createClient(session: DecryptedSession, tokens: TokenSource, config: Co
         tokens,
         serverUrl: config.serverUrl,
         initialAgentState: session.agentState ?? null,
+        // Catches up on anything the server pushed while the socket was down for a
+        // reconnect (e.g. the 60s-after-expiry disconnect), instead of only trusting
+        // the next live update.
+        refetchState: async () => {
+            try {
+                const sessions = await listSessions(config, creds, tokens);
+                const fresh = sessions.find(s => s.id === session.id);
+                if (!fresh) return null;
+                return {
+                    metadata: fresh.metadata,
+                    metadataVersion: fresh.metadataVersion,
+                    agentState: fresh.agentState,
+                    agentStateVersion: fresh.agentStateVersion,
+                };
+            } catch {
+                return null;
+            }
+        },
     });
 }
 
@@ -198,7 +216,7 @@ program
         const { creds, tokens } = openAuth(config);
         const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, tokens, config);
+        const client = createClient(session, tokens, config, creds);
 
         let liveData = false;
         try {
@@ -393,7 +411,7 @@ program
         const session = await resolveSession(config, creds, tokens, sessionId);
         const permissionMode = opts.yolo ? 'yolo' : null;
 
-        const client = createClient(session, tokens, config);
+        const client = createClient(session, tokens, config, creds);
         try {
             await client.waitForConnect();
             const completion = opts.wait ? client.waitForTurnCompletion() : null;
@@ -462,7 +480,7 @@ program
         const { creds, tokens } = openAuth(config);
         const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, tokens, config);
+        const client = createClient(session, tokens, config, creds);
         try {
             await client.waitForConnect();
             client.sendStop();
@@ -494,7 +512,7 @@ program
         const { creds, tokens } = openAuth(config);
         const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, tokens, config);
+        const client = createClient(session, tokens, config, creds);
         try {
             await client.waitForConnect();
             await client.waitForIdle(opts.timeout * 1000);

@@ -13,8 +13,13 @@ import type { EncryptionVariant } from './api';
 
 class MockSocket extends EventEmitter {
     connected = true;
+    // Mirrors socket.io-client's `active`: false once a server-initiated disconnect
+    // or a manual close() has happened, until connect() is called again.
+    active = true;
     readonly auth: unknown;
     readonly opts: unknown;
+
+    connectCalls = 0;
 
     emittedEvents: Array<{ event: string; args: unknown[] }> = [];
 
@@ -25,14 +30,24 @@ class MockSocket extends EventEmitter {
     }
 
     connect() {
+        this.connectCalls++;
         this.connected = true;
+        this.active = true;
         // Emit connect asynchronously to allow test setup
         setTimeout(() => this.emit('connect'), 0);
     }
 
     close() {
         this.connected = false;
+        this.active = false;
         this.emit('disconnect', 'client namespace disconnect');
+    }
+
+    /** Simulates the server cutting the connection (e.g. the token-expiry disconnect). */
+    serverDisconnect() {
+        this.connected = false;
+        this.active = false;
+        this.emit('disconnect', 'io server disconnect');
     }
 
     // Override emit to track emitted events (but still call EventEmitter's emit for listeners)
@@ -907,6 +922,76 @@ describe('SessionClient', () => {
 
             expect(mockSocketInstance!.connected).toBe(true);
             client.close();
+            expect(mockSocketInstance!.connected).toBe(false);
+        });
+    });
+
+    describe('reconnect after the server cuts the socket', () => {
+        it('reconnects after a server-initiated disconnect so a pending wait still resolves', async () => {
+            const opts = makeOptions({ reconnectBaseDelayMs: 5, disconnectGraceMs: 5_000 });
+            const client = new SessionClient(opts);
+            // Let the initial connect's async 'connect' event land before we disconnect,
+            // so it doesn't race with the reconnect we're about to trigger.
+            await new Promise((r) => setTimeout(r, 0));
+
+            const busyUpdate = makeSessionUpdate(opts.encryptionKey, opts.encryptionVariant, opts.sessionId, {
+                agentState: { data: { controlledByUser: true, requests: {} }, version: 1 },
+            });
+            mockSocketInstance!.simulateServerEvent('update', busyUpdate);
+
+            const idlePromise = client.waitForIdle(5_000);
+
+            // The server disconnects the socket (e.g. the 60s-after-expiry cut). socket.io-client
+            // would not auto-reconnect from this reason on its own.
+            mockSocketInstance!.serverDisconnect();
+            expect(mockSocketInstance!.connected).toBe(false);
+
+            // Let the client's scheduled reconnect fire and the mock socket reconnect.
+            await new Promise((r) => setTimeout(r, 30));
+            expect(mockSocketInstance!.connected).toBe(true);
+
+            const idleUpdate = makeSessionUpdate(opts.encryptionKey, opts.encryptionVariant, opts.sessionId, {
+                agentState: { data: { controlledByUser: false, requests: {} }, version: 2 },
+            });
+            mockSocketInstance!.simulateServerEvent('update', idleUpdate);
+
+            await idlePromise;
+
+            client.close();
+        });
+
+        it('rejects a pending wait promptly when the token store is logged out, without waiting for the grace period', async () => {
+            const { LoggedOutError } = await import('./tokenStore');
+            const client = new SessionClient(makeOptions({
+                tokens: { getAccessToken: () => Promise.reject(new LoggedOutError()) },
+                disconnectGraceMs: 60_000,
+            }));
+
+            const waitPromise = client.waitForIdle(5_000);
+
+            const auth = (mockSocketInstance!.opts as Record<string, unknown>).auth as (cb: (data: object) => void) => void;
+            auth(() => {});
+
+            const start = Date.now();
+            await expect(waitPromise).rejects.toBeInstanceOf(LoggedOutError);
+            expect(Date.now() - start).toBeLessThan(1_000);
+
+            client.close();
+        });
+
+        it('does not reconnect once the client has been closed', async () => {
+            const opts = makeOptions({ reconnectBaseDelayMs: 5 });
+            const client = new SessionClient(opts);
+
+            const callsAfterInitialConnect = mockSocketInstance!.connectCalls;
+            client.close();
+
+            // A disconnect that arrives after close() (e.g. the server's own cut landing
+            // just after we hung up) must not trigger another reconnect attempt.
+            mockSocketInstance!.serverDisconnect();
+            await new Promise((r) => setTimeout(r, 30));
+
+            expect(mockSocketInstance!.connectCalls).toBe(callsAfterInitialConnect);
             expect(mockSocketInstance!.connected).toBe(false);
         });
     });

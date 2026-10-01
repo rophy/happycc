@@ -47,7 +47,9 @@ export type DecryptedSession = {
     active: boolean;
     activeAt: number;
     metadata: unknown;
+    metadataVersion: number;
     agentState: unknown | null;
+    agentStateVersion: number;
     dataEncryptionKey: string | null;
     encryption: RecordEncryption;
 };
@@ -151,7 +153,9 @@ function decryptSession(raw: RawSession, creds: Credentials): DecryptedSession {
         active: raw.active,
         activeAt: raw.activeAt,
         metadata: decryptField(raw.metadata, encryption),
+        metadataVersion: raw.metadataVersion,
         agentState: decryptField(raw.agentState, encryption),
+        agentStateVersion: raw.agentStateVersion,
         dataEncryptionKey: raw.dataEncryptionKey,
         encryption,
     };
