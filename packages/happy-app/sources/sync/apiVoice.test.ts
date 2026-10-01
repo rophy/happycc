@@ -10,10 +10,6 @@ vi.mock('./apiSocket', () => ({
     getHappyClientId: () => 'test-client',
 }));
 
-vi.mock('@/config', () => ({
-    config: { elevenLabsAgentId: 'agent-1' },
-}));
-
 import { fetchVoiceCredentials, fetchVoiceUsage } from './apiVoice';
 
 const credentials: AuthCredentials = {
@@ -36,18 +32,18 @@ describe('apiVoice', () => {
         setAccessTokenProvider(null);
     });
 
-    it('fetches voice credentials from the configured server with a Bearer token', async () => {
+    it('requests a conversation without supplying an agent id', async () => {
         fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
             allowed: true,
             conversationToken: 'conv-token',
             conversationId: 'conv-1',
-            agentId: 'agent-1',
+            agentId: 'agent-from-server',
             elevenUserId: 'user-1',
             usedSeconds: 0,
-            limitSeconds: 100,
+            limitSeconds: null,
         }), { status: 200 }));
 
-        await fetchVoiceCredentials(credentials, 'session-1');
+        const response = await fetchVoiceCredentials(credentials, 'session-1');
 
         expect(fetchMock).toHaveBeenCalledWith(
             'https://api.test.com/v1/voice/conversations',
@@ -56,22 +52,35 @@ describe('apiVoice', () => {
                 headers: expect.objectContaining({
                     Authorization: 'Bearer test-token',
                     'X-Happy-Client': 'test-client',
-                    'Content-Type': 'application/json',
                 }),
             }),
         );
+        expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+        expect(response).toMatchObject({ allowed: true, agentId: 'agent-from-server', limitSeconds: null });
+    });
+
+    it('parses a monthly-limit denial', async () => {
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+            allowed: false,
+            reason: 'voice_monthly_limit_reached',
+            usedSeconds: 600,
+            limitSeconds: 600,
+            agentId: 'agent-from-server',
+        }), { status: 200 }));
+        const response = await fetchVoiceCredentials(credentials, 'session-1');
+        expect(response).toMatchObject({ allowed: false, reason: 'voice_monthly_limit_reached' });
     });
 
     it('fetches voice usage from the configured server with a Bearer token', async () => {
         fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
             usedSeconds: 10,
-            limitSeconds: 100,
+            limitSeconds: null,
             conversationCount: 1,
-            conversationLimit: 10,
+            conversationLimit: null,
             elevenUserId: 'user-1',
         }), { status: 200 }));
 
-        await fetchVoiceUsage(credentials);
+        const usage = await fetchVoiceUsage(credentials);
 
         expect(fetchMock).toHaveBeenCalledWith(
             'https://api.test.com/v1/voice/usage',
@@ -83,12 +92,6 @@ describe('apiVoice', () => {
                 }),
             }),
         );
-    });
-
-    it('throws when the agent id is not configured', async () => {
-        vi.resetModules();
-        vi.doMock('@/config', () => ({ config: { elevenLabsAgentId: undefined } }));
-        const { fetchVoiceCredentials: fetchWithoutAgent } = await import('./apiVoice');
-        await expect(fetchWithoutAgent(credentials, 'session-1')).rejects.toThrow('Agent ID not configured');
+        expect(usage.limitSeconds).toBeNull();
     });
 });

@@ -150,29 +150,34 @@ export default React.memo(function VoiceSettingsScreen() {
                     <ActivityIndicator />
                 </View>
             ) : usage ? (
-                <ItemGroup
-                    title={t('settingsVoice.usageTitle')}
-                    footer={t('settingsVoice.usageFooter')}
-                >
+                <ItemGroup title={t('settingsVoice.usageTitle')}>
                     <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-                        <UsageBar
-                            label={t('settingsVoice.usageLabel')}
-                            value={usage.usedSeconds}
-                            maxValue={usage.limitSeconds}
-                            color={usage.usedSeconds >= usage.limitSeconds ? '#FF3B30' : '#007AFF'}
-                        />
+                        {usage.limitSeconds !== null && (
+                            <UsageBar
+                                label={t('settingsVoice.usageLabel')}
+                                value={usage.usedSeconds}
+                                maxValue={usage.limitSeconds}
+                                color={usage.usedSeconds >= usage.limitSeconds ? '#FF3B30' : '#007AFF'}
+                            />
+                        )}
                         <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4 }}>
-                            {formatVoiceTime(usage.usedSeconds)} / {formatVoiceTime(usage.limitSeconds)}
+                            {usage.limitSeconds !== null
+                                ? `${formatVoiceTime(usage.usedSeconds)} / ${formatVoiceTime(usage.limitSeconds)}`
+                                : formatVoiceTime(usage.usedSeconds)}
                         </Text>
-                        <UsageBar
-                            label={t('settingsVoice.conversationsLabel')}
-                            value={usage.conversationCount}
-                            maxValue={usage.conversationLimit}
-                            color={usage.conversationCount >= usage.conversationLimit ? '#FF3B30' : '#007AFF'}
-                        />
-                        <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4 }}>
-                            {usage.conversationCount} / {usage.conversationLimit}
-                        </Text>
+                        {usage.conversationLimit !== null && (
+                            <>
+                                <UsageBar
+                                    label={t('settingsVoice.conversationsLabel')}
+                                    value={usage.conversationCount}
+                                    maxValue={usage.conversationLimit}
+                                    color={usage.conversationCount >= usage.conversationLimit ? '#FF3B30' : '#007AFF'}
+                                />
+                                <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 4 }}>
+                                    {usage.conversationCount} / {usage.conversationLimit}
+                                </Text>
+                            </>
+                        )}
                     </View>
                 </ItemGroup>
             ) : null}

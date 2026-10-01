@@ -44,8 +44,10 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
 - Clients read `GET /v1/features` (authenticated) → `{ voice, githubConnect, push }` and hide what is off.
 - GitHub connect: set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_REDIRECT_URL` together to register the `/v1/connect/github/*` routes. The OAuth callback returns to `WEBAPP_URL`.
   - The GitHub App settings `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` and `GITHUB_REDIRECT_URI` only initialize webhook handling.
-- Voice: `ELEVENLABS_API_KEY` (required for `/v1/voice/conversations` in production).
-- Subscriptions: `REVENUECAT_API_KEY` (server-side RevenueCat key, required for voice subscription checks).
+- Voice: set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` together to register `/v1/voice/*`.
+  - The agent id is server configuration; apps do not carry one.
+  - Voice is available to every signed-in user. There are no subscriptions.
+  - Optional `VOICE_MONTHLY_LIMIT_MINUTES` caps each user over the rolling 30 days ElevenLabs reports. Unset means no cap.
 - Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).
 
 ## Docker image

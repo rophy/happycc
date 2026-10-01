@@ -14,6 +14,6 @@ export function integrationRoutes(app: Fastify, features: FeaturesConfig, opts: 
         githubRoutes(app, { github: features.github, webappUrl: opts.webappUrl });
     }
     if (features.voice) {
-        voiceRoutes(app);
+        voiceRoutes(app, features.voice);
     }
 }

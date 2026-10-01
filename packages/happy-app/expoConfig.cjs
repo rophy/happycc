@@ -15,7 +15,6 @@ const VARIANTS = {
 
 const PRODUCTION_REQUIRED = ['APP_BUNDLE_ID', 'APP_SCHEME', 'HAPPY_SERVER_URL'];
 const DEFAULT_ASSETS_DIR = './sources/assets/images';
-const ELEVENLABS_AGENT_ID = 'agent_6701k211syvvegba4kt7m68nxjmw';
 
 function value(env, name) {
     const raw = env[name];
@@ -175,7 +174,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
                 revenueCatAppleKey: env.EXPO_PUBLIC_REVENUE_CAT_APPLE,
                 revenueCatGoogleKey: env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE,
                 revenueCatStripeKey: env.EXPO_PUBLIC_REVENUE_CAT_STRIPE,
-                elevenLabsAgentId: ELEVENLABS_AGENT_ID,
                 consoleLoggingDefault: defaults.consoleLoggingDefault,
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,

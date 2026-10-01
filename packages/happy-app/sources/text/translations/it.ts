@@ -255,6 +255,7 @@ export const it: TranslationStructure = {
         voiceSessionFailed: 'Avvio della sessione vocale non riuscito',
         voiceServiceUnavailable: 'Il servizio vocale non è temporaneamente disponibile',
         voiceLimitReachedTitle: 'Limite vocale raggiunto',
+        voiceMonthlyLimitReached: "Hai raggiunto il limite vocale mensile impostato dal tuo amministratore.",
         voiceHardLimitReached: ({ hours }: { hours: number }) => `Hai utilizzato ${hours}+ ore di voce questo mese. Questo è il massimo consentito. Puoi configurare il tuo agente ElevenLabs nelle impostazioni vocali per utilizzare la tua quota.`,
         voiceConversationLimitReached: 'Hai raggiunto il numero massimo di conversazioni vocali questo mese. Potremmo aggiungere l\'uso vocale su richiesta in futuro — per favore apri un issue su github.com/nicepkg/happy/issues se raggiungi questo limite.',
         oauthInitializationFailed: 'Impossibile inizializzare il flusso OAuth',

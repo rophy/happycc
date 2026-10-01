@@ -7,12 +7,13 @@ export const VoiceConversationGrantedSchema = z.object({
     agentId: z.string(),
     elevenUserId: z.string(),
     usedSeconds: z.number(),
-    limitSeconds: z.number(),
+    /** null when the server sets no monthly cap */
+    limitSeconds: z.number().nullable(),
 });
 
 export const VoiceConversationDeniedSchema = z.object({
     allowed: z.literal(false),
-    reason: z.enum(['voice_hard_limit_reached', 'subscription_required', 'voice_conversation_limit_reached']),
+    reason: z.enum(['voice_monthly_limit_reached', 'voice_conversation_limit_reached']),
     usedSeconds: z.number(),
     limitSeconds: z.number(),
     agentId: z.string(),
@@ -27,9 +28,11 @@ export type VoiceConversationResponse = z.infer<typeof VoiceConversationResponse
 
 export const VoiceUsageResponseSchema = z.object({
     usedSeconds: z.number(),
-    limitSeconds: z.number(),
+    /** null when the server sets no monthly cap */
+    limitSeconds: z.number().nullable(),
     conversationCount: z.number(),
-    conversationLimit: z.number(),
+    /** null when the server sets no monthly cap (nothing is enforced) */
+    conversationLimit: z.number().nullable(),
     elevenUserId: z.string(),
 });
 

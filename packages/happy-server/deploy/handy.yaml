@@ -94,8 +94,6 @@ spec:
     - extract:
         key: /handy-e2b
     - extract:
-        key: /handy-revenuecat
-    - extract:
         key: /handy-elevenlabs
 ---
 apiVersion: v1

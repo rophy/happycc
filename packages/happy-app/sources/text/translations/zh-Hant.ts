@@ -257,6 +257,7 @@ export const zhHant: TranslationStructure = {
         voiceSessionFailed: '啟動語音工作階段失敗',
         voiceServiceUnavailable: '語音服務暫時無法使用',
         voiceLimitReachedTitle: '已達語音上限',
+        voiceMonthlyLimitReached: "您已達到管理員設定的每月語音使用上限。",
         voiceHardLimitReached: ({ hours }: { hours: number }) => `您本月已使用超過 ${hours} 小時的語音。這是允許的最大用量。您可以在語音設定中配置自己的 ElevenLabs 代理，以使用您自己的配額。`,
         voiceConversationLimitReached: '您本月已達到語音對話的最大次數。我們未來可能會新增按需語音使用功能——如果您遇到此限制，請在 github.com/nicepkg/happy/issues 提交 issue。',
         oauthInitializationFailed: '初始化 OAuth 流程失敗',

@@ -95,6 +95,12 @@ describe('buildExpoConfig', () => {
         expect(() => buildExpoConfig({ APP_ENV: 'staging' })).toThrow(/Unknown APP_ENV "staging"/);
     });
 
+    it('does not bake an ElevenLabs agent id into the app', () => {
+        const { expo } = buildExpoConfig({});
+        expect(expo.extra.app).not.toHaveProperty('elevenLabsAgentId');
+        expect(JSON.stringify(expo)).not.toContain('agent_6701k211syvvegba4kt7m68nxjmw');
+    });
+
     it('passes build metadata through', () => {
         const { expo } = buildExpoConfig({}, { commitSha: 'abc', commitTimestamp: '2026-10-01T00:00:00Z' });
         expect(expo.extra.app.buildCommitSha).toBe('abc');

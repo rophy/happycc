@@ -75,22 +75,8 @@ export async function startRealtimeSession(sessionId: string, initialContext?: s
 
         if (!response.allowed) {
             storage.getState().setRealtimeStatus('disconnected');
-
-            if (response.reason === 'voice_conversation_limit_reached') {
-                Modal.alert(
-                    t('errors.voiceLimitReachedTitle'),
-                    t('errors.voiceConversationLimitReached'),
-                );
-                return null;
-            }
-
-            // Server hard-declined — must pay to continue
-            console.log('[Voice] Not allowed (reason: %s), presenting must-pay paywall...', response.reason);
-            const result = await sync.presentPaywall('voice_must_pay');
-            console.log('[Voice] Must-pay paywall result:', result);
-            if (result.purchased) {
-                return startRealtimeSession(sessionId, initialContext);
-            }
+            // Voice is not sold: a denial only means the server's monthly cap is used up.
+            Modal.alert(t('errors.voiceLimitReachedTitle'), t('errors.voiceMonthlyLimitReached'));
             return null;
         }
 

@@ -8,7 +8,6 @@ import { AuthCredentials } from '@/auth/tokenStorage';
 import { authFetch } from '@/auth/authFetch';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
-import { config } from '@/config';
 
 export type { VoiceConversationResponse, VoiceUsageResponse };
 
@@ -16,21 +15,12 @@ export async function fetchVoiceCredentials(
     _credentials: AuthCredentials,
     sessionId: string
 ): Promise<VoiceConversationResponse> {
-    const agentId = config.elevenLabsAgentId;
-
-    if (!agentId) {
-        throw new Error('Agent ID not configured');
-    }
-
+    // The server owns the ElevenLabs agent id (ELEVENLABS_AGENT_ID); the app sends none.
     const response = await authFetch(`${getServerUrl()}/v1/voice/conversations`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-Happy-Client': getHappyClientId(),
         },
-        body: JSON.stringify({
-            agentId
-        })
     });
 
     if (!response.ok) {

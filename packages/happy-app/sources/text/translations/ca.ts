@@ -257,6 +257,7 @@ export const ca: TranslationStructure = {
         voiceSessionFailed: 'Ha fallat l\'inici de la sessió de veu',
         voiceServiceUnavailable: 'El servei de veu no està disponible temporalment',
         voiceLimitReachedTitle: 'Límit de veu assolit',
+        voiceMonthlyLimitReached: "Has arribat al límit mensual de veu establert pel teu administrador.",
         voiceHardLimitReached: ({ hours }: { hours: number }) => `Has utilitzat ${hours}+ hores de veu aquest mes. Aquest és el màxim permès. Pots configurar el teu propi agent ElevenLabs a la configuració de veu per utilitzar la teva pròpia quota.`,
         voiceConversationLimitReached: 'Has assolit el nombre màxim de converses de veu aquest mes. És possible que en el futur afegim ús de veu sota demanda — si us plau, crea un issue a github.com/nicepkg/happy/issues si arribes a aquest límit.',
         oauthInitializationFailed: 'Ha fallat la inicialització del flux OAuth',
