@@ -11,6 +11,7 @@ import {
 import type { Config } from './config';
 import type { Credentials } from './credentials';
 import type { RawSession, RawMessage } from './api';
+import type { TokenSource } from './tokenStore';
 
 // Mock axios
 vi.mock('axios', () => {
@@ -135,11 +136,16 @@ function makeRawSessionLegacy(
 describe('api', () => {
     let config: Config;
     let creds: Credentials;
+    let tokens: TokenSource & { getAccessToken: ReturnType<typeof vi.fn>; refresh: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         config = makeConfig();
         creds = makeCredentials();
         vi.resetAllMocks();
+        tokens = {
+            getAccessToken: vi.fn(async () => 'test-jwt-token'),
+            refresh: vi.fn(async () => 'fresh-jwt-token'),
+        };
     });
 
     describe('resolveSessionEncryption', () => {
@@ -203,7 +209,7 @@ describe('api', () => {
                 data: { sessions: [raw] },
             });
 
-            const sessions = await listSessions(config, creds);
+            const sessions = await listSessions(config, creds, tokens);
 
             expect(sessions).toHaveLength(1);
             expect(sessions[0].id).toBe('sess-1');
@@ -223,7 +229,7 @@ describe('api', () => {
                 data: { sessions: [raw] },
             });
 
-            const sessions = await listSessions(config, creds);
+            const sessions = await listSessions(config, creds, tokens);
 
             expect(sessions).toHaveLength(1);
             expect(sessions[0].id).toBe('sess-legacy');
@@ -250,7 +256,7 @@ describe('api', () => {
                 data: { sessions: [dataKeySession, legacySession] },
             });
 
-            const sessions = await listSessions(config, creds);
+            const sessions = await listSessions(config, creds, tokens);
 
             expect(sessions).toHaveLength(2);
             expect(sessions[0].encryption.variant).toBe('dataKey');
@@ -262,7 +268,7 @@ describe('api', () => {
         it('sends authorization header', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: { sessions: [] } });
 
-            await listSessions(config, creds);
+            await listSessions(config, creds, tokens);
 
             expect(mockedAxios.get).toHaveBeenCalledWith(
                 'https://test-server.example.com/v1/sessions',
@@ -270,14 +276,37 @@ describe('api', () => {
             );
         });
 
-        it('throws on 401 with re-authenticate message', async () => {
+        it('refreshes and retries once after a 401', async () => {
             const { AxiosError } = await import('axios');
-            const err = new (AxiosError as any)('Unauthorized', { response: { status: 401 } });
-            mockedAxios.get.mockRejectedValueOnce(err);
+            mockedAxios.get
+                .mockRejectedValueOnce(new (AxiosError as any)('Unauthorized', { response: { status: 401 } }))
+                .mockResolvedValueOnce({ data: { sessions: [] } });
 
-            await expect(listSessions(config, creds)).rejects.toThrow(
+            await expect(listSessions(config, creds, tokens)).resolves.toEqual([]);
+
+            expect(tokens.refresh).toHaveBeenCalledWith('test-jwt-token');
+            expect(mockedAxios.get).toHaveBeenLastCalledWith(
+                'https://test-server.example.com/v1/sessions',
+                { headers: { ...authHeader, Authorization: 'Bearer fresh-jwt-token' } },
+            );
+        });
+
+        it('throws on a second 401 with re-authenticate message', async () => {
+            const { AxiosError } = await import('axios');
+            mockedAxios.get.mockRejectedValue(new (AxiosError as any)('Unauthorized', { response: { status: 401 } }));
+
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow(
                 'Authentication expired. Run `happy-agent auth login` to re-authenticate.',
             );
+            expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+        });
+
+        it('surfaces a logged-out token store', async () => {
+            const { LoggedOutError } = await import('./tokenStore');
+            tokens.getAccessToken.mockRejectedValueOnce(new LoggedOutError());
+
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('happy-agent auth login');
+            expect(mockedAxios.get).not.toHaveBeenCalled();
         });
 
         it('throws on 404', async () => {
@@ -285,7 +314,7 @@ describe('api', () => {
             const err = new (AxiosError as any)('Not Found', { response: { status: 404 } });
             mockedAxios.get.mockRejectedValueOnce(err);
 
-            await expect(listSessions(config, creds)).rejects.toThrow('Not found');
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('Not found');
         });
 
         it('throws on 500 server error', async () => {
@@ -293,13 +322,13 @@ describe('api', () => {
             const err = new (AxiosError as any)('Internal Server Error', { response: { status: 500 } });
             mockedAxios.get.mockRejectedValueOnce(err);
 
-            await expect(listSessions(config, creds)).rejects.toThrow('Server error (500)');
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('Server error (500)');
         });
 
         it('returns empty array for no sessions', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: { sessions: [] } });
 
-            const sessions = await listSessions(config, creds);
+            const sessions = await listSessions(config, creds, tokens);
             expect(sessions).toEqual([]);
         });
     });
@@ -308,7 +337,7 @@ describe('api', () => {
         it('calls the v2 active endpoint', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: { sessions: [] } });
 
-            await listActiveSessions(config, creds);
+            await listActiveSessions(config, creds, tokens);
 
             expect(mockedAxios.get).toHaveBeenCalledWith(
                 'https://test-server.example.com/v2/sessions/active',
@@ -327,7 +356,7 @@ describe('api', () => {
                 data: { sessions: [raw] },
             });
 
-            const sessions = await listActiveSessions(config, creds);
+            const sessions = await listActiveSessions(config, creds, tokens);
 
             expect(sessions).toHaveLength(1);
             expect(sessions[0].id).toBe('active-1');
@@ -368,7 +397,7 @@ describe('api', () => {
                 };
             });
 
-            const result = await createSession(config, creds, {
+            const result = await createSession(config, creds, tokens, {
                 tag: 'my-project',
                 metadata,
             });
@@ -401,7 +430,7 @@ describe('api', () => {
                 data: { session: raw },
             });
 
-            const result = await createSession(config, creds, {
+            const result = await createSession(config, creds, tokens, {
                 tag: 'existing-tag',
                 metadata: existingMetadata,
             });
@@ -418,7 +447,7 @@ describe('api', () => {
             mockedAxios.post.mockRejectedValueOnce(err);
 
             await expect(
-                createSession(config, creds, { tag: 'test', metadata: {} }),
+                createSession(config, creds, tokens, { tag: 'test', metadata: {} }),
             ).rejects.toThrow('Server error (500)');
         });
     });
@@ -463,7 +492,7 @@ describe('api', () => {
                 data: { messages: rawMessages },
             });
 
-            const messages = await getSessionMessages(config, creds, 'msg-session', encryption);
+            const messages = await getSessionMessages(config, creds, tokens, 'msg-session', encryption);
 
             expect(messages).toHaveLength(2);
             expect(messages[0].content).toEqual(msgContent1);
@@ -500,7 +529,7 @@ describe('api', () => {
                 data: { messages: rawMessages },
             });
 
-            const messages = await getSessionMessages(config, creds, 'legacy-msg-session', encryption);
+            const messages = await getSessionMessages(config, creds, tokens, 'legacy-msg-session', encryption);
 
             expect(messages).toHaveLength(1);
             expect(messages[0].content).toEqual(msgContent);
@@ -513,7 +542,7 @@ describe('api', () => {
 
             const encryption = { key: creds.secret, variant: 'legacy' as const };
             await expect(
-                getSessionMessages(config, creds, 'bad-id', encryption),
+                getSessionMessages(config, creds, tokens, 'bad-id', encryption),
             ).rejects.toThrow('Not found');
         });
     });
@@ -522,7 +551,7 @@ describe('api', () => {
         it('sends DELETE request with correct URL and auth headers', async () => {
             mockedAxios.delete.mockResolvedValueOnce({ data: {} });
 
-            await deleteSession(config, creds, 'session-to-delete');
+            await deleteSession(config, creds, tokens, 'session-to-delete');
 
             expect(mockedAxios.delete).toHaveBeenCalledWith(
                 'https://test-server.example.com/v1/sessions/session-to-delete',
@@ -535,15 +564,15 @@ describe('api', () => {
             const err = new (AxiosError as any)('Not Found', { response: { status: 404 } });
             mockedAxios.delete.mockRejectedValueOnce(err);
 
-            await expect(deleteSession(config, creds, 'bad-id')).rejects.toThrow('Not found');
+            await expect(deleteSession(config, creds, tokens, 'bad-id')).rejects.toThrow('Not found');
         });
 
         it('throws on 401 with re-authenticate message', async () => {
             const { AxiosError } = await import('axios');
             const err = new (AxiosError as any)('Unauthorized', { response: { status: 401 } });
-            mockedAxios.delete.mockRejectedValueOnce(err);
+            mockedAxios.delete.mockRejectedValue(err);
 
-            await expect(deleteSession(config, creds, 'some-id')).rejects.toThrow(
+            await expect(deleteSession(config, creds, tokens, 'some-id')).rejects.toThrow(
                 'Authentication expired',
             );
         });

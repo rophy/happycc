@@ -195,6 +195,20 @@ describe('authLogout', () => {
         expect(readCredentials(config)?.refreshToken).toBe('refresh-new');
     });
 
+    it('refreshes an expired access token before revoking', async () => {
+        const fresh = makeJwt(900);
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: fresh, refreshToken: 'refresh-2' } }),
+            'POST /v1/auth/logout': () => ({ status: 200, body: { success: true } }),
+        });
+        const config = configFor(server.url);
+        writeCredentials(config, { token: makeJwt(-60), refreshToken: 'refresh-1', secret: getRandomBytes(32) });
+        await authLogout(config);
+        expect(server.calls.map((c) => c.path)).toEqual(['/v1/auth/refresh', '/v1/auth/logout']);
+        expect(server.calls[1].authorization).toBe(`Bearer ${fresh}`);
+        expect(existsSync(config.credentialPath)).toBe(false);
+    });
+
     it('succeeds without credentials or a home directory', async () => {
         const config = { serverUrl: 'http://127.0.0.1:9', homeDir: join(homeDir, 'missing'), credentialPath: join(homeDir, 'missing', 'agent.key') };
         await expect(authLogout(config)).resolves.toBeUndefined();

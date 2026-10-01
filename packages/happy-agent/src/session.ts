@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { io, Socket } from 'socket.io-client';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
 import type { EncryptionVariant } from './api';
+import { socketAuth, type TokenSource } from './tokenStore';
 
 // --- Types ---
 
@@ -9,7 +10,7 @@ export type SessionClientOptions = {
     sessionId: string;
     encryptionKey: Uint8Array;
     encryptionVariant: EncryptionVariant;
-    token: string;
+    tokens: Pick<TokenSource, 'getAccessToken'>;
     serverUrl: string;
     initialAgentState?: unknown | null;
 };
@@ -109,11 +110,15 @@ export class SessionClient extends EventEmitter {
         this.on('error', () => {});
 
         this.socket = io(opts.serverUrl, {
-            auth: {
-                token: opts.token,
-                clientType: 'session-scoped' as const,
-                sessionId: opts.sessionId,
-            },
+            auth: socketAuth(
+                opts.tokens,
+                { clientType: 'session-scoped', sessionId: opts.sessionId },
+                (error) => {
+                    // Nothing will refresh a logged-out store: surface it and stop reconnecting.
+                    this.emit('connect_error', error);
+                    this.socket.close();
+                },
+            ),
             path: '/v1/updates',
             reconnection: true,
             reconnectionAttempts: Infinity,

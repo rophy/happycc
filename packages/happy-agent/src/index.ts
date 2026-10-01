@@ -12,6 +12,8 @@ import { listSessions, listActiveSessions, createSession, getSessionMessages, li
 import type { DecryptedMachine, DecryptedSession } from './api';
 import { resumeSessionOnMachine, spawnSessionOnMachine, type SupportedAgent } from './machineRpc';
 import { SessionClient } from './session';
+import { TokenStore } from './tokenStore';
+import type { TokenSource } from './tokenStore';
 import { formatMachineTable, formatSessionTable, formatSessionStatus, formatMessageHistory, formatJson } from './output';
 
 // --- Helpers ---
@@ -32,22 +34,27 @@ function resolveByPrefix<T extends { id: string }>(items: T[], value: string, la
     return matches[0];
 }
 
-async function resolveSession(config: Config, creds: Credentials, sessionId: string): Promise<DecryptedSession> {
-    const sessions = await listSessions(config, creds);
+function openAuth(config: Config): { creds: Credentials; tokens: TokenStore } {
+    const creds = requireCredentials(config);
+    return { creds, tokens: new TokenStore(config, creds) };
+}
+
+async function resolveSession(config: Config, creds: Credentials, tokens: TokenSource, sessionId: string): Promise<DecryptedSession> {
+    const sessions = await listSessions(config, creds, tokens);
     return resolveByPrefix(sessions, sessionId, 'Session ID');
 }
 
-async function resolveMachine(config: Config, creds: Credentials, machineId: string): Promise<DecryptedMachine> {
-    const machines = await listMachines(config, creds);
+async function resolveMachine(config: Config, creds: Credentials, tokens: TokenSource, machineId: string): Promise<DecryptedMachine> {
+    const machines = await listMachines(config, creds, tokens);
     return resolveByPrefix(machines, machineId, 'Machine ID');
 }
 
-function createClient(session: DecryptedSession, creds: Credentials, config: Config): SessionClient {
+function createClient(session: DecryptedSession, tokens: TokenSource, config: Config): SessionClient {
     return new SessionClient({
         sessionId: session.id,
         encryptionKey: session.encryption.key,
         encryptionVariant: session.encryption.variant,
-        token: creds.token,
+        tokens,
         serverUrl: config.serverUrl,
         initialAgentState: session.agentState ?? null,
     });
@@ -153,8 +160,8 @@ program
     .option('--json', 'Output as JSON')
     .action(async (opts: { active?: boolean; json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const machines = await listMachines(config, creds);
+        const { creds, tokens } = openAuth(config);
+        const machines = await listMachines(config, creds, tokens);
         const filtered = opts.active ? machines.filter(machine => machine.active) : machines;
         if (opts.json) {
             console.log(formatJson(filtered));
@@ -170,10 +177,10 @@ program
     .option('--json', 'Output as JSON')
     .action(async (opts: { active?: boolean; json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
+        const { creds, tokens } = openAuth(config);
         const sessions = opts.active
-            ? await listActiveSessions(config, creds)
-            : await listSessions(config, creds);
+            ? await listActiveSessions(config, creds, tokens)
+            : await listSessions(config, creds, tokens);
         if (opts.json) {
             console.log(formatJson(sessions));
         } else {
@@ -188,10 +195,10 @@ program
     .option('--json', 'Output as JSON')
     .action(async (sessionId: string, opts: { json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, creds, config);
+        const client = createClient(session, tokens, config);
 
         let liveData = false;
         try {
@@ -255,11 +262,11 @@ program
         json?: boolean;
     }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const machine = await resolveMachine(config, creds, opts.machine);
+        const { creds, tokens } = openAuth(config);
+        const machine = await resolveMachine(config, creds, tokens, opts.machine);
         const directory = resolveRemotePath(opts.path, machine);
 
-        const result = await spawnSessionOnMachine(config, machine, creds.token, {
+        const result = await spawnSessionOnMachine(config, machine, tokens, {
             directory,
             approvedNewDirectoryCreation: opts.createDir,
             agent: opts.agent,
@@ -305,13 +312,13 @@ program
     .option('--json', 'Output as JSON')
     .action(async (sessionId: string, opts: { json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
         const machineId = resolveSessionMachineId(session);
-        const machine = await resolveMachine(config, creds, machineId);
+        const machine = await resolveMachine(config, creds, tokens, machineId);
         ensureMachineCanResume(machine);
 
-        const result = await resumeSessionOnMachine(config, machine, creds.token, session.id);
+        const result = await resumeSessionOnMachine(config, machine, tokens, session.id);
         const payload = {
             sourceSessionId: session.id,
             machineId: machine.id,
@@ -351,13 +358,13 @@ program
     .option('--json', 'Output as JSON')
     .action(async (opts: { tag: string; path?: string; json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
+        const { creds, tokens } = openAuth(config);
         const metadata = {
             tag: opts.tag,
             path: opts.path ?? process.cwd(),
             host: hostname(),
         };
-        const session = await createSession(config, creds, {
+        const session = await createSession(config, creds, tokens, {
             tag: opts.tag,
             metadata,
         });
@@ -382,11 +389,11 @@ program
     .option('--json', 'Output as JSON')
     .action(async (sessionId: string, message: string, opts: { yolo?: boolean; wait?: boolean; json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
         const permissionMode = opts.yolo ? 'yolo' : null;
 
-        const client = createClient(session, creds, config);
+        const client = createClient(session, tokens, config);
         try {
             await client.waitForConnect();
             const completion = opts.wait ? client.waitForTurnCompletion() : null;
@@ -427,9 +434,9 @@ program
     .option('--json', 'Output as JSON')
     .action(async (sessionId: string, opts: { limit?: number; json?: boolean }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
-        let messages = await getSessionMessages(config, creds, session.id, session.encryption);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        let messages = await getSessionMessages(config, creds, tokens, session.id, session.encryption);
 
         // Sort chronologically by createdAt
         messages.sort((a, b) => a.createdAt - b.createdAt);
@@ -452,10 +459,10 @@ program
     .argument('<session-id>', 'Session ID or prefix')
     .action(async (sessionId: string) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, creds, config);
+        const client = createClient(session, tokens, config);
         try {
             await client.waitForConnect();
             client.sendStop();
@@ -484,10 +491,10 @@ program
     }, 300)
     .action(async (sessionId: string, opts: { timeout: number }) => {
         const config = loadConfig();
-        const creds = requireCredentials(config);
-        const session = await resolveSession(config, creds, sessionId);
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
 
-        const client = createClient(session, creds, config);
+        const client = createClient(session, tokens, config);
         try {
             await client.waitForConnect();
             await client.waitForIdle(opts.timeout * 1000);

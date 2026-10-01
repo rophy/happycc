@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import type { SessionMessage as WireSessionMessage } from '@slopus/happy-wire';
 import type { Config } from './config';
 import type { Credentials } from './credentials';
+import { withAuthRetry, type TokenSource } from './tokenStore';
 import {
     decodeBase64,
     encodeBase64,
@@ -200,9 +201,9 @@ function handleApiError(err: unknown, context: string): never {
     throw err;
 }
 
-function authHeaders(creds: Credentials): Record<string, string> {
+function authHeaders(token: string): Record<string, string> {
     return {
-        Authorization: `Bearer ${creds.token}`,
+        Authorization: `Bearer ${token}`,
         'X-Happy-Client': 'cli-control-plane/0.1.0',
     };
 }
@@ -212,12 +213,12 @@ function authHeaders(creds: Credentials): Record<string, string> {
 export async function listSessions(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
 ): Promise<DecryptedSession[]> {
+    const url = `${config.serverUrl}/v1/sessions`;
     let data: { sessions: RawSession[] };
     try {
-        const resp = await axios.get(`${config.serverUrl}/v1/sessions`, {
-            headers: authHeaders(creds),
-        });
+        const resp = await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.get(url, { headers: authHeaders(token) }));
         data = resp.data as { sessions: RawSession[] };
     } catch (err) {
         handleApiError(err, 'listing sessions');
@@ -229,12 +230,12 @@ export async function listSessions(
 export async function listMachines(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
 ): Promise<DecryptedMachine[]> {
+    const url = `${config.serverUrl}/v1/machines`;
     let data: RawMachine[];
     try {
-        const resp = await axios.get(`${config.serverUrl}/v1/machines`, {
-            headers: authHeaders(creds),
-        });
+        const resp = await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.get(url, { headers: authHeaders(token) }));
         data = resp.data as RawMachine[];
     } catch (err) {
         handleApiError(err, 'listing machines');
@@ -246,12 +247,12 @@ export async function listMachines(
 export async function listActiveSessions(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
 ): Promise<DecryptedSession[]> {
+    const url = `${config.serverUrl}/v2/sessions/active`;
     let data: { sessions: RawSession[] };
     try {
-        const resp = await axios.get(`${config.serverUrl}/v2/sessions/active`, {
-            headers: authHeaders(creds),
-        });
+        const resp = await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.get(url, { headers: authHeaders(token) }));
         data = resp.data as { sessions: RawSession[] };
     } catch (err) {
         handleApiError(err, 'listing active sessions');
@@ -263,6 +264,7 @@ export async function listActiveSessions(
 export async function createSession(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
     opts: { tag: string; metadata: unknown },
 ): Promise<DecryptedSession & { sessionKey: Uint8Array }> {
     // Generate random 32-byte per-session AES key
@@ -279,17 +281,15 @@ export async function createSession(
     const encryptedMetadata = encryptWithDataKey(opts.metadata, sessionKey);
     const metadataBase64 = encodeBase64(encryptedMetadata);
 
+    const url = `${config.serverUrl}/v1/sessions`;
+    const body = {
+        tag: opts.tag,
+        metadata: metadataBase64,
+        dataEncryptionKey: dataEncryptionKeyBase64,
+    };
     let data: { session: RawSession };
     try {
-        const resp = await axios.post(
-            `${config.serverUrl}/v1/sessions`,
-            {
-                tag: opts.tag,
-                metadata: metadataBase64,
-                dataEncryptionKey: dataEncryptionKeyBase64,
-            },
-            { headers: authHeaders(creds) },
-        );
+        const resp = await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.post(url, body, { headers: authHeaders(token) }));
         data = resp.data as { session: RawSession };
     } catch (err) {
         handleApiError(err, 'creating session');
@@ -302,12 +302,12 @@ export async function createSession(
 export async function deleteSession(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
     sessionId: string,
 ): Promise<void> {
+    const url = `${config.serverUrl}/v1/sessions/${encodeURIComponent(sessionId)}`;
     try {
-        await axios.delete(`${config.serverUrl}/v1/sessions/${encodeURIComponent(sessionId)}`, {
-            headers: authHeaders(creds),
-        });
+        await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.delete(url, { headers: authHeaders(token) }));
     } catch (err) {
         handleApiError(err, `deleting session ${sessionId}`);
     }
@@ -316,15 +316,14 @@ export async function deleteSession(
 export async function getSessionMessages(
     config: Config,
     creds: Credentials,
+    tokens: TokenSource,
     sessionId: string,
     encryption: SessionEncryption,
 ): Promise<DecryptedMessage[]> {
+    const url = `${config.serverUrl}/v1/sessions/${encodeURIComponent(sessionId)}/messages`;
     let data: { messages: RawMessage[] };
     try {
-        const resp = await axios.get(
-            `${config.serverUrl}/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-            { headers: authHeaders(creds) },
-        );
+        const resp = await withAuthRetry(tokens, config.serverUrl, url, (token) => axios.get(url, { headers: authHeaders(token) }));
         data = resp.data as { messages: RawMessage[] };
     } catch (err) {
         handleApiError(err, `session ${sessionId} messages`);

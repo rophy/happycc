@@ -14,6 +14,7 @@ import {
 import { encodeBase64 } from './encryption';
 import { withFileLock } from './fileLock';
 import { loopbackLogin } from './loopbackLogin';
+import { TokenStore } from './tokenStore';
 
 const LOGOUT_TIMEOUT_MS = 5_000;
 
@@ -58,30 +59,39 @@ export async function authLogin(config: Config, opts?: { openBrowser?: boolean }
     console.log('- Status: Authenticated');
 }
 
-/** Best effort: the local logout proceeds whatever happens here. */
-async function revokeOnServer(config: Config, creds: Credentials): Promise<boolean> {
+/**
+ * Best effort: the local logout proceeds whatever happens here (refresh ≤10 s, logout ≤5 s).
+ * Returns the refresh token to treat as "ours" for the clear-on-logout check below: if an
+ * expired access token needed refreshing first, that refresh already rotated the file to a
+ * new refresh token under the credentials lock — still the same login, not a concurrent one.
+ */
+async function revokeOnServer(config: Config, creds: Credentials): Promise<{ revoked: boolean; refreshToken: string }> {
     try {
+        // An expired access token cannot identify the device; refresh first.
+        const token = await new TokenStore(config, creds).getAccessToken();
+        const refreshToken = readCredentials(config)?.refreshToken ?? creds.refreshToken;
         await axios.post(`${config.serverUrl}/v1/auth/logout`, {}, {
-            headers: { Authorization: `Bearer ${creds.token}`, 'X-Happy-Client': 'cli-control-plane/0.1.0' },
+            headers: { Authorization: `Bearer ${token}`, 'X-Happy-Client': 'cli-control-plane/0.1.0' },
             timeout: LOGOUT_TIMEOUT_MS,
             signal: AbortSignal.timeout(LOGOUT_TIMEOUT_MS),
         });
-        return true;
+        return { revoked: true, refreshToken };
     } catch {
-        return false;
+        return { revoked: false, refreshToken: creds.refreshToken };
     }
 }
 
 export async function authLogout(config: Config): Promise<void> {
     const creds = readCredentials(config);
-    const revoked = creds ? await revokeOnServer(config, creds) : null;
+    const result = creds ? await revokeOnServer(config, creds) : null;
+    const revoked = result?.revoked ?? null;
     if (existsSync(config.credentialPath)) {
         await withFileLock(credentialsLockFile(config), async () => {
-            if (creds) {
+            if (creds && result) {
                 // Only clear if the file still holds the refresh token we just
                 // revoked — a concurrent `auth login` may have replaced it with
                 // a newer session, which must survive this logout.
-                clearCredentialsIfRefreshToken(config, creds.refreshToken);
+                clearCredentialsIfRefreshToken(config, result.refreshToken);
             } else {
                 // No valid (post-OIDC) credentials were read — e.g. a pre-OIDC
                 // file with no refresh token — so there is nothing to race on.

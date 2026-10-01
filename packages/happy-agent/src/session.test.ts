@@ -72,7 +72,7 @@ function makeOptions(overrides: Partial<SessionClientOptions> = {}): SessionClie
         sessionId: 'test-session-id',
         encryptionKey: makeSessionKey(),
         encryptionVariant: 'dataKey' as EncryptionVariant,
-        token: 'test-jwt-token',
+        tokens: { getAccessToken: async () => 'test-jwt-token' },
         serverUrl: 'https://test-server.example.com',
         ...overrides,
     };
@@ -159,19 +159,42 @@ describe('SessionClient', () => {
     });
 
     describe('constructor and connection', () => {
-        it('creates socket with correct auth parameters', () => {
+        it('creates socket with correct auth parameters', async () => {
             const opts = makeOptions();
             const client = new SessionClient(opts);
 
             expect(mockSocketInstance).not.toBeNull();
             const socketOpts = mockSocketInstance!.opts as Record<string, unknown>;
-            const auth = socketOpts.auth as Record<string, unknown>;
-            expect(auth.token).toBe('test-jwt-token');
-            expect(auth.clientType).toBe('session-scoped');
-            expect(auth.sessionId).toBe('test-session-id');
+            const auth = socketOpts.auth as (cb: (data: Record<string, unknown>) => void) => void;
+            const payload = await new Promise<Record<string, unknown>>((resolve) => auth(resolve));
+            expect(payload).toEqual({ token: 'test-jwt-token', clientType: 'session-scoped', sessionId: 'test-session-id' });
             expect(socketOpts.path).toBe('/v1/updates');
 
             client.close();
+        });
+
+        it('asks the token source again on every handshake', async () => {
+            let n = 0;
+            const client = new SessionClient(makeOptions({ tokens: { getAccessToken: async () => `token-${++n}` } }));
+            const auth = (mockSocketInstance!.opts as Record<string, unknown>).auth as (cb: (data: Record<string, unknown>) => void) => void;
+            const first = await new Promise<Record<string, unknown>>((resolve) => auth(resolve));
+            const second = await new Promise<Record<string, unknown>>((resolve) => auth(resolve));
+            expect([first.token, second.token]).toEqual(['token-1', 'token-2']);
+            client.close();
+        });
+
+        it('reports logged out as a connect error and stops the socket', async () => {
+            const { LoggedOutError } = await import('./tokenStore');
+            const client = new SessionClient(makeOptions({ tokens: { getAccessToken: () => Promise.reject(new LoggedOutError()) } }));
+            const errors: unknown[] = [];
+            client.on('connect_error', (error) => errors.push(error));
+            const auth = (mockSocketInstance!.opts as Record<string, unknown>).auth as (cb: (data: object) => void) => void;
+            const cb = vi.fn();
+            auth(cb);
+            await new Promise((r) => setTimeout(r, 0));
+            expect(cb).not.toHaveBeenCalled();
+            expect(errors[0]).toBeInstanceOf(LoggedOutError);
+            expect(mockSocketInstance!.connected).toBe(false);
         });
 
         it('connects to the correct server URL', async () => {

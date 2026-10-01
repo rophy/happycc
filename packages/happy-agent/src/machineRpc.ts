@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import type { Config } from './config';
 import type { DecryptedMachine } from './api';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
+import { socketAuth, type TokenSource } from './tokenStore';
 
 export type SupportedAgent = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'agy';
 
@@ -56,10 +57,30 @@ function normalizeRpcError(error: string | undefined, machineId: string): string
     return error;
 }
 
+async function connectMachineSocket(config: Config, tokens: TokenSource): Promise<Socket> {
+    // Fail fast (LoggedOutError, refresh failure) before opening a socket.
+    await tokens.getAccessToken();
+    const socket = io(config.serverUrl, {
+        auth: socketAuth(tokens, {}),
+        path: '/v1/updates',
+        transports: ['websocket'],
+        autoConnect: false,
+        reconnection: false,
+    });
+    socket.connect();
+    try {
+        await waitForConnect(socket);
+    } catch (error) {
+        socket.close();
+        throw error;
+    }
+    return socket;
+}
+
 export async function spawnSessionOnMachine(
     config: Config,
     machine: DecryptedMachine,
-    token: string,
+    tokens: TokenSource,
     options: {
         directory: string;
         approvedNewDirectoryCreation?: boolean;
@@ -67,21 +88,9 @@ export async function spawnSessionOnMachine(
         providerToken?: string;
     },
 ): Promise<SpawnMachineSessionResult> {
-    const socket = io(config.serverUrl, {
-        auth: {
-            token,
-        },
-        path: '/v1/updates',
-        transports: ['websocket'],
-        autoConnect: false,
-        reconnection: false,
-    });
-
-    socket.connect();
+    const socket = await connectMachineSocket(config, tokens);
 
     try {
-        await waitForConnect(socket);
-
         const params = encodeBase64(
             encrypt(machine.encryption.key, machine.encryption.variant, {
                 type: 'spawn-in-directory',
@@ -138,24 +147,12 @@ export async function spawnSessionOnMachine(
 export async function resumeSessionOnMachine(
     config: Config,
     machine: DecryptedMachine,
-    token: string,
+    tokens: TokenSource,
     sessionId: string,
 ): Promise<SpawnMachineSessionResult> {
-    const socket = io(config.serverUrl, {
-        auth: {
-            token,
-        },
-        path: '/v1/updates',
-        transports: ['websocket'],
-        autoConnect: false,
-        reconnection: false,
-    });
-
-    socket.connect();
+    const socket = await connectMachineSocket(config, tokens);
 
     try {
-        await waitForConnect(socket);
-
         const params = encodeBase64(
             encrypt(machine.encryption.key, machine.encryption.variant, {
                 sessionId,
