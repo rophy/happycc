@@ -75,37 +75,6 @@ export function trackVoicePermissionResponse(allowed: boolean) {
 }
 
 /**
- * Paywall events
- */
-export function trackPaywallButtonClicked(flow?: string) {
-    tracking?.capture('paywall_button_clicked', flow ? { flow } : undefined);
-}
-
-export function trackPaywallPresented(flow?: string) {
-    tracking?.capture('paywall_presented', flow ? { flow } : undefined);
-}
-
-export function trackPaywallPurchased(flow?: string) {
-    tracking?.capture('paywall_purchased', flow ? { flow } : undefined);
-}
-
-export function trackPaywallCancelled(flow?: string) {
-    tracking?.capture('paywall_cancelled', flow ? { flow } : undefined);
-}
-
-export function trackPaywallRestored(flow?: string) {
-    tracking?.capture('paywall_restored', flow ? { flow } : undefined);
-}
-
-export function trackPaywallError(error: string, flow?: string) {
-    const properties: Record<string, string> = { error };
-    if (flow) {
-        properties.flow = flow;
-    }
-    tracking?.capture('paywall_error', properties);
-}
-
-/**
  * Review request events
  */
 export function trackReviewPromptShown() {

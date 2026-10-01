@@ -11,9 +11,9 @@ import { Typography } from "@/constants/Typography";
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
-import { useEntitlement, useLocalSettingMutable, useSetting } from '@/sync/storage';
+import { useLocalSettingMutable, useSetting } from '@/sync/storage';
 import { sync } from '@/sync/sync';
-import { trackPaywallButtonClicked, trackWhatsNewClicked } from '@/track';
+import { trackWhatsNewClicked } from '@/track';
 import { Modal } from '@/modal';
 import { useMultiClick } from '@/hooks/useMultiClick';
 import { useUnistyles } from 'react-native-unistyles';
@@ -89,7 +89,6 @@ export const SettingsView = React.memo(function SettingsView({
     const versionSubtitle = formatBuildSubtitle(getBuildConfig());
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
-    const isPro = __DEV__ || useEntitlement('pro');
     const experiments = useSetting('experiments');
     const profile = useProfile();
     const displayName = getDisplayName(profile);
@@ -102,16 +101,6 @@ export const SettingsView = React.memo(function SettingsView({
 
     const handleReportIssue = async () => {
         await openExternalUrl('https://github.com/slopus/happy/issues');
-    };
-
-    const handleSubscribe = async () => {
-        trackPaywallButtonClicked('voluntary_support');
-        const result = await sync.presentPaywall('voluntary_support');
-        if (!result.success) {
-            console.error('Failed to present paywall:', result.error);
-        } else if (result.purchased) {
-            console.log('Purchase successful!');
-        }
     };
 
     // Use the multi-click hook for version clicks
@@ -222,17 +211,6 @@ export const SettingsView = React.memo(function SettingsView({
                     )}
                 </View>
             </View>
-
-            {/* Support Us */}
-            <ItemGroup>
-                <Item
-                    title={t('settings.supportUs')}
-                    subtitle={isPro ? t('settings.supportUsSubtitlePro') : t('settings.supportUsSubtitle')}
-                    icon={<Ionicons name="heart" size={29} color="#FF3B30" />}
-                    showChevron={false}
-                    onPress={isPro ? undefined : handleSubscribe}
-                />
-            </ItemGroup>
 
             <ItemGroup title={t('settings.connectedAccounts')}>
                 <Item

@@ -26,7 +26,7 @@ vi.mock('react-native', () => ({ Platform: { OS: 'ios' }, AppState: { currentSta
 vi.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
 vi.mock('./persistence', () => ({
     loadSettings: () => ({}), loadLocalSettings: () => ({}), saveLocalSettings: vi.fn(), saveSettings: vi.fn(),
-    loadPurchases: () => null, savePurchases: vi.fn(), loadProfile: () => null, saveProfile: vi.fn(),
+    loadProfile: () => null, saveProfile: vi.fn(),
     loadSessionDrafts: () => ({ ...mocks.persisted.drafts }),
     saveSessionDrafts: (drafts: Record<string, string>) => { mocks.persisted.drafts = { ...drafts }; },
     loadRigComposerDraft: (id: string) => mocks.persisted.rig[id] ?? null,

@@ -2,15 +2,12 @@ import { MMKV } from 'react-native-mmkv';
 import { z } from 'zod';
 import { Settings, settingsDefaults, settingsParse, settingsToSyncPayload, SettingsSchema } from './settings';
 import { LocalSettings, localSettingsDefaults, localSettingsParse } from './localSettings';
-import { Purchases, purchasesDefaults, purchasesParse } from './purchases';
 import { Profile, profileDefaults, profileParse } from './profile';
 import type { PermissionModeKey } from '@/components/PermissionModeSelector';
 
 const mmkv = new MMKV();
 const NEW_SESSION_DRAFT_KEY = 'new-session-draft-v1';
 const REGISTERED_PUSH_TOKEN_KEY = 'registered-push-token-v1';
-const VOICE_SOFT_PAYWALL_SHOWN_KEY = 'voice-soft-paywall-shown';
-const VOICE_ONBOARDING_PROMPT_LOAD_COUNT_KEY = 'voice-onboarding-prompt-load-count';
 const VOICE_MESSAGE_COUNT_KEY = 'voice-message-count';
 
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'agy' | 'rig';
@@ -118,24 +115,6 @@ export function loadThemePreference(): 'light' | 'dark' | 'adaptive' {
         }
     }
     return localSettingsDefaults.themePreference;
-}
-
-export function loadPurchases(): Purchases {
-    const purchases = mmkv.getString('purchases');
-    if (purchases) {
-        try {
-            const parsed = JSON.parse(purchases);
-            return purchasesParse(parsed);
-        } catch (e) {
-            console.error('Failed to parse purchases', e);
-            return { ...purchasesDefaults };
-        }
-    }
-    return { ...purchasesDefaults };
-}
-
-export function savePurchases(purchases: Purchases) {
-    mmkv.set('purchases', JSON.stringify(purchases));
 }
 
 export function loadSessionDrafts(): Record<string, string> {
@@ -303,42 +282,12 @@ export function retrieveTempText(id: string): string | null {
     return null;
 }
 
-export function getVoiceSoftPaywallShownCount(): number {
-    return mmkv.getNumber(VOICE_SOFT_PAYWALL_SHOWN_KEY) ?? 0;
-}
-
-export function incrementVoiceSoftPaywallShown() {
-    mmkv.set(VOICE_SOFT_PAYWALL_SHOWN_KEY, getVoiceSoftPaywallShownCount() + 1);
-}
-
-export function getVoiceOnboardingPromptLoadCount(): number {
-    return mmkv.getNumber(VOICE_ONBOARDING_PROMPT_LOAD_COUNT_KEY) ?? 0;
-}
-
-export function incrementVoiceOnboardingPromptLoadCount() {
-    mmkv.set(VOICE_ONBOARDING_PROMPT_LOAD_COUNT_KEY, getVoiceOnboardingPromptLoadCount() + 1);
-}
-
 export function getVoiceMessageCount(): number {
     return mmkv.getNumber(VOICE_MESSAGE_COUNT_KEY) ?? 0;
 }
 
 export function incrementVoiceMessageCount() {
     mmkv.set(VOICE_MESSAGE_COUNT_KEY, getVoiceMessageCount() + 1);
-}
-
-export function getVoiceLocalCounters() {
-    return {
-        softPaywallShownCount: getVoiceSoftPaywallShownCount(),
-        onboardingPromptLoadCount: getVoiceOnboardingPromptLoadCount(),
-        voiceMessageCount: getVoiceMessageCount(),
-    };
-}
-
-export function resetVoiceLocalCounters() {
-    mmkv.delete(VOICE_SOFT_PAYWALL_SHOWN_KEY);
-    mmkv.delete(VOICE_ONBOARDING_PROMPT_LOAD_COUNT_KEY);
-    mmkv.delete(VOICE_MESSAGE_COUNT_KEY);
 }
 
 export function clearPersistence() {

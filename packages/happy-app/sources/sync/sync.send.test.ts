@@ -30,7 +30,6 @@ vi.mock('@/sync/storage', () => ({ storage: { getState: () => mocks.state } }));
 vi.mock('@/sync/ops', () => ({ sessionSetAgentModes: vi.fn() }));
 vi.mock('@/sync/rigComposer', () => ({ rigComposerClear: mocks.clearDraft }));
 vi.mock('@/sync/persistence', () => ({ loadPendingSettings: () => ({}), savePendingSettings: vi.fn() }));
-vi.mock('@/sync/revenueCat', () => ({ RevenueCat: {}, LogLevel: {}, PaywallResult: {} }));
 vi.mock('@/sync/serverConfig', () => ({ getServerUrl: () => 'https://example.invalid' }));
 vi.mock('@/sync/pushRegistration', () => ({ syncCurrentPushToken: vi.fn() }));
 vi.mock('@/sync/apiArtifacts', () => ({ fetchArtifact: vi.fn(), fetchArtifacts: vi.fn(), createArtifact: vi.fn(), updateArtifact: vi.fn() }));

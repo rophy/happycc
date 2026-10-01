@@ -106,4 +106,11 @@ describe('buildExpoConfig', () => {
         expect(expo.extra.app.buildCommitSha).toBe('abc');
         expect(expo.extra.app.buildCommitTimestamp).toBe('2026-10-01T00:00:00Z');
     });
+
+    it('carries no RevenueCat keys', () => {
+        const { expo } = buildExpoConfig({ EXPO_PUBLIC_REVENUE_CAT_APPLE: 'appl_x', EXPO_PUBLIC_REVENUE_CAT_GOOGLE: 'goog_x', EXPO_PUBLIC_REVENUE_CAT_STRIPE: 'strp_x' });
+        for (const key of ['revenueCatAppleKey', 'revenueCatGoogleKey', 'revenueCatStripeKey']) {
+            expect(expo.extra.app).not.toHaveProperty(key);
+        }
+    });
 });

@@ -21,13 +21,11 @@ import { resolveSessionState, type SessionState } from './sessionState';
 import { getSessionActivityAt } from '@/utils/sessionActivity';
 import { applySettings, Settings } from "./settings";
 import { LocalSettings, applyLocalSettings } from "./localSettings";
-import { Purchases, customerInfoToPurchases } from "./purchases";
 import { Profile } from "./profile";
 import { UserProfile, RelationshipUpdatedEvent } from "./friendTypes";
-import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadPurchases, savePurchases, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadRigComposerDraft, saveRigComposerDraft } from "./persistence";
+import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadRigComposerDraft, saveRigComposerDraft } from "./persistence";
 import { isAgentModePushPending } from "./agentModesPending";
 import { loadSessionLastMessageSentAt, saveSessionLastMessageSentAt } from "./persistence";
-import type { CustomerInfo } from './revenueCat/types';
 import React from "react";
 import { sync } from "./sync";
 import { getCurrentRealtimeSessionId, getVoiceSession } from '@/realtime/RealtimeSession';
@@ -110,9 +108,6 @@ function relativeDayTitle(timestamp: number): string {
     if (diffDays === 1) return t('sessionHistory.yesterday');
     return t('sessionHistory.daysAgo', { count: diffDays });
 }
-
-// Known entitlement IDs
-export type KnownEntitlements = 'pro';
 
 interface SessionMessages {
     messages: Message[];
@@ -284,7 +279,6 @@ interface StorageState {
     settings: Settings;
     settingsVersion: number | null;
     localSettings: LocalSettings;
-    purchases: Purchases;
     profile: Profile;
     sessions: Record<string, Session>;
     sessionsData: SessionListItem[] | null;  // Legacy - to be removed
@@ -328,7 +322,6 @@ interface StorageState {
     applySettings: (settings: Settings, version: number) => void;
     applySettingsLocal: (settings: Partial<Settings>) => void;
     applyLocalSettings: (settings: Partial<LocalSettings>) => void;
-    applyPurchases: (customerInfo: CustomerInfo) => void;
     applyProfile: (profile: Profile) => void;
     applyGitStatus: (pathKey: string, status: GitStatus | null) => void;
     applyGitStatusFiles: (pathKey: string, files: GitStatusFiles | null) => void;
@@ -499,14 +492,12 @@ function buildSessionListViewData(
 export const storage = create<StorageState>()((set, get) => {
     let { settings, version } = loadSettings();
     let localSettings = loadLocalSettings();
-    let purchases = loadPurchases();
     let profile = loadProfile();
     let sessionLastMessageSentAt = loadSessionLastMessageSentAt();
     return {
         settings,
         settingsVersion: version,
         localSettings,
-        purchases,
         profile,
         sessions: {},
         machines: {},
@@ -1135,17 +1126,6 @@ export const storage = create<StorageState>()((set, get) => {
             return {
                 ...state,
                 localSettings: updatedLocalSettings
-            };
-        }),
-        applyPurchases: (customerInfo: CustomerInfo) => set((state) => {
-            // Transform CustomerInfo to our Purchases format
-            const purchases = customerInfoToPurchases(customerInfo);
-
-            // Always save and update - no need for version checks
-            savePurchases(purchases);
-            return {
-                ...state,
-                purchases
             };
         }),
         applyProfile: (profile: Profile) => set((state) => {
@@ -1905,10 +1885,6 @@ export function useArtifactsCount(): number {
         // Count only non-draft artifacts
         return Object.values(state.artifacts).filter(a => !a.draft).length;
     }));
-}
-
-export function useEntitlement(id: KnownEntitlements): boolean {
-    return storage(useShallow((state) => state.purchases.entitlements[id] ?? false));
 }
 
 export function useRealtimeStatus(): 'disconnected' | 'connecting' | 'connected' | 'error' {

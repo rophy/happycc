@@ -171,9 +171,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
             ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
             app: {
                 postHogKey: env.EXPO_PUBLIC_POSTHOG_API_KEY,
-                revenueCatAppleKey: env.EXPO_PUBLIC_REVENUE_CAT_APPLE,
-                revenueCatGoogleKey: env.EXPO_PUBLIC_REVENUE_CAT_GOOGLE,
-                revenueCatStripeKey: env.EXPO_PUBLIC_REVENUE_CAT_STRIPE,
                 consoleLoggingDefault: defaults.consoleLoggingDefault,
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,

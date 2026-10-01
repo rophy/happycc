@@ -1,20 +1,12 @@
 import type { VoiceSession } from './types';
 import { fetchVoiceCredentials } from '@/sync/apiVoice';
-import { sync } from '@/sync/sync';
 import { Modal } from '@/modal';
 import { TokenStorage } from '@/auth/tokenStorage';
 import { t } from '@/text';
 import { requestMicrophonePermission, showMicrophonePermissionDeniedAlert } from '@/utils/microphonePermissions';
 import { storage } from '@/sync/storage';
-import {
-    getVoiceMessageCount,
-    getVoiceOnboardingPromptLoadCount,
-    getVoiceSoftPaywallShownCount,
-    incrementVoiceOnboardingPromptLoadCount,
-    incrementVoiceSoftPaywallShown,
-} from '@/sync/persistence';
-import { buildVoiceFirstMessage, buildVoiceSystemPrompt } from './voiceSystemPrompt';
-import { getVoiceUpsellVariant } from './voiceExperiment';
+import { getVoiceMessageCount } from '@/sync/persistence';
+import { VOICE_FIRST_MESSAGE, buildVoiceSystemPrompt } from './voiceSystemPrompt';
 
 let voiceSession: VoiceSession | null = null;
 let voiceSessionStarted: boolean = false;
@@ -71,7 +63,6 @@ export async function startRealtimeSession(sessionId: string, initialContext?: s
         }
 
         const response = await fetchVoiceCredentials(credentials, sessionId);
-        console.log('[Voice] fetchVoiceCredentials response:', response);
 
         if (!response.allowed) {
             storage.getState().setRealtimeStatus('disconnected');
@@ -80,52 +71,21 @@ export async function startRealtimeSession(sessionId: string, initialContext?: s
             return null;
         }
 
-        const hasPro = storage.getState().purchases.entitlements['pro'] ?? false;
-        const { voiceUpsellOverride, devModeEnabled } = storage.getState().localSettings;
-        const voiceUpsellVariant = getVoiceUpsellVariant({
-            override: voiceUpsellOverride,
-            overrideEnabled: __DEV__ || devModeEnabled,
-        });
-
-        if (
-            !hasPro &&
-            voiceUpsellVariant === 'show-paywall-before-first-voice-chat' &&
-            getVoiceSoftPaywallShownCount() < 1
-        ) {
-            console.log('[Voice] First voice attempt on free tier, showing soft paywall...');
-            incrementVoiceSoftPaywallShown();
-            const result = await sync.presentPaywall('voice_trial_eligible');
-            console.log('[Voice] Soft paywall result:', result);
-            // Dismissed or error — continue anyway, they can still use free tier.
-        }
-
         currentSessionId = sessionId;
-        const onboardingPromptLoadCount = getVoiceOnboardingPromptLoadCount();
-        const voiceMessageCount = getVoiceMessageCount();
         const systemPrompt = buildVoiceSystemPrompt({
             initialContext,
-            onboardingPromptLoadCount,
-            voiceMessageCount,
-            includePaidVoiceOnboarding: !hasPro && voiceUpsellVariant === 'voice-onboarding-and-upsell',
-        });
-        const firstMessage = buildVoiceFirstMessage({
-            hasPro,
-            onboardingPromptLoadCount,
-            includePaidVoiceOnboarding: voiceUpsellVariant === 'voice-onboarding-and-upsell',
+            voiceMessageCount: getVoiceMessageCount(),
         });
 
         const startedConversationId = await voiceSession.startSession({
             sessionId,
             initialContext,
             systemPrompt,
-            firstMessage,
+            firstMessage: VOICE_FIRST_MESSAGE,
             conversationToken: response.conversationToken,
             agentId: response.agentId,
             userId: response.elevenUserId,
         });
-        if (!hasPro && voiceUpsellVariant === 'voice-onboarding-and-upsell') {
-            incrementVoiceOnboardingPromptLoadCount();
-        }
         currentVoiceConversationId = response.conversationId ?? startedConversationId;
         currentVoiceSessionStartedAt = Date.now();
         voiceSessionStarted = true;

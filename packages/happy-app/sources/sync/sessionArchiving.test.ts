@@ -5,7 +5,7 @@ import { rigMetadataFixture } from './__testdata__/rigMetadata';
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } }));
 vi.mock('./persistence', () => ({
     loadSettings: () => ({}), loadLocalSettings: () => ({}), saveLocalSettings: vi.fn(), saveSettings: vi.fn(),
-    loadPurchases: () => null, savePurchases: vi.fn(), loadProfile: () => null, saveProfile: vi.fn(),
+    loadProfile: () => null, saveProfile: vi.fn(),
     loadSessionDrafts: () => ({}), saveSessionDrafts: vi.fn(),
     loadRigComposerDraft: () => null, saveRigComposerDraft: vi.fn(),
     loadSessionLastMessageSentAt: () => ({}), saveSessionLastMessageSentAt: vi.fn(),
