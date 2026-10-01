@@ -256,17 +256,7 @@ export class PermissionHandler {
             }
 
             // Send push notification
-            this.session.api.push().sendSessionNotification({
-                kind: 'permission',
-                metadata: this.session.client.getMetadata(),
-                data: {
-                    sessionId: this.session.client.sessionId,
-                    requestId: id,
-                    tool: toolName,
-                    type: 'permission_request',
-                    provider: 'claude',
-                }
-            });
+            this.session.api.push().sendSessionNotification({ kind: 'permission', sessionId: this.session.client.sessionId });
 
             // Update agent state. toolUseId carries the raw provider id so the
             // app can attach the permission card to its tool call even when

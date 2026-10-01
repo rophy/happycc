@@ -150,12 +150,9 @@ describe('PermissionHandler', () => {
                 toolUseId: 'toolu_shared',
             },
         });
-        expect(sendSessionNotification).toHaveBeenNthCalledWith(1, expect.objectContaining({
-            data: expect.objectContaining({ requestId: 'agent-a:toolu_shared' }),
-        }));
-        expect(sendSessionNotification).toHaveBeenNthCalledWith(2, expect.objectContaining({
-            data: expect.objectContaining({ requestId: 'agent-b:toolu_shared' }),
-        }));
+        expect(sendSessionNotification).toHaveBeenCalledTimes(2);
+        expect(sendSessionNotification).toHaveBeenNthCalledWith(1, { kind: 'permission', sessionId: 'happy-session-1' });
+        expect(sendSessionNotification).toHaveBeenNthCalledWith(2, { kind: 'permission', sessionId: 'happy-session-1' });
 
         const respondToPermission = getPermissionResponseHandler(handlers);
         await respondToPermission({

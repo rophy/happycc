@@ -110,7 +110,7 @@ export async function startApi(opts: StartApiOptions = {}) {
     oidcRoutes(typed, oidcRuntime);
     deviceAuthRoutes(typed, oidcRuntime);
     tokenRoutes(typed, oidcRuntime);
-    pushRoutes(typed);
+    pushRoutes(typed, { pushEnabled: features.pushEnabled });
     sessionRoutes(typed);
     accountRoutes(typed);
     connectRoutes(typed);

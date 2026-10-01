@@ -1,8 +1,8 @@
 /**
  * Push notification dispatch.
  *
- * Single entry point: dispatchSessionEventPush — rich session-event
- * ("It's ready!", permission, question) called by CLI/daemon clients.
+ * Single entry point: dispatchSessionEventPush — content-free session-event
+ * (fixed copy per kind, see pushCopy.ts) called by CLI/daemon clients.
  *
  * Generic per-message pushes were removed: the CLI streams every assistant
  * chunk, tool_use, and tool_result as a session message, so notifying on each
@@ -25,6 +25,7 @@
 import { db } from "@/storage/db";
 import { isUserActive } from "@/app/push/focusTracker";
 import { sendPushNotifications } from "@/app/push/pushSend";
+import { buildSessionEventPush, type SessionEventKind } from "@/app/push/pushCopy";
 import { log } from "@/utils/log";
 
 /** What actually happened to a session-event push. */
@@ -98,11 +99,10 @@ async function fetchTokensAndSend(params: {
 export async function dispatchSessionEventPush(params: {
     userId: string;
     sessionId: string;
-    title: string;
-    body: string;
-    data?: Record<string, unknown>;
+    kind: SessionEventKind;
 }): Promise<PushOutcome> {
-    const { userId, sessionId, title, body, data } = params;
+    const { userId, sessionId, kind } = params;
+    const push = buildSessionEventPush(sessionId, kind);
 
     try {
         try {
@@ -118,9 +118,9 @@ export async function dispatchSessionEventPush(params: {
         return await fetchTokensAndSend({
             userId,
             sessionId,
-            title,
-            body,
-            data: { sessionId, ...(data ?? {}) },
+            title: push.title,
+            body: push.body,
+            data: push.data,
             channelId: 'messages'
         });
     } catch (error) {

@@ -1,74 +1,62 @@
-import { describe, expect, it } from 'vitest';
-import type { Metadata } from './types';
-import {
-    getSessionNotificationBody,
-    getSessionNotificationCopy,
-    getSessionNotificationTitle,
-} from './pushNotifications';
+import { createServer, type IncomingHttpHeaders } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-function makeMetadata(overrides: Partial<Metadata> = {}): Metadata {
+vi.mock('@/configuration', () => ({ configuration: { currentCliVersion: '9.9.9' } }));
+// The real logger opens a log file under configuration.logsDir at import time.
+vi.mock('@/ui/logger', () => ({ logger: { debug: vi.fn() } }));
+
+import { PushNotificationClient } from './pushNotifications';
+
+type Captured = { method?: string; url?: string; headers: IncomingHttpHeaders; body: string };
+
+async function startServer(status = 200) {
+    const requests: Captured[] = [];
+    const server = createServer((req, res) => {
+        let body = '';
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+            requests.push({ method: req.method, url: req.url, headers: req.headers, body });
+            res.writeHead(status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, result: 'sent', tokens: 1 }));
+        });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
     return {
-        path: '/Users/test/projects/happy',
-        host: 'test-host',
-        homeDir: '/Users/test',
-        happyHomeDir: '/Users/test/.happy',
-        happyLibDir: '/Users/test/.happy/lib',
-        happyToolsDir: '/Users/test/.happy/tools',
-        ...overrides,
+        url: `http://127.0.0.1:${port}`,
+        requests,
+        close: () => new Promise<void>((resolve) => server.close(() => resolve())),
     };
 }
 
-describe('getSessionNotificationTitle', () => {
-    it('maps done notifications to a ready title', () => {
-        expect(getSessionNotificationTitle('done')).toBe("It's ready!");
+describe('PushNotificationClient.sendSessionNotification', () => {
+    let close: (() => Promise<void>) | null = null;
+    afterEach(async () => {
+        await close?.();
+        close = null;
     });
 
-    it('maps permission notifications to a permission title', () => {
-        expect(getSessionNotificationTitle('permission')).toBe('Permission request');
+    it('sends only the event kind to the session push-event endpoint', async () => {
+        const server = await startServer();
+        close = server.close;
+        const client = new PushNotificationClient('token-1', server.url);
+
+        await client.sendSessionNotification({ kind: 'permission', sessionId: 'sess/1' });
+
+        expect(server.requests).toHaveLength(1);
+        const [request] = server.requests;
+        expect(request.method).toBe('POST');
+        expect(request.url).toBe('/v1/sessions/sess%2F1/push-event');
+        expect(request.headers.authorization).toBe('Bearer token-1');
+        expect(request.headers['x-happy-client']).toBe('cli-daemon/9.9.9');
+        expect(JSON.parse(request.body)).toEqual({ kind: 'permission' });
     });
 
-    it('maps question notifications to a clarification title', () => {
-        expect(getSessionNotificationTitle('question')).toBe('Clarification needed');
-    });
-});
-
-describe('getSessionNotificationBody', () => {
-    it('uses the session summary when available', () => {
-        const metadata = makeMetadata({
-            summary: {
-                text: 'Fix push notifications',
-                updatedAt: 1,
-            }
-        });
-
-        expect(getSessionNotificationBody(metadata)).toBe('Fix push notifications');
-    });
-
-    it('falls back to the last path segment', () => {
-        const metadata = makeMetadata({
-            path: '/Users/test/projects/happy-cli',
-        });
-
-        expect(getSessionNotificationBody(metadata)).toBe('happy-cli');
-    });
-
-    it('falls back to a generic label when metadata is missing', () => {
-        expect(getSessionNotificationBody(null)).toBe('Session');
-    });
-});
-
-describe('getSessionNotificationCopy', () => {
-    it('returns the fixed title and session title body', () => {
-        const metadata = makeMetadata({
-            summary: {
-                text: 'Fix push notifications',
-                updatedAt: 1,
-            }
-        });
-
-        expect(getSessionNotificationCopy('done', metadata)).toEqual({
-            title: "It's ready!",
-            body: 'Fix push notifications',
-        });
+    it('never rejects when the server fails', async () => {
+        const server = await startServer(500);
+        close = server.close;
+        const client = new PushNotificationClient('token-1', server.url);
+        await expect(client.sendSessionNotification({ kind: 'done', sessionId: 's1' })).resolves.toBeUndefined();
     });
 });

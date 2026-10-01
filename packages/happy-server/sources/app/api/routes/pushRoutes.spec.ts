@@ -14,7 +14,7 @@ const {
         tokens: [] as Array<{ id: string; token: string }>,
         // Sockets the presence check sees, as socket.data shapes.
         sockets: [] as Array<{ data: Record<string, unknown> }>,
-        sent: [] as Array<{ to: string; title?: string }>,
+        sent: [] as Array<Record<string, unknown>>,
         ticketOverride: null as null | Array<{ status: 'ok' | 'error'; message?: string; details?: { error?: string } }>,
         presenceError: null as string | null,
     };
@@ -39,7 +39,7 @@ const {
         }
     };
 
-    const pushSendMock = vi.fn(async (messages: Array<{ to: string; title?: string }>) => {
+    const pushSendMock = vi.fn(async (messages: Array<Record<string, unknown> & { to: string }>) => {
         state.sent.push(...messages);
         return state.ticketOverride ?? messages.map(() => ({ status: 'ok' as const }));
     });
@@ -72,23 +72,28 @@ function stubIo() {
 const USER = "user-1";
 const SESSION = "session-1";
 
-async function buildApp(): Promise<Fastify> {
+async function buildApp(pushEnabled = true): Promise<Fastify> {
     const app = fastify();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
     const typed = app.withTypeProvider<ZodTypeProvider>() as unknown as Fastify;
     typed.decorate('authenticate', async (request: any) => { request.userId = USER; });
-    pushRoutes(typed);
+    pushRoutes(typed, { pushEnabled });
     await typed.ready();
     return typed;
 }
 
-async function postPushEvent(app: Fastify, sessionId = SESSION) {
+async function postPushEvent(app: Fastify, sessionId = SESSION, kind: 'done' | 'permission' | 'question' = 'done') {
     return app.inject({
         method: 'POST',
         url: `/v1/sessions/${sessionId}/push-event`,
         headers: { authorization: 'Bearer t' },
-        payload: { kind: 'done', title: 'It is ready!', body: 'session title' }
+        payload: {
+            kind,
+            title: 'Fix the payroll export',
+            body: '/home/alice/secret-project',
+            data: { path: '/home/alice/secret-project', tool: 'Bash', sessionTitle: 'payroll' },
+        },
     });
 }
 
@@ -172,5 +177,54 @@ describe('POST /v1/sessions/:sessionId/push-event', () => {
         const res = await postPushEvent(app, 'someone-elses-session');
         expect(res.statusCode).toBe(404);
         expect(state.sent).toHaveLength(0);
+    });
+
+    it('sends fixed, content-free copy and ignores client text', async () => {
+        const res = await postPushEvent(app);
+        expect(res.statusCode).toBe(200);
+        expect(state.sent).toEqual([{
+            to: 'ExponentPushToken[aaa]',
+            title: "It's ready!",
+            body: 'Open the session to continue.',
+            data: { sessionId: SESSION, kind: 'done', url: `/session/${SESSION}` },
+            sound: 'default',
+            channelId: 'messages',
+        }]);
+        expect(JSON.stringify(state.sent)).not.toMatch(/payroll|alice|secret|Bash/);
+    });
+
+    it('uses the permission title for permission events', async () => {
+        await postPushEvent(app, SESSION, 'permission');
+        expect(state.sent[0].title).toBe('Permission request');
+    });
+
+    it('accepts a body with only the kind', async () => {
+        const res = await app.inject({
+            method: 'POST',
+            url: `/v1/sessions/${SESSION}/push-event`,
+            headers: { authorization: 'Bearer t' },
+            payload: { kind: 'question' },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(state.sent[0]).toMatchObject({ title: 'Clarification needed' });
+    });
+
+    it('sends the same fixed copy to connected clients', async () => {
+        const emit = vi.spyOn(eventRouter, 'emitEphemeral');
+        await postPushEvent(app);
+        expect(emit).toHaveBeenCalledWith(expect.objectContaining({
+            payload: expect.objectContaining({ type: 'session-event', title: "It's ready!", body: 'Open the session to continue.' }),
+        }));
+        emit.mockRestore();
+    });
+
+    it('skips Expo entirely when PUSH_ENABLED is false', async () => {
+        const disabled = await buildApp(false);
+        const res = await postPushEvent(disabled);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ success: true, result: 'disabled' });
+        expect(state.sent).toHaveLength(0);
+        expect(dbMock.accountPushToken.findMany).not.toHaveBeenCalled();
+        await disabled.close();
     });
 });

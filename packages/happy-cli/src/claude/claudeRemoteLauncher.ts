@@ -161,17 +161,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                 continue;
             }
             notifiedQuestionToolCalls.add(toolCallId);
-            session.api.push().sendSessionNotification({
-                kind: 'question',
-                metadata: session.client.getMetadata(),
-                data: {
-                    sessionId: session.client.sessionId,
-                    tool: 'AskUserQuestion',
-                    toolCallId,
-                    type: 'question_request',
-                    provider: 'claude',
-                }
-            });
+            session.api.push().sendSessionNotification({ kind: 'question', sessionId: session.client.sessionId });
         }
 
         if (message.type === 'user') {
@@ -435,15 +425,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                         if (status === 'failed') await messageQueue.flush();
                         session.client.closeClaudeSessionTurn(status ?? 'completed');
                         if (status !== 'failed' && !pending && session.queue.size() === 0) {
-                            session.api.push().sendSessionNotification({
-                                kind: 'done',
-                                metadata: session.client.getMetadata(),
-                                data: {
-                                    sessionId: session.client.sessionId,
-                                    type: 'ready',
-                                    provider: 'claude',
-                                }
-                            });
+                            session.api.push().sendSessionNotification({ kind: 'done', sessionId: session.client.sessionId });
                         }
                     },
                     signal: abortController.signal,

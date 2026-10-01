@@ -306,15 +306,7 @@ export async function runGemini(opts: {
   const sendReady = () => {
     session.sendSessionEvent({ type: 'ready' });
     try {
-      api.push().sendSessionNotification({
-        kind: 'done',
-        metadata: session.getMetadata(),
-        data: {
-          sessionId: session.sessionId,
-          type: 'ready',
-          provider: 'gemini',
-        }
-      });
+      api.push().sendSessionNotification({ kind: 'done', sessionId: session.sessionId });
     } catch (pushError) {
       logger.debug('[Gemini] Failed to send ready push', pushError);
     }

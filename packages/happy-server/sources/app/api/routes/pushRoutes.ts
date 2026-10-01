@@ -3,8 +3,9 @@ import { type Fastify } from "../types";
 import { db } from "@/storage/db";
 import { dispatchSessionEventPush } from "@/app/push/pushDispatch";
 import { buildSessionEventEphemeral, eventRouter } from "@/app/events/eventRouter";
+import { buildSessionEventPush } from "@/app/push/pushCopy";
 
-export function pushRoutes(app: Fastify) {
+export function pushRoutes(app: Fastify, opts: { pushEnabled: boolean }) {
     
     // Push Token Registration API
     app.post('/v1/push-tokens', {
@@ -92,10 +93,9 @@ export function pushRoutes(app: Fastify) {
                 sessionId: z.string()
             }),
             body: z.object({
+                // Older CLIs also send title, body and data. zod strips them: pushes
+                // carry only fixed copy built from the kind (see pushCopy.ts).
                 kind: z.enum(['done', 'permission', 'question']),
-                title: z.string().min(1).max(200),
-                body: z.string().min(1).max(500),
-                data: z.record(z.string(), z.unknown()).optional()
             }),
             response: {
                 // `result` reports what actually happened so callers can tell a
@@ -103,7 +103,7 @@ export function pushRoutes(app: Fastify) {
                 // older clients that only check it.
                 200: z.object({
                     success: z.literal(true),
-                    result: z.enum(['sent', 'partial', 'suppressed', 'no_tokens', 'failed']),
+                    result: z.enum(['sent', 'partial', 'suppressed', 'no_tokens', 'failed', 'disabled']),
                     tokens: z.number().optional(),
                     delivered: z.number().optional(),
                     reason: z.string().optional()
@@ -117,7 +117,7 @@ export function pushRoutes(app: Fastify) {
     }, async (request, reply) => {
         const userId = request.userId;
         const { sessionId } = request.params;
-        const { kind, title, body, data } = request.body;
+        const { kind } = request.body;
 
         const session = await db.session.findFirst({
             where: { id: sessionId, accountId: userId },
@@ -127,25 +127,21 @@ export function pushRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
-        // Fan out the event to user's connected clients (web tabs use this to
-        // bump tab-title unread counter for "user attention needed" moments only,
-        // instead of pinging on every encrypted message).
+        // Web tabs use this to bump the tab-title unread counter; same fixed copy as the push.
+        const push = buildSessionEventPush(sessionId, kind);
         eventRouter.emitEphemeral({
             userId,
-            payload: buildSessionEventEphemeral(sessionId, kind, title, body),
+            payload: buildSessionEventEphemeral(sessionId, kind, push.title, push.body),
             recipientFilter: { type: 'all-interested-in-session', sessionId }
         });
 
+        if (!opts.pushEnabled) {
+            return reply.send({ success: true, result: 'disabled' as const });
+        }
+
         // Awaited so the response can report the real outcome. The CLI sends
         // this fire-and-forget, so the extra latency never blocks a turn.
-        const outcome = await dispatchSessionEventPush({
-            userId,
-            sessionId,
-            title,
-            body,
-            data: { ...(data ?? {}), kind }
-        });
-
+        const outcome = await dispatchSessionEventPush({ userId, sessionId, kind });
         return reply.send({ success: true, ...outcome });
     });
 

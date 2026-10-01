@@ -114,7 +114,6 @@ happy connect status
 | `happy openclaw` | Start OpenClaw session |
 | `happy acp` | Start any ACP-compatible agent |
 | `happy resume <id>` | Resume a previous session |
-| `happy notify` | Send push notification to your devices |
 | `happy doctor` | Diagnostics & troubleshooting |
 
 ---
