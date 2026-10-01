@@ -15,7 +15,6 @@ import { startSocket } from "./socket";
 import { machinesRoutes } from "./routes/machinesRoutes";
 import { devRoutes } from "./routes/devRoutes";
 import { versionRoutes } from "./routes/versionRoutes";
-import { voiceRoutes } from "./routes/voiceRoutes";
 import { artifactsRoutes } from "./routes/artifactsRoutes";
 import { accessKeysRoutes } from "./routes/accessKeysRoutes";
 import { enableMonitoring } from "./utils/enableMonitoring";
@@ -27,6 +26,8 @@ import { kvRoutes } from "./routes/kvRoutes";
 import { v3SessionRoutes } from "./routes/v3SessionRoutes";
 import { attachmentRoutes } from "./routes/attachmentRoutes";
 import { projectRoutes } from "./routes/projectRoutes";
+import { integrationRoutes } from "./routes/integrationRoutes";
+import { describeFeatures, loadFeaturesConfig } from "@/app/features/featuresConfig";
 import { isLocalStorage, getLocalFilesDir } from "@/storage/files";
 import { publicLocalFilePath } from './publicLocalFilePath';
 import * as path from "path";
@@ -103,6 +104,9 @@ export async function startApi(opts: StartApiOptions = {}) {
 
     // Routes
     const oidcRuntime = getOidcRuntime();
+    // Fails fast on partial or invalid integration settings.
+    const features = loadFeaturesConfig();
+    log({ module: 'features' }, `Integrations: ${describeFeatures(features)}`);
     oidcRoutes(typed, oidcRuntime);
     deviceAuthRoutes(typed, oidcRuntime);
     tokenRoutes(typed, oidcRuntime);
@@ -110,12 +114,12 @@ export async function startApi(opts: StartApiOptions = {}) {
     sessionRoutes(typed);
     accountRoutes(typed);
     connectRoutes(typed);
+    integrationRoutes(typed, features, { webappUrl: oidcRuntime.config.webappUrl });
     machinesRoutes(typed);
     artifactsRoutes(typed);
     accessKeysRoutes(typed);
     devRoutes(typed);
     versionRoutes(typed);
-    voiceRoutes(typed);
     userRoutes(typed);
     feedRoutes(typed);
     kvRoutes(typed);
