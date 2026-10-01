@@ -21,4 +21,12 @@ describe('applyAppConfigEnv', () => {
         expect(applyAppConfigEnv({ enableClaudeConnect: true }, { EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: 'true' }).enableClaudeConnect).toBe(false);
         expect(applyAppConfigEnv({}, {}).enableClaudeConnect).toBeUndefined();
     });
+
+    it('accepts an https mermaid script URL and rejects http/blank', () => {
+        expect(applyAppConfigEnv({}, { EXPO_PUBLIC_MERMAID_SCRIPT_URL: 'https://corp.example/mermaid.min.js' }).mermaidScriptUrl)
+            .toBe('https://corp.example/mermaid.min.js');
+        expect(applyAppConfigEnv({}, { EXPO_PUBLIC_MERMAID_SCRIPT_URL: 'http://corp.example/mermaid.min.js' }).mermaidScriptUrl)
+            .toBeUndefined();
+        expect(applyAppConfigEnv({}, {}).mermaidScriptUrl).toBeUndefined();
+    });
 });

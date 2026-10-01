@@ -1,4 +1,5 @@
 import type { AppConfig } from './appConfig';
+import { resolveMermaidScriptUrl } from '../components/markdown/mermaidScriptUrl';
 
 /**
  * EXPO_PUBLIC_* values the bundle was built with. Callers must pass literal
@@ -10,6 +11,7 @@ export type AppConfigEnv = {
     EXPO_PUBLIC_POSTHOG_HOST?: string;
     EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT?: string;
     EXPO_PUBLIC_SERVER_URL?: string;
+    EXPO_PUBLIC_MERMAID_SCRIPT_URL?: string;
 };
 
 function present(value: string | undefined): string | undefined {
@@ -35,6 +37,10 @@ export function applyAppConfigEnv(config: Partial<AppConfig>, env: AppConfigEnv)
     const serverUrl = present(env.EXPO_PUBLIC_SERVER_URL);
     if (serverUrl) {
         result.serverUrl = serverUrl;
+    }
+    const mermaidScriptUrl = resolveMermaidScriptUrl(env.EXPO_PUBLIC_MERMAID_SCRIPT_URL);
+    if (mermaidScriptUrl) {
+        result.mermaidScriptUrl = mermaidScriptUrl;
     }
     return result as AppConfig;
 }

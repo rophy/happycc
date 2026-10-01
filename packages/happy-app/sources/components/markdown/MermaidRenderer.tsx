@@ -4,6 +4,8 @@ import { WebView } from 'react-native-webview';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
+import { config } from '@/config';
+import { RenderCodeBlock } from './CodeBlock';
 
 // Tall diagrams scroll inside a capped container instead of taking over the chat
 const MAX_DIAGRAM_HEIGHT = 600;
@@ -107,7 +109,22 @@ export const MermaidRenderer = React.memo((props: {
         );
     }
 
-    // For iOS/Android, use WebView
+    // For iOS/Android, use WebView — but only when a script URL was explicitly
+    // configured (EXPO_PUBLIC_MERMAID_SCRIPT_URL). Third-party services are off
+    // unless configured: without it, there is no bundled mermaid on native and
+    // no default CDN fallback, so the diagram renders as a plain code block.
+    if (!config.mermaidScriptUrl) {
+        return (
+            <RenderCodeBlock
+                content={props.content}
+                language="mermaid"
+                first={false}
+                last={false}
+                selectable={true}
+            />
+        );
+    }
+
     // Pass mermaid content via JSON to prevent XSS from HTML interpolation
     const mermaidContent = JSON.stringify(props.content);
     const html = `
@@ -116,7 +133,7 @@ export const MermaidRenderer = React.memo((props: {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+            <script src="${config.mermaidScriptUrl}"></script>
             <style>
                 body {
                     margin: 0;

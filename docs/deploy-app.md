@@ -22,6 +22,7 @@ production builds refuse to start without their own.
 | `EXPO_PUBLIC_POSTHOG_API_KEY` | no | none | PostHog project key. Without it the app sends no analytics and hides the Analytics setting. |
 | `EXPO_PUBLIC_POSTHOG_HOST` | no | `https://us.i.posthog.com` | PostHog instance, e.g. your self-hosted `https://posthog.example.com`. Only used with a key. Must be `https://`, or `http://localhost`/`http://127.0.0.1` for local dev; an invalid custom host disables analytics rather than falling back to the default. |
 | `EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT` | no | off | `1` shows the Claude.ai account connect screen, which talks to claude.ai directly. Hidden otherwise. |
+| `EXPO_PUBLIC_MERMAID_SCRIPT_URL` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`) rather than pointing at a public CDN or a floating major-version tag. Web always uses the bundled `mermaid` package and ignores this variable. |
 
 Example production build:
 

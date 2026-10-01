@@ -6,17 +6,16 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native-unistyles';
 import { Text } from '../StyledText';
 import { Typography } from '@/constants/Typography';
-import { SimpleSyntaxHighlighter } from '../SimpleSyntaxHighlighter';
 import { Modal } from '@/modal';
 import { useLocalSetting } from '@/sync/storage';
 import { storeTempText } from '@/sync/persistence';
 import { useRouter } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { MermaidRenderer } from './MermaidRenderer';
 import { t } from '@/text';
 import { isHttpMarkdownLink } from './linkUtils';
 import { openExternalUrl } from '@/utils/openExternalUrl';
+import { RenderCodeBlock } from './CodeBlock';
 
 // Option type for callback
 export type Option = {
@@ -162,52 +161,6 @@ function RenderNumberedListBlock(props: { items: { number: number, depth: number
                     <Text selectable={props.selectable} style={[listStyle, { flex: 1 }]}><RenderSpans spans={item.spans} baseStyle={listStyle} selectable={props.selectable} onLinkPress={props.onLinkPress} /></Text>
                 </View>
             ))}
-        </View>
-    );
-}
-
-function RenderCodeBlock(props: { content: string, language: string | null, first: boolean, last: boolean, selectable: boolean }) {
-    const [isHovered, setIsHovered] = React.useState(false);
-
-    const copyCode = React.useCallback(async () => {
-        try {
-            await Clipboard.setStringAsync(props.content);
-            Modal.alert(t('common.success'), t('markdown.codeCopied'), [{ text: t('common.ok'), style: 'cancel' }]);
-        } catch (error) {
-            console.error('Failed to copy code:', error);
-            Modal.alert(t('common.error'), t('markdown.copyFailed'), [{ text: t('common.ok'), style: 'cancel' }]);
-        }
-    }, [props.content]);
-
-    return (
-        <View
-            style={[style.codeBlock, props.first && style.first, props.last && style.last]}
-            // @ts-ignore - Web only events
-            onMouseEnter={() => setIsHovered(true)}
-            // @ts-ignore - Web only events
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            {props.language && <Text selectable={props.selectable} style={style.codeLanguage}>{props.language}</Text>}
-            <HorizontalScrollView
-                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
-            >
-                <SimpleSyntaxHighlighter
-                    code={props.content}
-                    language={props.language}
-                    selectable={props.selectable}
-                />
-            </HorizontalScrollView>
-            <View
-                style={[style.copyButtonWrapper, isHovered && style.copyButtonWrapperVisible]}
-                {...(Platform.OS === 'web' ? ({ className: 'copy-button-wrapper' } as any) : {})}
-            >
-                <Pressable
-                    style={style.copyButton}
-                    onPress={copyCode}
-                >
-                    <Text style={style.copyButtonText}>{t('common.copy')}</Text>
-                </Pressable>
-            </View>
         </View>
     );
 }
@@ -493,36 +446,9 @@ const style = StyleSheet.create((theme) => ({
     //
     // Code Block
     //
+    // (RenderCodeBlock itself moved to ./CodeBlock.tsx, shared with the
+    // native mermaid fallback; its styles live there too.)
 
-    codeBlock: {
-        backgroundColor: theme.colors.surfaceHighest,
-        borderRadius: 8,
-        marginVertical: 8,
-        position: 'relative',
-        zIndex: 1,
-        width: '100%',
-    },
-    copyButtonWrapper: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        opacity: 0,
-        zIndex: 10,
-        elevation: 10,
-        pointerEvents: 'none',
-    },
-    copyButtonWrapperVisible: {
-        opacity: 1,
-        pointerEvents: 'auto',
-    },
-    codeLanguage: {
-        ...Typography.mono(),
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        marginTop: 8,
-        paddingHorizontal: 16,
-        marginBottom: 0,
-    },
     codeText: {
         ...Typography.mono(),
         color: theme.colors.text,
@@ -566,15 +492,6 @@ const style = StyleSheet.create((theme) => ({
     copyButtonContainerHidden: {
         opacity: 0,
     },
-    copyButton: {
-        backgroundColor: theme.colors.surfaceHighest,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        cursor: 'pointer',
-    },
     copyButtonHidden: {
         display: 'none',
     },
@@ -582,12 +499,6 @@ const style = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.success,
         borderColor: theme.colors.success,
         opacity: 1,
-    },
-    copyButtonText: {
-        ...Typography.default(),
-        color: theme.colors.text,
-        fontSize: 12,
-        lineHeight: 16,
     },
 
     //

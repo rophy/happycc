@@ -10,6 +10,7 @@ export interface AppConfig {
     serverUrl?: string;
     buildCommitSha?: string;
     buildCommitTimestamp?: string;
+    mermaidScriptUrl?: string;
 }
 
 /**
@@ -70,5 +71,6 @@ export function loadAppConfig(): AppConfig {
         EXPO_PUBLIC_POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST,
         EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: process.env.EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT,
         EXPO_PUBLIC_SERVER_URL: process.env.EXPO_PUBLIC_SERVER_URL,
+        EXPO_PUBLIC_MERMAID_SCRIPT_URL: process.env.EXPO_PUBLIC_MERMAID_SCRIPT_URL,
     });
 }
