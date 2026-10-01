@@ -39,11 +39,12 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
 - `METRICS_PORT`: metrics server port (default `9090`).
 - `S3_PORT`: optional S3 port.
 - `S3_USE_SSL`: `true`/`false` (default `true`).
+- `APP_STORE_URL`, `PLAY_STORE_URL`: optional. `/v1/version` returns one of these as `updateUrl` when the reporting client is below the minimum version; unset means no update URL (no upstream store link).
 
 **Optional integrations** (all off unless configured; setting only part of a group is a startup error)
 - Clients read `GET /v1/features` (authenticated) → `{ voice, githubConnect, push }` and hide what is off.
 - GitHub connect: set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_REDIRECT_URL` together to register the `/v1/connect/github/*` routes. The OAuth callback returns to `WEBAPP_URL`.
-  - The GitHub App settings `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` and `GITHUB_REDIRECT_URI` only initialize webhook handling.
+  - The GitHub App settings `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` and `GITHUB_REDIRECT_URI` only initialize webhook handling. The webhook route itself is part of the GitHub route group, so it is only registered when the three OAuth settings above are also set — setting only the App settings leaves `/v1/connect/github/webhook` returning 404.
 - Voice: set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` together to register `/v1/voice/*`.
   - The agent id is server configuration; apps do not carry one.
   - Voice is available to every signed-in user. There are no subscriptions.
