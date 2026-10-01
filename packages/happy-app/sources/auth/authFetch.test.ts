@@ -65,6 +65,34 @@ describe('authFetch', () => {
         await expect(authFetch(`${SERVER}/v1/x`)).rejects.toBeInstanceOf(LoggedOutError);
         await expect(getAccessToken()).rejects.toBeInstanceOf(LoggedOutError);
     });
+
+    it('does not retry a 401 when the request body is a ReadableStream', async () => {
+        const refresh = vi.fn(async () => 'tok-new');
+        setAccessTokenProvider({ serverUrl: () => SERVER, getAccessToken: async () => 'tok-old', refresh });
+        const fetchMock = stubFetch(401, 200);
+        const response = await authFetch(`${SERVER}/v1/upload`, { method: 'POST', body: new ReadableStream() });
+        expect(response.status).toBe(401);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('passes other-origin requests through even when nobody is signed in', async () => {
+        setAccessTokenProvider(staticAccessTokenProvider('tok-1', SERVER));
+        setAccessTokenProvider(null); // signed out; the server's origin is still remembered
+        const fetchMock = stubFetch(200);
+        const response = await authFetch('https://files.test/blob?sig=1');
+        expect(response.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalledWith('https://files.test/blob?sig=1', undefined);
+    });
+
+    it('strips any existing Authorization header case-insensitively before attaching ours', async () => {
+        setAccessTokenProvider(staticAccessTokenProvider('tok-1', SERVER));
+        const fetchMock = stubFetch(200);
+        await authFetch(`${SERVER}/v1/x`, { headers: { authorization: 'Bearer stale', 'X-Keep': '1' } });
+        expect(fetchMock).toHaveBeenCalledWith(`${SERVER}/v1/x`, {
+            headers: { 'X-Keep': '1', Authorization: 'Bearer tok-1' },
+        });
+    });
 });
 
 describe('headersToRecord', () => {

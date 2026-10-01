@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     LoggedOutError,
+    RETRY_AFTER_ERROR_MS,
     TokenStore,
     parseStoredCredentials,
     type StoredCredentials,
@@ -191,12 +192,135 @@ describe('TokenStore', () => {
         const first = await store.getAccessToken();
         expect(store.current().refreshToken).toBe('rt-2');
         expect(store.hasPendingRotation()).toBe(true);
-        expect(storage.state.value?.refreshToken).toBe('rt-1');
+        // The failed write left 'rt-1' in storage, but the server already rotated past it:
+        // we clear it so no other tab tries (and fails) to redeem a token that's dead anyway.
+        expect(storage.state.value).toBeNull();
+        expect(storage.clearIfRefreshToken).toHaveBeenCalledWith('rt-1');
 
         await store.refresh(first);
         expect(server.calls.map((call) => call.body.refreshToken)).toEqual(['rt-1', 'rt-2']);
         expect(storage.state.value?.refreshToken).toBe('rt-3');
         expect(store.hasPendingRotation()).toBe(false);
+        expect(onLoggedOut).not.toHaveBeenCalled();
+    });
+
+    it('retries persisting a pending rotation on the proactive timer without redeeming it again', async () => {
+        vi.useFakeTimers();
+        const stale = makeJwt(60);
+        const server = rotatingServer();
+        const storage = memoryStorage(creds(stale));
+        storage.write.mockRejectedValueOnce(new Error('quota exceeded'));
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl)));
+
+        await store.getAccessToken();
+        expect(store.hasPendingRotation()).toBe(true);
+        expect(server.calls).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(RETRY_AFTER_ERROR_MS + 1_000);
+
+        expect(server.calls).toHaveLength(1); // no extra /refresh POST — only the persist retried
+        expect(store.hasPendingRotation()).toBe(false);
+        expect(storage.state.value?.refreshToken).toBe('rt-2');
+    });
+
+    it('treats a 401 refresh error other than invalid_grant as a plain Error and keeps credentials', async () => {
+        const stale = makeJwt(60);
+        const server = fakeServer(() => ({ status: 401, body: { error: 'server_error' } }));
+        const storage = memoryStorage(creds(stale));
+        const onLoggedOut = vi.fn();
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl, { onLoggedOut })));
+
+        const error = await store.refresh(stale).catch((e) => e);
+        expect(error).toBeInstanceOf(Error);
+        expect(error).not.toBeInstanceOf(LoggedOutError);
+        expect(storage.state.value).toEqual(creds(stale));
+        expect(onLoggedOut).not.toHaveBeenCalled();
+    });
+
+    it('leaves storage untouched when stop() is called during an in-flight refresh', async () => {
+        const stale = makeJwt(60);
+        let resolveFetch!: (value: Response) => void;
+        const blockedFetchMock = vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve; }));
+        const blockedFetch = blockedFetchMock as unknown as typeof fetch;
+        const storage = memoryStorage(creds(stale));
+        const store = track(new TokenStore(creds(stale), deps(storage, blockedFetch)));
+
+        const pending = store.refresh(stale);
+        while (blockedFetchMock.mock.calls.length === 0) {
+            await Promise.resolve();
+        }
+        store.stop();
+        resolveFetch(new Response(JSON.stringify({ accessToken: makeJwt(900), refreshToken: 'rt-2' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        }));
+
+        await expect(pending).rejects.toBeInstanceOf(Error);
+        expect(storage.write).not.toHaveBeenCalled();
+        expect(storage.state.value).toEqual(creds(stale));
+    });
+
+    it('stopAndSettle waits for an in-flight refresh to finish before resolving, fencing its write', async () => {
+        const stale = makeJwt(60);
+        let resolveFetch!: (value: Response) => void;
+        const blockedFetchMock = vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve; }));
+        const blockedFetch = blockedFetchMock as unknown as typeof fetch;
+        const storage = memoryStorage(creds(stale));
+        const store = track(new TokenStore(creds(stale), deps(storage, blockedFetch)));
+
+        const pending = store.refresh(stale).catch(() => {});
+        while (blockedFetchMock.mock.calls.length === 0) {
+            await Promise.resolve();
+        }
+        const settle = store.stopAndSettle();
+        resolveFetch(new Response(JSON.stringify({ accessToken: makeJwt(900), refreshToken: 'rt-2' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        }));
+        await settle;
+        await pending;
+
+        expect(storage.write).not.toHaveBeenCalled();
+        expect(storage.state.value).toEqual(creds(stale));
+    });
+
+    it('does not write when storage was cleared by another tab mid-refresh', async () => {
+        const stale = makeJwt(60);
+        const server = rotatingServer();
+        const storage = memoryStorage(creds(stale));
+        const onLoggedOut = vi.fn();
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl, { onLoggedOut })));
+
+        let calls = 0;
+        storage.read.mockImplementation(async () => {
+            calls += 1;
+            // First read: the normal "decide whether to redeem" read. Second read: the
+            // CAS check right before writing — simulate another tab logging out meanwhile.
+            return calls === 1 ? storage.state.value : null;
+        });
+
+        await expect(store.refresh(stale)).rejects.toBeInstanceOf(Error);
+        expect(storage.write).not.toHaveBeenCalled();
+        expect(onLoggedOut).not.toHaveBeenCalled();
+    });
+
+    it('does not write when storage was swapped to a different account mid-refresh', async () => {
+        const stale = makeJwt(60);
+        const server = rotatingServer();
+        const storage = memoryStorage(creds(stale));
+        const onLoggedOut = vi.fn();
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl, { onLoggedOut })));
+
+        let calls = 0;
+        const otherAccount = creds(makeJwt(900), 'rt-9');
+        otherAccount.secret = 'other-secret';
+        storage.read.mockImplementation(async () => {
+            calls += 1;
+            return calls === 1 ? storage.state.value : otherAccount;
+        });
+
+        await expect(store.refresh(stale)).rejects.toBeInstanceOf(Error);
+        expect(storage.write).not.toHaveBeenCalled();
         expect(onLoggedOut).not.toHaveBeenCalled();
     });
 

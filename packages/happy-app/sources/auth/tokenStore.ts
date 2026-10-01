@@ -47,6 +47,18 @@ export class LoggedOutError extends Error {
     }
 }
 
+/**
+ * Internal: the store was stopped (logout, external-change reload, or
+ * `stopAndSettle`) while a refresh was in flight. Never surfaced to deps or
+ * scheduled for retry — the caller just sees the operation didn't complete.
+ */
+class StoppedError extends Error {
+    constructor() {
+        super('Token store stopped');
+        this.name = 'StoppedError';
+    }
+}
+
 export interface AccessTokenProvider {
     serverUrl(): string;
     getAccessToken(): Promise<string>;
@@ -63,7 +75,11 @@ export interface TokenStoreDeps {
     clearIfRefreshToken(refreshToken: string): Promise<void>;
     /** The server rejected the refresh token: run the app's logout path. */
     onLoggedOut(): void;
-    /** Cross-tab mutual exclusion for refresh (web: navigator.locks). */
+    /**
+     * Cross-tab mutual exclusion for refresh (web: navigator.locks). When
+     * navigator.locks is unavailable, wire `createLeaseLock(...).withLock`
+     * from `./leaseLock` instead (see that module's header comment).
+     */
     withLock?<T>(fn: () => Promise<T>): Promise<T>;
     fetch?: typeof fetch;
     clientId?(): string;
@@ -120,11 +136,20 @@ export class TokenStore implements AccessTokenProvider {
     }
 
     refresh(rejectedToken: string): Promise<string> {
+        return this.runSingleFlight(() => this.adoptOrRefresh(rejectedToken));
+    }
+
+    /** Retry persisting a pending rotation only — never redeems unless it's actually due. */
+    private retryPendingRotationOnly(): Promise<string> {
+        return this.runSingleFlight(() => this.persistPendingOnly());
+    }
+
+    private runSingleFlight(operation: () => Promise<StoredCredentials>): Promise<string> {
         if (this.stopped) {
             return Promise.reject(new LoggedOutError());
         }
         if (!this.inflight) {
-            this.inflight = this.runRefresh(rejectedToken)
+            this.inflight = this.runUnderLock(operation)
                 .then(
                     (credentials) => {
                         this.credentials = credentials;
@@ -133,7 +158,9 @@ export class TokenStore implements AccessTokenProvider {
                         return credentials.token;
                     },
                     (error: unknown) => {
-                        if (error instanceof LoggedOutError) {
+                        if (error instanceof StoppedError) {
+                            // Already stopped (logout / external change); nothing to schedule or notify.
+                        } else if (error instanceof LoggedOutError) {
                             this.signOut();
                         } else {
                             this.schedule(RETRY_AFTER_ERROR_MS);
@@ -198,6 +225,21 @@ export class TokenStore implements AccessTokenProvider {
         }
     }
 
+    /**
+     * Stops the store and waits for any in-flight refresh to settle. Every
+     * await inside a refresh re-checks `stopped` before it persists anything,
+     * so by the time this resolves nothing further will be written. Callers
+     * that are about to wipe credentials locally (e.g. the app's logout path,
+     * Task 3) must await this first, so a refresh already in flight can't
+     * resurrect the credentials afterwards.
+     */
+    async stopAndSettle(): Promise<void> {
+        this.stop();
+        if (this.inflight) {
+            await this.inflight.catch(() => {});
+        }
+    }
+
     private signOut(): void {
         const notify = !this.stopped && !this.silent;
         this.stop();
@@ -206,26 +248,25 @@ export class TokenStore implements AccessTokenProvider {
         }
     }
 
-    private runRefresh(rejectedToken: string): Promise<StoredCredentials> {
-        const work = () => this.adoptOrRefresh(rejectedToken);
-        return this.deps.withLock ? this.deps.withLock(work) : work();
+    private runUnderLock<T>(fn: () => Promise<T>): Promise<T> {
+        return this.deps.withLock ? this.deps.withLock(fn) : fn();
     }
 
     private async adoptOrRefresh(rejectedToken: string): Promise<StoredCredentials> {
+        if (this.stopped) {
+            throw new StoppedError();
+        }
         if (this.pendingRotation) {
-            const pending = this.pendingRotation;
-            try {
-                await this.deps.write(pending);
-                this.pendingRotation = null;
-            } catch {
-                // Still pending; keep serving it from memory.
+            const persisted = await this.persist(null, this.pendingRotation);
+            if (persisted.token !== rejectedToken && this.isFresh(persisted.token)) {
+                return persisted;
             }
-            if (pending.token !== rejectedToken && this.isFresh(pending.token)) {
-                return pending;
-            }
-            return this.redeem(pending);
+            return this.redeem(persisted);
         }
         const stored = this.deps.read ? await this.deps.read() : this.credentials;
+        if (this.stopped) {
+            throw new StoppedError();
+        }
         if (!stored) {
             throw new LoggedOutError();
         }
@@ -233,6 +274,21 @@ export class TokenStore implements AccessTokenProvider {
             return stored;
         }
         return this.redeem(stored);
+    }
+
+    /** Only persists a pending rotation; redeems it only if it's actually due for refresh. */
+    private async persistPendingOnly(): Promise<StoredCredentials> {
+        if (this.stopped) {
+            throw new StoppedError();
+        }
+        if (!this.pendingRotation) {
+            return this.credentials;
+        }
+        const persisted = await this.persist(null, this.pendingRotation);
+        if (this.isFresh(persisted.token)) {
+            return persisted;
+        }
+        return this.redeem(persisted);
     }
 
     private async redeem(base: StoredCredentials): Promise<StoredCredentials> {
@@ -246,8 +302,14 @@ export class TokenStore implements AccessTokenProvider {
         } catch (error) {
             throw new Error(`Token refresh failed: ${error instanceof Error ? error.message : 'network error'}`);
         }
+        if (this.stopped) {
+            throw new StoppedError();
+        }
         if (response.status === 401) {
             const body = await response.json().catch(() => null) as { error?: string } | null;
+            if (this.stopped) {
+                throw new StoppedError();
+            }
             if (body?.error === 'invalid_grant') {
                 try {
                     await this.deps.clearIfRefreshToken(base.refreshToken);
@@ -261,17 +323,70 @@ export class TokenStore implements AccessTokenProvider {
             throw new Error(`Token refresh failed: HTTP ${response.status}`);
         }
         const data = await response.json() as { accessToken?: unknown; refreshToken?: unknown };
+        if (this.stopped) {
+            throw new StoppedError();
+        }
         if (typeof data.accessToken !== 'string' || typeof data.refreshToken !== 'string') {
             throw new Error('Token refresh failed: invalid response');
         }
         const rotated: StoredCredentials = { ...base, token: data.accessToken, refreshToken: data.refreshToken };
-        try {
-            await this.deps.write(rotated);
-            this.pendingRotation = null;
-        } catch {
-            this.pendingRotation = rotated;
+        return this.persist(base.refreshToken, rotated);
+    }
+
+    /**
+     * Compare-and-set persistence: refuses to overwrite storage unless it
+     * still holds `expected` (the refresh token we read before deciding to
+     * write `next`; `null` means "we expect it empty/cleared", used when
+     * retrying a pending rotation). On a mismatch — another tab already
+     * rotated or logged out — follows that external state like
+     * `applyExternalChange` would, instead of clobbering it.
+     *
+     * Must run inside the same lock as the read that produced `expected`
+     * (the caller's `withLock`), and every await here re-checks `stopped`
+     * before touching storage.
+     */
+    private async persist(expected: string | null, next: StoredCredentials): Promise<StoredCredentials> {
+        if (this.stopped) {
+            throw new StoppedError();
         }
-        return rotated;
+        if (this.deps.read) {
+            const stored = await this.deps.read();
+            if (this.stopped) {
+                throw new StoppedError();
+            }
+            const storedRefreshToken = stored?.refreshToken ?? null;
+            if (storedRefreshToken !== expected) {
+                const outcome = this.applyExternalChange(stored ? JSON.stringify(stored) : null);
+                if (this.stopped) {
+                    throw new StoppedError();
+                }
+                if (outcome === 'adopted') {
+                    return this.credentials;
+                }
+                // 'ignored': storage didn't match what we expected to overwrite, but also
+                // doesn't look like a real external change. Don't lose `next`; keep retrying.
+                this.pendingRotation = next;
+                return next;
+            }
+        }
+        try {
+            await this.deps.write(next);
+            this.pendingRotation = null;
+            return next;
+        } catch {
+            // Keep serving `next` from memory and retry persisting it later. Also drop the
+            // now-stale `expected` token from storage so other tabs don't try to redeem it
+            // (the server already rotated past it).
+            this.pendingRotation = next;
+            if (expected !== null) {
+                try {
+                    await this.deps.clearIfRefreshToken(expected);
+                } catch {
+                    // Best effort.
+                }
+            }
+            return next;
+        }
     }
 
     private schedule(delayOverrideMs?: number): void {
@@ -289,8 +404,11 @@ export class TokenStore implements AccessTokenProvider {
         const delay = delayOverrideMs ?? Math.max(MIN_TIMER_MS, exp! - this.now() - REFRESH_MARGIN_MS);
         this.timer = setTimeout(() => {
             this.timer = null;
-            this.refresh(this.credentials.token).catch(() => {
-                // refresh() already rescheduled or signed out.
+            // A pending rotation only needs persisting, not another redemption,
+            // unless it has itself gone stale while we were retrying.
+            const retry = this.pendingRotation ? this.retryPendingRotationOnly() : this.refresh(this.credentials.token);
+            retry.catch(() => {
+                // Already rescheduled or signed out.
             });
         }, delay);
     }
