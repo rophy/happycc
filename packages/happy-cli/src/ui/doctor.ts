@@ -32,7 +32,7 @@ export function getEnvironmentInfo(): Record<string, any> {
         workingDirectory: process.cwd(),
         processArgv: process.argv,
         happyDir: configuration?.happyHomeDir,
-        serverUrl: configuration?.serverUrl,
+        serverUrl: configuration.hasServerUrl ? configuration.serverUrl : null,
         logsDir: configuration?.logsDir,
         processPid: process.pid,
         nodeVersion: process.version,
@@ -235,7 +235,7 @@ export async function runDoctorCommand(): Promise<void> {
     // Configuration
     console.log(chalk.bold('\n⚙️  Configuration'));
     console.log(`Happy Home: ${chalk.blue(configuration.happyHomeDir)}`);
-    console.log(`Server URL: ${chalk.blue(configuration.serverUrl)}`);
+    console.log(`Server URL: ${configuration.hasServerUrl ? chalk.blue(configuration.serverUrl) : chalk.red('not set (HAPPY_SERVER_URL)')}`);
     console.log(`Logs Dir: ${chalk.blue(configuration.logsDir)}`);
 
     // Authentication

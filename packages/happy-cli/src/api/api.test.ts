@@ -33,7 +33,7 @@ vi.mock('./encryption', () => ({
 }));
 
 // Mock configuration
-vi.mock('./configuration', () => ({
+vi.mock('@/configuration', () => ({
     configuration: {
         serverUrl: 'https://api.example.com'
     }

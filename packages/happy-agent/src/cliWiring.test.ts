@@ -19,13 +19,16 @@ vi.mock('./auth', () => ({
 
 let originalArgv: string[];
 let originalHomeDir: string | undefined;
+let originalServerUrl: string | undefined;
 
 beforeEach(() => {
     vi.resetModules();
     authLogin.mockClear();
     originalArgv = process.argv;
     originalHomeDir = process.env.HAPPY_HOME_DIR;
+    originalServerUrl = process.env.HAPPY_SERVER_URL;
     process.env.HAPPY_HOME_DIR = '/tmp/happy-agent-cli-wiring-test';
+    process.env.HAPPY_SERVER_URL = 'https://happy.corp.example';
 });
 
 afterEach(() => {
@@ -34,6 +37,11 @@ afterEach(() => {
         delete process.env.HAPPY_HOME_DIR;
     } else {
         process.env.HAPPY_HOME_DIR = originalHomeDir;
+    }
+    if (originalServerUrl === undefined) {
+        delete process.env.HAPPY_SERVER_URL;
+    } else {
+        process.env.HAPPY_SERVER_URL = originalServerUrl;
     }
 });
 

@@ -33,10 +33,18 @@ import { handleResumeCommand } from '@/resume/handleResumeCommand'
 import { ensureDaemonRunning } from './daemon/ensureDaemonRunning'
 import { handleCodexCommand } from './commands/codexCommand'
 import { sanitizeSessionEnvironment } from './daemon/sessionEnvironment'
+import { configuration } from './configuration'
+import { commandNeedsServerUrl, missingServerUrlMessage } from './serverUrl'
 
 
 (async () => {
   const args = process.argv.slice(2)
+
+  // No built-in server: refuse to run anything that talks to one until it is configured.
+  if (!configuration.hasServerUrl && commandNeedsServerUrl(args)) {
+    console.error(chalk.red('Error:'), missingServerUrlMessage(configuration.settingsFile))
+    process.exit(1)
+  }
 
   // If --version is passed - do not log, its likely daemon inquiring about our version
   if (!args.includes('--version')) {

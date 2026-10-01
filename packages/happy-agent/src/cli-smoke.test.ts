@@ -44,7 +44,7 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
             '--no-deprecation',
             binPath,
             ...args,
-        ], { encoding: 'utf-8', env: { ...process.env, HAPPY_HOME_DIR: '/tmp/nonexistent-happy-acceptance' } });
+        ], { encoding: 'utf-8', env: { ...process.env, HAPPY_HOME_DIR: '/tmp/nonexistent-happy-acceptance', HAPPY_SERVER_URL: 'http://127.0.0.1:9' } });
         return { stdout, stderr: '', exitCode: 0 };
     } catch (err: unknown) {
         const e = err as { stdout?: string; stderr?: string; status?: number };
@@ -548,19 +548,23 @@ describe('Smoke: Full test suite runs', () => {
 
     });
 
-    it('config loads with correct defaults', () => {
+    it('config requires HAPPY_SERVER_URL and defaults the home directory', () => {
         const origUrl = process.env.HAPPY_SERVER_URL;
         const origHome = process.env.HAPPY_HOME_DIR;
-        delete process.env.HAPPY_SERVER_URL;
         delete process.env.HAPPY_HOME_DIR;
 
         try {
+            delete process.env.HAPPY_SERVER_URL;
+            expect(() => loadConfig()).toThrow('HAPPY_SERVER_URL is not set');
+
+            process.env.HAPPY_SERVER_URL = 'https://happy.corp.example';
             const config = loadConfig();
-            expect(config.serverUrl).toBe('https://api.cluster-fluster.com');
+            expect(config.serverUrl).toBe('https://happy.corp.example');
             expect(config.homeDir).toContain('.happy');
             expect(config.credentialPath).toContain('agent.key');
         } finally {
             if (origUrl !== undefined) process.env.HAPPY_SERVER_URL = origUrl;
+            else delete process.env.HAPPY_SERVER_URL;
             if (origHome !== undefined) process.env.HAPPY_HOME_DIR = origHome;
         }
     });

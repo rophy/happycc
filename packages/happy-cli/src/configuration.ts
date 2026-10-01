@@ -9,10 +9,12 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import packageJson from '../package.json'
+import { MissingServerUrlError } from './serverUrl'
 
 class Configuration {
-  public readonly serverUrl: string
-  public readonly webappUrl: string
+  private readonly configuredServerUrl: string | null
+  /** No built-in default. Nothing reads it today; kept for settings compatibility. */
+  public readonly webappUrl: string | null
   public readonly isDaemonProcess: boolean
 
   // Directories and paths (from persistence)
@@ -50,18 +52,17 @@ class Configuration {
     this.daemonLockFile = join(this.happyHomeDir, 'daemon.state.json.lock')
     this.sessionsFile = join(this.happyHomeDir, 'sessions.json')
 
-    // URL precedence (both): HAPPY_*_URL env > settings.<key> > default.
+    // URL precedence (both): HAPPY_*_URL env > settings.<key>. There is no
+    // built-in default: this build must never contact an upstream host.
     // Settings are read sync here (avoid circular import with persistence.ts).
-    // webappUrl must follow the same chain as serverUrl to ensure consistency
-    // when serverUrl is overridden via env or settings.
-    this.serverUrl =
+    this.configuredServerUrl =
       process.env.HAPPY_SERVER_URL ||
       readSettingsStringSync(this.settingsFile, 'serverUrl') ||
-      'https://api.cluster-fluster.com'
+      null
     this.webappUrl =
       process.env.HAPPY_WEBAPP_URL ||
       readSettingsStringSync(this.settingsFile, 'webappUrl') ||
-      'https://app.happy.engineering'
+      null
 
     this.isExperimentalEnabled = ['true', '1', 'yes'].includes(process.env.HAPPY_EXPERIMENTAL?.toLowerCase() || '');
     this.disableCaffeinate = ['true', '1', 'yes'].includes(process.env.HAPPY_DISABLE_CAFFEINATE?.toLowerCase() || '');
@@ -87,6 +88,17 @@ class Configuration {
     if (!existsSync(this.logsDir)) {
       mkdirSync(this.logsDir, { recursive: true })
     }
+  }
+
+  get hasServerUrl(): boolean {
+    return this.configuredServerUrl !== null
+  }
+
+  get serverUrl(): string {
+    if (this.configuredServerUrl === null) {
+      throw new MissingServerUrlError(this.settingsFile)
+    }
+    return this.configuredServerUrl
   }
 }
 

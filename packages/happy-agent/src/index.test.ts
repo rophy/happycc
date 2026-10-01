@@ -13,7 +13,7 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
             '--no-deprecation',
             binPath,
             ...args,
-        ], { encoding: 'utf-8', env: { ...process.env, HAPPY_HOME_DIR: '/tmp/nonexistent-happy-test' } });
+        ], { encoding: 'utf-8', env: { ...process.env, HAPPY_HOME_DIR: '/tmp/nonexistent-happy-test', HAPPY_SERVER_URL: 'http://127.0.0.1:9' } });
         return { stdout, stderr: '', exitCode: 0 };
     } catch (err: unknown) {
         const e = err as { stdout?: string; stderr?: string; status?: number };
@@ -26,6 +26,23 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
 }
 
 describe('happy-agent CLI', () => {
+    it('exits with an error naming HAPPY_SERVER_URL when it is not set', () => {
+        let stderr = '';
+        let status = 0;
+        try {
+            execFileSync(process.execPath, ['--no-warnings', '--no-deprecation', binPath, 'list'], {
+                encoding: 'utf-8',
+                env: { ...process.env, HAPPY_HOME_DIR: '/tmp/nonexistent-happy-test', HAPPY_SERVER_URL: '' },
+            });
+        } catch (err: unknown) {
+            const e = err as { stderr?: string; status?: number };
+            stderr = e.stderr ?? '';
+            status = e.status ?? 1;
+        }
+        expect(status).not.toBe(0);
+        expect(stderr).toContain('HAPPY_SERVER_URL is not set');
+    });
+
     it('should display help output', () => {
         const { stdout } = runCli('--help');
         expect(stdout).toContain('happy-agent');
