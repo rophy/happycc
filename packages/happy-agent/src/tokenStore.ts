@@ -50,18 +50,20 @@ type PendingRotation = { from: string; rotated: StoredCredentials };
 export class TokenStore implements TokenSource {
     private token: string | null;
     private readonly secret: Uint8Array;
-    /** The refresh token this store last saw or wrote under the credentials lock (or the
-     *  one it was constructed with, if neither has happened yet). Lets callers that need
-     *  "the refresh token that is ours" (e.g. logout) avoid an unlocked re-read of the file,
-     *  which could otherwise pick up a concurrent login that is not ours to act on. */
-    private refreshToken: string | null;
+    /** The refresh token actually confirmed on disk — set only from a successful
+     *  `readCredentials` or a successful `writeCredentials`, never from an unpersisted
+     *  pending rotation. Callers that need "the refresh token the file holds" (e.g. logout,
+     *  which clears the file by comparing against it) must use this, not whatever the
+     *  server most recently issued us in memory — those can differ for as long as a
+     *  rotation is pending. */
+    private diskRefreshToken: string | null;
     private inflight: Promise<string> | null = null;
     private pendingRotation: PendingRotation | null = null;
 
     constructor(private readonly config: Config, credentials: { token: string; secret: Uint8Array; refreshToken?: string }) {
         this.token = credentials.token;
         this.secret = credentials.secret;
-        this.refreshToken = credentials.refreshToken ?? null;
+        this.diskRefreshToken = credentials.refreshToken ?? null;
     }
 
     async getAccessToken(): Promise<string> {
@@ -92,10 +94,67 @@ export class TokenStore implements TokenSource {
         return this.inflight;
     }
 
-    /** The refresh token this store last saw or wrote under the lock. `null` only before
-     *  the store has ever read or written credentials (it is given one at construction). */
-    currentRefreshToken(): string | null {
-        return this.refreshToken;
+    /** The refresh token the credentials file actually holds, as last confirmed under the
+     *  lock. `null` only before the store has ever read or written credentials (it is given
+     *  one at construction). While a rotation is pending (unpersisted), this still returns
+     *  the token the file holds, *not* the newer one only held in memory. */
+    refreshTokenOnDisk(): string | null {
+        return this.diskRefreshToken;
+    }
+
+    /** POSTs `/v1/auth/refresh` with `refreshTokenToSend`, retrying once immediately (still
+     *  inside the lock) if the first attempt gets no response at all. `refreshTokenOnDisk` is
+     *  only used to decide what to clear on an `invalid_grant` — it must be the token the
+     *  *file* holds, since that's what `clearCredentialsIfRefreshToken` compares against. */
+    private async performRefresh(refreshTokenToSend: string, refreshTokenOnDisk: string): Promise<StoredCredentials> {
+        const postRefresh = () => axios.post(
+            `${this.config.serverUrl}/v1/auth/refresh`,
+            { refreshToken: refreshTokenToSend },
+            {
+                // `timeout` only bounds inactivity after connect; the abort signal is a hard
+                // wall-clock deadline (DNS + connect + response) so the lock is never held long.
+                timeout: REFRESH_TIMEOUT_MS,
+                signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+                headers: { 'X-Happy-Client': 'cli-control-plane/0.1.0' },
+            },
+        );
+
+        let data: { accessToken: string; refreshToken: string };
+        try {
+            let response;
+            try {
+                response = await postRefresh();
+            } catch (firstError) {
+                if (firstError instanceof AxiosError && firstError.response) {
+                    // A real response (including invalid_grant) — not a lost response, don't retry.
+                    throw firstError;
+                }
+                // No response at all (timeout, abort, connection reset): the server's
+                // refresh-reuse grace window covers safely retrying with the same
+                // refresh token once, immediately, still inside the lock.
+                response = await postRefresh();
+            }
+            data = response.data as { accessToken: string; refreshToken: string };
+        } catch (error) {
+            if (
+                error instanceof AxiosError
+                && error.response?.status === 401
+                && (error.response.data as { error?: unknown } | undefined)?.error === 'invalid_grant'
+            ) {
+                clearCredentialsIfRefreshToken(this.config, refreshTokenOnDisk);
+                throw new LoggedOutError();
+            }
+            // Status or error code only: the axios error carries the request body (refresh token).
+            const status = error instanceof AxiosError ? error.response?.status : undefined;
+            const code = error instanceof AxiosError ? error.code : undefined;
+            throw new Error(`Token refresh failed: ${status ?? code ?? 'unknown'}`);
+        }
+
+        if (typeof data?.accessToken !== 'string' || typeof data?.refreshToken !== 'string') {
+            throw new Error('Token refresh failed: malformed response');
+        }
+
+        return { token: data.accessToken, refreshToken: data.refreshToken, secret: this.secret };
     }
 
     private adoptOrRefresh(rejectedToken: string): Promise<string> {
@@ -107,14 +166,35 @@ export class TokenStore implements TokenSource {
                 const { from, rotated } = this.pendingRotation;
                 const current = readCredentials(this.config);
                 if (current && sameBytes(current.secret, this.secret) && current.refreshToken === from) {
+                    // Confirmed: the file still holds `from` — our pending write is still safe.
+                    this.diskRefreshToken = current.refreshToken;
+
+                    if (isFresh(rotated.token) && rotated.token !== rejectedToken) {
+                        try {
+                            writeCredentials(this.config, rotated);
+                            this.pendingRotation = null;
+                            this.diskRefreshToken = rotated.refreshToken;
+                        } catch {
+                            // Still can't persist; keep serving from memory and retry again later.
+                        }
+                        return rotated.token;
+                    }
+
+                    // The pending rotation's token is itself stale or was just rejected.
+                    // Refresh again using *its* refresh token — never `from`, which the
+                    // server already consumed when it issued `rotated` — and replace the
+                    // pending rotation with the new pair, keeping `from` (the file still
+                    // hasn't moved) so the next compare-and-set stays correct.
+                    const next = await this.performRefresh(rotated.refreshToken, from);
+                    this.pendingRotation = { from, rotated: next };
                     try {
-                        writeCredentials(this.config, rotated);
+                        writeCredentials(this.config, next);
                         this.pendingRotation = null;
+                        this.diskRefreshToken = next.refreshToken;
                     } catch {
                         // Still can't persist; keep serving from memory and retry again later.
                     }
-                    this.refreshToken = rotated.refreshToken;
-                    return rotated.token;
+                    return next.token;
                 }
                 // The file moved on from the token we rotated *from* — a concurrent login,
                 // or another process's own rotation. Our pending write is no longer safe to
@@ -130,59 +210,12 @@ export class TokenStore implements TokenSource {
                 // Someone signed in as a different account meanwhile; keep their login untouched.
                 throw new Error('Stored credentials now belong to a different account. Re-run the command.');
             }
-            this.refreshToken = credentials.refreshToken;
+            this.diskRefreshToken = credentials.refreshToken;
             if (credentials.token !== rejectedToken && isFresh(credentials.token)) {
                 return credentials.token;
             }
 
-            const postRefresh = () => axios.post(
-                `${this.config.serverUrl}/v1/auth/refresh`,
-                { refreshToken: credentials.refreshToken },
-                {
-                    // `timeout` only bounds inactivity after connect; the abort signal is a hard
-                    // wall-clock deadline (DNS + connect + response) so the lock is never held long.
-                    timeout: REFRESH_TIMEOUT_MS,
-                    signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
-                    headers: { 'X-Happy-Client': 'cli-control-plane/0.1.0' },
-                },
-            );
-
-            let data: { accessToken: string; refreshToken: string };
-            try {
-                let response;
-                try {
-                    response = await postRefresh();
-                } catch (firstError) {
-                    if (firstError instanceof AxiosError && firstError.response) {
-                        // A real response (including invalid_grant) — not a lost response, don't retry.
-                        throw firstError;
-                    }
-                    // No response at all (timeout, abort, connection reset): the server's
-                    // refresh-reuse grace window covers safely retrying with the same
-                    // refresh token once, immediately, still inside the lock.
-                    response = await postRefresh();
-                }
-                data = response.data as { accessToken: string; refreshToken: string };
-            } catch (error) {
-                if (
-                    error instanceof AxiosError
-                    && error.response?.status === 401
-                    && (error.response.data as { error?: unknown } | undefined)?.error === 'invalid_grant'
-                ) {
-                    clearCredentialsIfRefreshToken(this.config, credentials.refreshToken);
-                    throw new LoggedOutError();
-                }
-                // Status or error code only: the axios error carries the request body (refresh token).
-                const status = error instanceof AxiosError ? error.response?.status : undefined;
-                const code = error instanceof AxiosError ? error.code : undefined;
-                throw new Error(`Token refresh failed: ${status ?? code ?? 'unknown'}`);
-            }
-
-            if (typeof data?.accessToken !== 'string' || typeof data?.refreshToken !== 'string') {
-                throw new Error('Token refresh failed: malformed response');
-            }
-
-            const rotated: StoredCredentials = { token: data.accessToken, refreshToken: data.refreshToken, secret: credentials.secret };
+            const rotated = await this.performRefresh(credentials.refreshToken, credentials.refreshToken);
             try {
                 writeCredentials(this.config, rotated);
             } catch {
@@ -190,10 +223,9 @@ export class TokenStore implements TokenSource {
                 // and persist it on the next refresh attempt instead of asking the server for
                 // another rotation (that would burn the just-issued refresh token a second time).
                 this.pendingRotation = { from: credentials.refreshToken, rotated };
-                this.refreshToken = rotated.refreshToken;
                 return rotated.token;
             }
-            this.refreshToken = rotated.refreshToken;
+            this.diskRefreshToken = rotated.refreshToken;
             return rotated.token;
         }, CREDENTIALS_LOCK_OPTIONS);
     }

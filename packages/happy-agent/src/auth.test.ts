@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from './config';
 import { readCredentials, writeCredentials } from './credentials';
+import * as credentialsModule from './credentials';
 import { encodeBase64, getRandomBytes } from './encryption';
 import { makeJwt, startFakeServer } from './testing/fakeServer';
 
@@ -241,6 +242,31 @@ describe('authLogout', () => {
         writeCredentials(config, { token: makeJwt(-60), refreshToken: 'refresh-1', secret: getRandomBytes(32) });
         await authLogout(config);
         expect(readCredentials(config)?.refreshToken).toBe('refresh-new-login');
+    });
+
+    it('clears the file by what it actually holds when our own refresh rotation fails to persist', async () => {
+        // The refresh succeeds server-side (refresh-1 -> refresh-rotated) but persisting it
+        // fails, so the file still holds refresh-1 while the store only knows refresh-rotated
+        // in memory. The clear-check must still match against refresh-1 (what's really on
+        // disk), not refresh-rotated — otherwise the file would survive "Logged out".
+        const rotatedToken = makeJwt(900);
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: rotatedToken, refreshToken: 'refresh-rotated' } }),
+            'POST /v1/auth/logout': () => ({ status: 200, body: { success: true } }),
+        });
+        const config = configFor(server.url);
+        writeCredentials(config, { token: makeJwt(-60), refreshToken: 'refresh-1', secret: getRandomBytes(32) });
+
+        const writeSpy = vi.spyOn(credentialsModule, 'writeCredentials').mockImplementationOnce(() => {
+            throw new Error('disk full');
+        });
+        try {
+            await authLogout(config);
+        } finally {
+            writeSpy.mockRestore();
+        }
+        expect(server.calls.map((c) => c.path)).toEqual(['/v1/auth/refresh', '/v1/auth/logout']);
+        expect(existsSync(config.credentialPath)).toBe(false);
     });
 
     it('succeeds without credentials or a home directory', async () => {

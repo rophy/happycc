@@ -201,6 +201,76 @@ describe('TokenStore', () => {
         expect(stored.refreshToken).toBe('rt-concurrent-login');
     });
 
+    it('refreshes again from the pending rotation refresh token once its own token goes stale, while the write keeps failing', async () => {
+        const shortLived = makeJwt(30); // already within the refresh margin: "expires soon"
+        const next = makeJwt(900);
+        const seenRefreshTokens: string[] = [];
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': (body) => {
+                seenRefreshTokens.push(body.refreshToken);
+                if (body.refreshToken === 'rt-1') return { status: 200, body: { accessToken: shortLived, refreshToken: 'rt-2' } };
+                if (body.refreshToken === 'rt-2') return { status: 200, body: { accessToken: next, refreshToken: 'rt-3' } };
+                return { status: 401, body: { error: 'invalid_grant', reason: 'unexpected' } };
+            },
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale)); // refreshToken rt-1
+
+        const writeSpy = vi.spyOn(credentialsModule, 'writeCredentials').mockImplementation(() => {
+            throw new Error('disk full');
+        });
+        try {
+            const first = await store.getAccessToken();
+            expect(first).toBe(shortLived);
+            expect(seenRefreshTokens).toEqual(['rt-1']);
+
+            // shortLived is itself within the refresh margin: the next call must refresh
+            // again using rt-2 (the pending rotation's own refresh token), never rt-1 again.
+            const second = await store.getAccessToken();
+            expect(second).toBe(next);
+            expect(seenRefreshTokens).toEqual(['rt-1', 'rt-2']);
+        } finally {
+            writeSpy.mockRestore();
+        }
+        // Never persisted throughout — the write kept failing.
+        expect(readCredentials(config)?.refreshToken).toBe('rt-1');
+    });
+
+    it('refreshes again from the pending rotation refresh token when its own (still-fresh) token gets a 401', async () => {
+        const freshPending = makeJwt(900);
+        const next = makeJwt(900);
+        const seenRefreshTokens: string[] = [];
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': (body) => {
+                seenRefreshTokens.push(body.refreshToken);
+                if (body.refreshToken === 'rt-1') return { status: 200, body: { accessToken: freshPending, refreshToken: 'rt-2' } };
+                if (body.refreshToken === 'rt-2') return { status: 200, body: { accessToken: next, refreshToken: 'rt-3' } };
+                return { status: 401, body: { error: 'invalid_grant', reason: 'unexpected' } };
+            },
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale)); // refreshToken rt-1
+
+        const writeSpy = vi.spyOn(credentialsModule, 'writeCredentials').mockImplementation(() => {
+            throw new Error('disk full');
+        });
+        try {
+            const first = await store.getAccessToken();
+            expect(first).toBe(freshPending);
+            expect(seenRefreshTokens).toEqual(['rt-1']);
+
+            // A 401 rejecting freshPending itself (still fresh) must still refresh again
+            // with rt-2, not re-serve the very token that was just rejected.
+            const second = await store.refresh(freshPending);
+            expect(second).toBe(next);
+            expect(seenRefreshTokens).toEqual(['rt-1', 'rt-2']);
+        } finally {
+            writeSpy.mockRestore();
+        }
+    });
+
     it('retries the refresh POST once immediately when the first attempt gets no response', async () => {
         const next = makeJwt(900);
         server = await startFakeServer({
@@ -250,6 +320,25 @@ describe('TokenStore', () => {
         const error = await store.refresh(stale).catch((e: Error) => e) as Error;
         expect(error).not.toBeInstanceOf(LoggedOutError);
         expect(error.message).toMatch(/^Token refresh failed: /);
+        expect(readCredentials(config)?.token).toBe(stale);
+    });
+
+    it('does not retry the refresh POST on a 5xx response — it has a response, not a lost one', async () => {
+        let calls = 0;
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => {
+                calls++;
+                return { status: 500, body: { error: 'server_error' } };
+            },
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale));
+
+        const error = await store.refresh(stale).catch((e: Error) => e) as Error;
+        expect(error).not.toBeInstanceOf(LoggedOutError);
+        expect(error.message).toMatch(/^Token refresh failed: /);
+        expect(calls).toBe(1);
         expect(readCredentials(config)?.token).toBe(stale);
     });
 });
