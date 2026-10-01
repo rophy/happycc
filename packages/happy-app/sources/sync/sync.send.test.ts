@@ -82,7 +82,7 @@ beforeEach(async () => {
         markSessionMessageSent: vi.fn(),
     };
     engine = new (sync.constructor as any)();
-    engine.credentials = { token: 'test-only', secret: 'test-only' };
+    engine.credentials = { token: 'test-only', refreshToken: 'refresh-1', secret: 'test-only' };
     engine.encryption = await Encryption.create(accountSecret);
     writer = await Encryption.create(accountSecret);
     // UI reduction is unrelated to placement; retain the real encrypted outbox.

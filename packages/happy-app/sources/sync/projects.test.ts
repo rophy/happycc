@@ -84,7 +84,7 @@ describe('project decryption', () => {
 
 describe('project avatar loading', () => {
     it('downloads by project id and decrypts the blob with the derived blob key', async () => {
-        const credentials: AuthCredentials = { token: 'token', secret: 'secret' };
+        const credentials: AuthCredentials = { token: 'token', refreshToken: 'refresh-1', secret: 'secret' };
         downloadProjectAvatarMock.mockResolvedValueOnce(new Uint8Array([1, 2]));
         decryptBlobMock.mockImplementationOnce((encrypted: Uint8Array, key: Uint8Array) => {
             expect(encrypted).toEqual(new Uint8Array([1, 2]));

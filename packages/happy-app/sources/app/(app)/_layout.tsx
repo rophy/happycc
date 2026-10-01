@@ -192,28 +192,17 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="auth/callback"
+                options={{
+                    headerShown: false,
+                    headerTitle: '',
+                }}
+            />
+            <Stack.Screen
                 name="troubleshoot"
                 options={{
                     headerShown: true,
                     headerTitle: t('troubleshoot.title'),
-                    headerTitleAlign: 'center',
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="restore/index"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('onboarding.restoreTitle'),
-                    headerTitleAlign: 'center',
-                    headerBackTitle: t('common.back'),
-                }}
-            />
-            <Stack.Screen
-                name="restore/manual"
-                options={{
-                    headerShown: true,
-                    headerTitle: t('onboarding.secretKeyTitle'),
                     headerTitleAlign: 'center',
                     headerBackTitle: t('common.back'),
                 }}

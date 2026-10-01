@@ -8,6 +8,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { AuthCredentials, TokenStorage } from '@/auth/tokenStorage';
 import { AuthProvider } from '@/auth/AuthContext';
+import { startTokenStore } from '@/auth/tokenStoreRuntime';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +37,6 @@ import { applyVoiceUpsellOverride } from '@/realtime/voiceExperiment';
 import { useTauriZoom } from '@/hooks/useTauriZoom';
 import { useTauriDrag } from '@/hooks/useTauriDrag';
 import { BrowserNavigationShortcuts } from '@/hooks/useBrowserNavigationShortcuts';
-import { getServerUrl } from '@/sync/serverConfig';
 
 // The RevenueCat SDK logs its failures through console.error, which LogBox
 // turns into a red error overlay. Dev builds have no App Store products, so
@@ -182,71 +182,6 @@ async function loadFonts() {
     });
 }
 
-function isHarnessDevStartup(): boolean {
-    return __DEV__ && process.env.EXPO_PUBLIC_HARNESS_MODE === '1';
-}
-
-function hasHarnessDevCredentials(): boolean {
-    return __DEV__ && Boolean(
-        process.env.EXPO_PUBLIC_HARNESS_DEV_TOKEN
-        || process.env.EXPO_PUBLIC_HARNESS_DEV_SECRET,
-    );
-}
-
-function assertLoopbackHarnessServer(): void {
-    const configuredUrl = getServerUrl();
-    let parsed: URL;
-    try {
-        parsed = new URL(configuredUrl);
-    } catch {
-        throw new Error('Harness startup requires a valid loopback server URL.');
-    }
-    if (parsed.protocol !== 'http:' || !['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsed.hostname)
-        || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
-        throw new Error('Harness startup refuses a non-loopback server URL.');
-    }
-}
-
-function getDevEnvironmentCredentials(): AuthCredentials | null {
-    if (!__DEV__) {
-        return null;
-    }
-
-    const harnessMode = isHarnessDevStartup();
-    const token = harnessMode
-        ? process.env.EXPO_PUBLIC_HARNESS_DEV_TOKEN
-        : process.env.EXPO_PUBLIC_DEV_TOKEN;
-    const secret = harnessMode
-        ? process.env.EXPO_PUBLIC_HARNESS_DEV_SECRET
-        : process.env.EXPO_PUBLIC_DEV_SECRET;
-    if (!token || !secret) {
-        return null;
-    }
-
-    if (harnessMode) assertLoopbackHarnessServer();
-
-    return { token, secret };
-}
-
-function getDevWebQueryCredentials(): AuthCredentials | null {
-    if (!__DEV__ || Platform.OS !== 'web' || typeof window === 'undefined') {
-        return null;
-    }
-
-    // The harness accepts credentials only from its command-scoped
-    // Metro environment, never from a URL that could be copied or logged.
-    if (isHarnessDevStartup()) return null;
-
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('dev_token');
-    const secret = params.get('dev_secret');
-    if (!token || !secret) {
-        return null;
-    }
-
-    return { token, secret };
-}
-
 export default function RootLayout() {
     useTauriZoom();
     useTauriDrag();
@@ -281,38 +216,9 @@ export default function RootLayout() {
                 await loadFonts();
                 await sodium.ready;
 
-                let credentials = await TokenStorage.getCredentials();
-                const devCredentials = getDevWebQueryCredentials() ?? getDevEnvironmentCredentials();
-
-                if (hasHarnessDevCredentials() && !isHarnessDevStartup()) {
-                    await TokenStorage.removeCredentials();
-                    throw new Error('Harness credentials require the debug harness startup flag.');
-                }
-
-                // A harness bundle must never silently reuse a persisted account
-                // when its command-scoped auth variables are absent.
-                if (isHarnessDevStartup() && !devCredentials) {
-                    await TokenStorage.removeCredentials();
-                    throw new Error('Harness startup did not provide debug credentials.');
-                }
-
-                if (devCredentials) {
-                    const credentialsChanged = credentials?.token !== devCredentials.token
-                        || credentials?.secret !== devCredentials.secret;
-
-                    if (credentialsChanged) {
-                        const saved = await TokenStorage.setCredentials(devCredentials);
-                        if (saved) {
-                            credentials = devCredentials;
-                        }
-                    }
-
-                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                        window.history.replaceState({}, '', window.location.pathname);
-                    }
-                }
-
+                const credentials = await TokenStorage.getCredentials();
                 if (credentials) {
+                    await startTokenStore(credentials);
                     await syncRestore(credentials);
                 }
 

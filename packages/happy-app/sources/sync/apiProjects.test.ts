@@ -17,6 +17,7 @@ vi.mock('./apiSocket', () => ({
 
 const credentials: AuthCredentials = {
     token: 'token-1',
+    refreshToken: 'refresh-1',
     secret: 'secret-1',
 };
 

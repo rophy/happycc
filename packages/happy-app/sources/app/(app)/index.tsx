@@ -3,14 +3,9 @@ import { useAuth } from "@/auth/AuthContext";
 import { Text, View, Image, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as React from 'react';
-import { encodeBase64 } from "@/encryption/base64";
-import { authGetToken } from "@/auth/authGetToken";
-import { useRouter } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { getRandomBytesAsync } from "expo-crypto";
 import { useIsLandscape } from "@/utils/responsive";
 import { Typography } from "@/constants/Typography";
-import { trackAccountCreated, trackAccountRestored } from '@/track';
 import { HomeHeaderNotAuth } from "@/components/HomeHeader";
 import { MainView } from "@/components/MainView";
 import { OnboardingLinkComputer } from "@/components/onboarding/LinkComputer";
@@ -18,6 +13,9 @@ import { shouldShowFirstRunInstall } from "@/components/onboarding/firstRunOnboa
 import { useAllMachines, useIsDataReady } from "@/sync/storage";
 import { t } from '@/text';
 import { isRunningOnMac } from '@/utils/platform';
+import { signIn } from "@/auth/signIn";
+import { OidcLoginError } from "@/auth/oidcLogin";
+import { Modal } from "@/modal";
 
 export default function Home() {
     const auth = useAuth();
@@ -52,65 +50,27 @@ function Authenticated() {
 function NotAuthenticated() {
     const { theme } = useUnistyles();
     const auth = useAuth();
-    const router = useRouter();
     const isLandscape = useIsLandscape();
     const insets = useSafeAreaInsets();
-    const isMobile = Platform.OS === 'android' || Platform.OS === 'ios';
 
-    const createAccount = async () => {
+    const signInWithOrganization = async () => {
         try {
-            const secret = await getRandomBytesAsync(32);
-            const token = await authGetToken(secret);
-            if (token && secret) {
-                await auth.login(token, encodeBase64(secret, 'base64url'));
-                trackAccountCreated();
+            const credentials = await signIn();
+            if (credentials) {
+                await auth.login(credentials);
             }
         } catch (error) {
-            console.error('Error creating account', error);
+            // Only our own messages are shown or logged: other errors (e.g. a JSON parse
+            // error) could quote a response body that carries tokens.
+            console.error('Sign-in failed:', error instanceof Error ? error.name : 'unknown error');
+            Modal.alert(t('common.error'), error instanceof OidcLoginError ? error.message : 'Sign-in failed. Please try again.');
         }
-    }
-
-    const openRestore = () => {
-        trackAccountRestored();
-        router.push('/restore');
     };
 
-    // One filled action and one quiet text action underneath it. The restore
-    // path is rare, so it reads as a footnote rather than a second button.
-    const actions = isMobile ? (
-        <>
-            <View style={styles.buttonContainer}>
-                <RoundButton
-                    title={t('onboarding.createAccount')}
-                    action={createAccount}
-                />
-            </View>
-            <View style={styles.buttonContainerSecondary}>
-                <RoundButton
-                    size="normal"
-                    title={t('onboarding.restoreExisting')}
-                    onPress={openRestore}
-                    display="inverted"
-                />
-            </View>
-        </>
-    ) : (
-        <>
-            <View style={styles.buttonContainer}>
-                <RoundButton
-                    title={t('welcome.loginWithMobileApp')}
-                    onPress={openRestore}
-                />
-            </View>
-            <View style={styles.buttonContainerSecondary}>
-                <RoundButton
-                    size="normal"
-                    title={t('welcome.createAccount')}
-                    action={createAccount}
-                    display="inverted"
-                />
-            </View>
-        </>
+    const actions = (
+        <View style={styles.buttonContainer}>
+            <RoundButton title="Sign in" action={signInWithOrganization} />
+        </View>
     );
 
     const logo = (
@@ -128,7 +88,7 @@ function NotAuthenticated() {
                 {t('onboarding.headline')}
             </Text>
             <Text style={styles.subtitle}>
-                {t('onboarding.tagline')}
+                {'Sign in with your organization account.'}
             </Text>
             {actions}
         </View>
@@ -145,7 +105,7 @@ function NotAuthenticated() {
                         {t('onboarding.headline')}
                     </Text>
                     <Text style={styles.landscapeSubtitle}>
-                        {t('onboarding.tagline')}
+                        {'Sign in with your organization account.'}
                     </Text>
                     {actions}
                 </View>
@@ -194,10 +154,6 @@ const styles = StyleSheet.create((theme) => ({
         width: 280,
         maxWidth: '100%',
         marginBottom: 8,
-    },
-    buttonContainerSecondary: {
-        width: 280,
-        maxWidth: '100%',
     },
     // Landscape styles
     landscapeContainer: {

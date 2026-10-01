@@ -31,7 +31,7 @@ describe("encrypted session avatar download", () => {
         .mockResolvedValueOnce(new Response(new Uint8Array([1, 2])));
       vi.stubGlobal("fetch", fetch);
       const result = await loadSessionAvatar(
-        { token: "private-token", secret: "secret" },
+        { token: "private-token", refreshToken: "refresh-1", secret: "secret" },
         encryption,
         "s",
         descriptor,
@@ -57,7 +57,7 @@ describe("encrypted session avatar download", () => {
     vi.stubGlobal("fetch", fetch);
     expect(
       await loadSessionAvatar(
-        { token: "token", secret: "secret" },
+        { token: "token", refreshToken: "refresh-1", secret: "secret" },
         encryption,
         "s",
         descriptor,

@@ -20,6 +20,7 @@ vi.mock('@/utils/time', () => ({
 describe('apiGithub', () => {
     const mockCredentials: AuthCredentials = {
         token: 'test-token',
+        refreshToken: 'refresh-1',
         secret: 'test-secret'
     };
 

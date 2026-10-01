@@ -239,7 +239,7 @@ describe('session avatar sync integration', () => {
 
     it('does not resurrect an image when an old event arrives after a removal snapshot', async () => {
         engine.projectsSync = { invalidate: vi.fn() };
-        engine.credentials = { token: 'test', secret: 'secret' };
+        engine.credentials = { token: 'test', refreshToken: 'refresh-1', secret: 'secret' };
         engine.encryption = {
             initializeSessions: vi.fn(),
             getSessionEncryption: () => ({ decryptMetadata: async () => ({}), decryptAgentState: async () => null }),
@@ -253,7 +253,7 @@ describe('session avatar sync integration', () => {
 
     it('preserves a removal delivered while a stale session snapshot is downloading', async () => {
         engine.projectsSync = { invalidate: vi.fn() };
-        engine.credentials = { token: 'test', secret: 'secret' };
+        engine.credentials = { token: 'test', refreshToken: 'refresh-1', secret: 'secret' };
         engine.encryption = {
             initializeSessions: vi.fn(),
             getSessionEncryption: () => ({ decryptMetadata: async () => ({}), decryptAgentState: async () => null }),

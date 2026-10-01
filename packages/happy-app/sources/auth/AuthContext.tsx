@@ -1,16 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { TokenStorage, AuthCredentials } from '@/auth/tokenStorage';
 import { syncCreate } from '@/sync/sync';
-import * as Updates from 'expo-updates';
-import { clearPersistence, loadRegisteredPushToken } from '@/sync/persistence';
+import { loadRegisteredPushToken } from '@/sync/persistence';
 import { unregisterPushToken } from '@/sync/apiPush';
-import { Platform } from 'react-native';
 import { trackLogout } from '@/track';
+import { getRuntimeTokenStore, startTokenStore, stopTokenStore } from '@/auth/tokenStoreRuntime';
+import { withTimeout } from '@/auth/tokenStore';
+import { wipeLocalSessionAndReload } from '@/auth/logout';
+
+const LOGOUT_STEP_TIMEOUT_MS = 5_000;
 
 interface AuthContextType {
     isAuthenticated: boolean;
     credentials: AuthCredentials | null;
-    login: (token: string, secret: string) => Promise<void>;
+    login: (credentials: AuthCredentials) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -25,16 +28,18 @@ export function AuthProvider({ children, initialCredentials }: { children: React
         setCurrentAuth(credentials ? { isAuthenticated, credentials, login, logout } : null);
     }, [isAuthenticated, credentials]);
 
-    const login = async (token: string, secret: string) => {
-        const newCredentials: AuthCredentials = { token, secret };
+    const login = async (newCredentials: AuthCredentials) => {
+        // Fence any previous store first: on native its refresh writes without a
+        // compare-and-set and could overwrite the credentials saved below.
+        await stopTokenStore();
         const success = await TokenStorage.setCredentials(newCredentials);
-        if (success) {
-            await syncCreate(newCredentials);
-            setCredentials(newCredentials);
-            setIsAuthenticated(true);
-        } else {
+        if (!success) {
             throw new Error('Failed to save credentials');
         }
+        await startTokenStore(newCredentials);
+        await syncCreate(newCredentials);
+        setCredentials(newCredentials);
+        setIsAuthenticated(true);
     };
 
     const logout = async () => {
@@ -42,28 +47,18 @@ export function AuthProvider({ children, initialCredentials }: { children: React
         const registeredPushToken = credentials ? loadRegisteredPushToken() : null;
         if (credentials && registeredPushToken) {
             try {
-                await unregisterPushToken(credentials, registeredPushToken);
+                await withTimeout(unregisterPushToken(credentials, registeredPushToken), LOGOUT_STEP_TIMEOUT_MS);
             } catch (error) {
-                console.log('Failed to unregister push token during logout:', error);
+                console.log('Failed to unregister push token during logout:', error instanceof Error ? error.message : 'unknown error');
             }
         }
-        clearPersistence();
-        await TokenStorage.removeCredentials();
-        
-        // Update React state to ensure UI consistency
+        // Revokes this device on the server (best-effort), then fences any in-flight
+        // refresh so it cannot write credentials back after the wipe.
+        await getRuntimeTokenStore()?.logoutOnServer(LOGOUT_STEP_TIMEOUT_MS);
+        await stopTokenStore();
         setCredentials(null);
         setIsAuthenticated(false);
-        
-        if (Platform.OS === 'web') {
-            window.location.reload();
-        } else {
-            try {
-                await Updates.reloadAsync();
-            } catch (error) {
-                // In dev mode, reloadAsync will throw ERR_UPDATES_DISABLED
-                console.log('Reload failed (expected in dev mode):', error);
-            }
-        }
+        await wipeLocalSessionAndReload();
     };
 
     return (

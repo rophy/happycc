@@ -1,41 +1,44 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { parseStoredCredentials, type StoredCredentials } from './tokenStore';
 
-const AUTH_KEY = 'auth_credentials';
+export const AUTH_KEY = 'auth_credentials';
 
-// Cache for synchronous access
-let credentialsCache: string | null = null;
+/** `{ token, refreshToken, secret }`; see tokenStore.ts. */
+export type AuthCredentials = StoredCredentials;
 
-export interface AuthCredentials {
-    token: string;
-    secret: string;
+async function readRaw(): Promise<string | null> {
+    if (Platform.OS === 'web') {
+        return localStorage.getItem(AUTH_KEY);
+    }
+    return SecureStore.getItemAsync(AUTH_KEY);
 }
 
 export const TokenStorage = {
+    /** Null when nothing usable is stored. Pre-OIDC values (no refresh token) are removed. */
     async getCredentials(): Promise<AuthCredentials | null> {
-        if (Platform.OS === 'web') {
-            return localStorage.getItem(AUTH_KEY) ? JSON.parse(localStorage.getItem(AUTH_KEY)!) as AuthCredentials : null;
-        }
+        let raw: string | null;
         try {
-            const stored = await SecureStore.getItemAsync(AUTH_KEY);
-            if (!stored) return null;
-            credentialsCache = stored; // Update cache
-            return JSON.parse(stored) as AuthCredentials;
+            raw = await readRaw();
         } catch (error) {
             console.error('Error getting credentials:', error);
             return null;
         }
+        const credentials = parseStoredCredentials(raw);
+        if (raw && !credentials) {
+            await TokenStorage.removeCredentials();
+        }
+        return credentials;
     },
 
     async setCredentials(credentials: AuthCredentials): Promise<boolean> {
-        if (Platform.OS === 'web') {
-            localStorage.setItem(AUTH_KEY, JSON.stringify(credentials));
-            return true;
-        }
+        const json = JSON.stringify(credentials);
         try {
-            const json = JSON.stringify(credentials);
-            await SecureStore.setItemAsync(AUTH_KEY, json);
-            credentialsCache = json; // Update cache
+            if (Platform.OS === 'web') {
+                localStorage.setItem(AUTH_KEY, json);
+            } else {
+                await SecureStore.setItemAsync(AUTH_KEY, json);
+            }
             return true;
         } catch (error) {
             console.error('Error setting credentials:', error);
@@ -44,17 +47,24 @@ export const TokenStorage = {
     },
 
     async removeCredentials(): Promise<boolean> {
-        if (Platform.OS === 'web') {    
-            localStorage.removeItem(AUTH_KEY);
-            return true;
-        }
         try {
-            await SecureStore.deleteItemAsync(AUTH_KEY);
-            credentialsCache = null; // Clear cache
+            if (Platform.OS === 'web') {
+                localStorage.removeItem(AUTH_KEY);
+            } else {
+                await SecureStore.deleteItemAsync(AUTH_KEY);
+            }
             return true;
         } catch (error) {
             console.error('Error removing credentials:', error);
             return false;
+        }
+    },
+
+    /** Leaves newer credentials (another tab's fresh sign-in) alone. */
+    async removeCredentialsIfRefreshToken(refreshToken: string): Promise<void> {
+        const current = await TokenStorage.getCredentials();
+        if (current?.refreshToken === refreshToken) {
+            await TokenStorage.removeCredentials();
         }
     },
 };

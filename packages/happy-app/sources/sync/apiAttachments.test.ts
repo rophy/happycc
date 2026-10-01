@@ -24,6 +24,7 @@ vi.mock('./uploadFormFile', () => ({
 
 const credentials: AuthCredentials = {
     token: 'test-token',
+    refreshToken: 'refresh-1',
     secret: 'test-secret',
 };
 
