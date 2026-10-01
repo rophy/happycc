@@ -804,6 +804,7 @@ function buildEnvVars(
         OIDC_CLIENT_ID: "happy-server",
         OIDC_CLIENT_SECRET: "happy-dev-secret",
         OIDC_ALLOW_INSECURE_ISSUER: "true",
+        MOBILE_REDIRECT_URIS: "happy-dev://auth/callback,happy-preview://auth/callback",
 
         // App (Expo)
         EXPO_PUBLIC_SERVER_URL: `http://localhost:${serverPort}`,
@@ -845,6 +846,7 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
     lines.push(`export OIDC_CLIENT_ID="${vars.OIDC_CLIENT_ID}"`);
     lines.push(`export OIDC_CLIENT_SECRET="${vars.OIDC_CLIENT_SECRET}"`);
     lines.push(`export OIDC_ALLOW_INSECURE_ISSUER=${vars.OIDC_ALLOW_INSECURE_ISSUER}`);
+    lines.push(`export MOBILE_REDIRECT_URIS="${vars.MOBILE_REDIRECT_URIS}"`);
     lines.push("");
 
     lines.push("# App (Expo)");
