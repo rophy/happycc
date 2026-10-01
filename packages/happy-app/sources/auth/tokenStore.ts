@@ -74,8 +74,13 @@ export interface TokenStoreDeps {
     write(credentials: StoredCredentials): Promise<void>;
     /** Remove persisted credentials only if they still hold `refreshToken`. */
     clearIfRefreshToken(refreshToken: string): Promise<void>;
-    /** The server rejected the refresh token: run the app's logout path. */
-    onLoggedOut(): void;
+    /**
+     * The server rejected a refresh token: run the app's logout path.
+     * `failedRefreshToken` is the token the server rejected, so the app can wipe
+     * storage only if it still holds that token (not another tab's fresh sign-in).
+     * Undefined when the store found storage already empty.
+     */
+    onLoggedOut(failedRefreshToken?: string): void;
     /**
      * Cross-tab mutual exclusion for refresh (web: navigator.locks). When
      * navigator.locks is unavailable, wire `createLeaseLock(...).withLock`
@@ -130,6 +135,8 @@ export class TokenStore implements AccessTokenProvider {
     private stopped = false;
     /** Set during an intentional logout so a failing refresh does not trigger a second logout. */
     private silent = false;
+    /** The refresh token the server answered invalid_grant for (kept off the error object so it is never logged). */
+    private rejectedRefreshToken: string | undefined;
 
     constructor(initial: StoredCredentials, private readonly deps: TokenStoreDeps) {
         this.credentials = initial;
@@ -272,7 +279,7 @@ export class TokenStore implements AccessTokenProvider {
         const notify = !this.stopped && !this.silent;
         this.stop();
         if (notify) {
-            this.deps.onLoggedOut();
+            this.deps.onLoggedOut(this.rejectedRefreshToken);
         }
     }
 
@@ -332,6 +339,7 @@ export class TokenStore implements AccessTokenProvider {
             throw new StoppedError();
         }
         if (result.kind === 'invalid_grant') {
+            this.rejectedRefreshToken = base.refreshToken;
             try {
                 await this.deps.clearIfRefreshToken(base.refreshToken);
             } catch {

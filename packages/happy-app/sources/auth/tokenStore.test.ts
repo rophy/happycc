@@ -160,6 +160,7 @@ describe('TokenStore', () => {
         await expect(store.getAccessToken()).rejects.toBeInstanceOf(LoggedOutError);
         expect(storage.state.value).toBeNull();
         expect(onLoggedOut).toHaveBeenCalledTimes(1);
+        expect(onLoggedOut).toHaveBeenCalledWith('rt-1');
         await expect(store.getAccessToken()).rejects.toBeInstanceOf(LoggedOutError);
         expect(onLoggedOut).toHaveBeenCalledTimes(1);
     });

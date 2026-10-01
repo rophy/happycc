@@ -9,7 +9,7 @@ import { getServerUrl } from '@/sync/serverConfig';
 import { getHappyClientId } from '@/sync/apiSocket';
 import { setAccessTokenProvider, setServerUrlAccessor } from './authFetch';
 import { createLeaseLock } from './leaseLock';
-import { wipeLocalSessionAndReload } from './logout';
+import { endRejectedSessionAndReload } from './logout';
 import { AUTH_KEY, TokenStorage, type AuthCredentials } from './tokenStorage';
 import { TokenStore } from './tokenStore';
 
@@ -75,10 +75,10 @@ export async function startTokenStore(credentials: AuthCredentials): Promise<Tok
             }
         },
         clearIfRefreshToken: (refreshToken) => TokenStorage.removeCredentialsIfRefreshToken(refreshToken),
-        onLoggedOut: () => {
+        onLoggedOut: (failedRefreshToken) => {
             void (async () => {
                 await next.stopAndSettle();
-                await wipeLocalSessionAndReload();
+                await endRejectedSessionAndReload(failedRefreshToken);
             })();
         },
         withLock: webRefreshLock(),

@@ -54,10 +54,15 @@ export async function signIn(): Promise<AuthCredentials | null> {
     return exchangeCode({ serverUrl, code, pending, deviceName: Device.modelName ?? Platform.OS });
 }
 
+/** Web: drops the stored PKCE verifier and ephemeral key of an unfinished sign-in. */
+export function discardPendingWebLogin(): void {
+    window.sessionStorage.removeItem(PENDING_LOGIN_KEY);
+}
+
 /** Web: finishes the sign-in started by signIn() after the server redirected back. */
 export async function completeWebSignIn(code: string): Promise<AuthCredentials> {
     const raw = window.sessionStorage.getItem(PENDING_LOGIN_KEY);
-    window.sessionStorage.removeItem(PENDING_LOGIN_KEY);
+    discardPendingWebLogin();
     const pending = raw ? deserializePendingLogin(raw) : null;
     if (!pending) {
         throw new OidcLoginError('This sign-in was started in another tab or has expired. Please sign in again.');

@@ -11,7 +11,9 @@ function capture(): void {
     if (typeof window === 'undefined' || !window.location || typeof window.location.pathname !== 'string' || !window.history) {
         return; // native
     }
-    if (!window.location.pathname.endsWith('/auth/callback')) {
+    // expo-router serves the route with or without one trailing slash.
+    const pathname = window.location.pathname.replace(/\/$/, '');
+    if (!pathname.endsWith('/auth/callback')) {
         return;
     }
     captured = parseWebCallbackHash(window.location.hash);

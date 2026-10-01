@@ -56,6 +56,17 @@ describe('createPendingLogin', () => {
         expect(deserializePendingLogin('{"codeVerifier":1}')).toBeNull();
         expect(deserializePendingLogin('nope')).toBeNull();
     });
+
+    it('records createdAt and rejects pending logins older than 10 minutes', async () => {
+        const pending = await createPendingLogin();
+        const t0 = 1_700_000_000_000;
+        const raw = serializePendingLogin(pending, t0);
+        expect(JSON.parse(raw).createdAt).toBe(t0);
+        expect(deserializePendingLogin(raw, t0 + 10 * 60 * 1000)).toEqual(pending);
+        expect(deserializePendingLogin(raw, t0 + 10 * 60 * 1000 + 1)).toBeNull();
+        const { createdAt: _omit, ...withoutCreatedAt } = JSON.parse(raw);
+        expect(deserializePendingLogin(JSON.stringify(withoutCreatedAt), t0)).toBeNull();
+    });
 });
 
 describe('buildLoginUrl', () => {

@@ -46,15 +46,22 @@ export function buildLoginUrl(
     return `${opts.serverUrl}/v1/auth/oidc/login?${params.toString()}`;
 }
 
-export function serializePendingLogin(pending: PendingLogin): string {
-    return JSON.stringify(pending);
+/** A pending login older than this is discarded (the user abandoned it; its keys should not linger). */
+export const PENDING_LOGIN_MAX_AGE_MS = 10 * 60 * 1000;
+
+export function serializePendingLogin(pending: PendingLogin, now: number = Date.now()): string {
+    return JSON.stringify({ ...pending, createdAt: now });
 }
 
-export function deserializePendingLogin(raw: string): PendingLogin | null {
+/** Null for malformed entries and for entries older than PENDING_LOGIN_MAX_AGE_MS. */
+export function deserializePendingLogin(raw: string, now: number = Date.now()): PendingLogin | null {
     try {
         const value = JSON.parse(raw);
         const fields = ['codeVerifier', 'codeChallenge', 'publicKey', 'secretKey'] as const;
-        if (value && fields.every((field) => typeof value[field] === 'string' && value[field].length > 0)) {
+        if (
+            value && fields.every((field) => typeof value[field] === 'string' && value[field].length > 0) &&
+            typeof value.createdAt === 'number' && now - value.createdAt <= PENDING_LOGIN_MAX_AGE_MS
+        ) {
             return {
                 codeVerifier: value.codeVerifier,
                 codeChallenge: value.codeChallenge,

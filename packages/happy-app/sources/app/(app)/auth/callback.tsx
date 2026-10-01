@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 import { useAuth } from '@/auth/AuthContext';
-import { completeWebSignIn } from '@/auth/signIn';
+import { completeWebSignIn, discardPendingWebLogin } from '@/auth/signIn';
 import { OidcLoginError } from '@/auth/oidcLogin';
 import { takeWebCallbackCode } from '@/auth/webCallback';
 import { RoundButton } from '@/components/RoundButton';
@@ -25,7 +25,13 @@ export default function AuthCallbackScreen() {
             return;
         }
         started.current = true;
-        if (Platform.OS !== 'web' || auth.isAuthenticated) {
+        if (Platform.OS !== 'web') {
+            router.replace('/');
+            return;
+        }
+        if (auth.isAuthenticated) {
+            // Already signed in: the stray callback's verifier and key must not linger.
+            discardPendingWebLogin();
             router.replace('/');
             return;
         }
