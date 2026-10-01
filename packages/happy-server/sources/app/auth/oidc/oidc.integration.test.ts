@@ -143,6 +143,36 @@ describe('OIDC against oidc-mock', () => {
         expect(web.accountId).not.toBe(cliAccountId);
     });
 
+    it('loopback (happy-agent): redirects to 127.0.0.1 and exchanges for the root secret', async () => {
+        const verifier = randomBytes(32).toString('base64url');
+        const challenge = createHash('sha256').update(verifier).digest('base64url');
+        const redirectUri = 'http://127.0.0.1:9/callback';
+        const result = await idpLogin(
+            new HttpBrowser(),
+            `${BASE}/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+            'alice',
+            (url) => url.startsWith('http://127.0.0.1:9/'),
+        );
+        const location = new URL(result.location!);
+        expect(`${location.origin}${location.pathname}`).toBe(redirectUri);
+
+        const ephemeral = tweetnacl.box.keyPair();
+        const exchange = await post('/v1/auth/oidc/exchange', {
+            code: location.searchParams.get('code'),
+            codeVerifier: verifier,
+            ephemeralPublicKey: privacyKit.encodeBase64(new Uint8Array(ephemeral.publicKey)),
+            deviceName: 'happy-agent@it-host',
+        });
+        expect(exchange.status).toBe(200);
+        expect(exchange.json.accountId).toBe(cliAccountId);
+        const root = openBox(exchange.json.keyBundle, ephemeral.secretKey);
+        expect(Buffer.from(deriveContentPublicKey(root)).equals(Buffer.from(cliContentKey))).toBe(true);
+
+        const { db } = await import('@/storage/db');
+        const device = await db.device.findFirstOrThrow({ where: { accountId: cliAccountId, name: 'happy-agent@it-host' } });
+        expect(device.kind).toBe('agent');
+    });
+
     it('revoking the IdP refresh token revokes the account devices at the next check', async () => {
         const web = await webLogin(new HttpBrowser(), 'alice');
         const { db } = await import('@/storage/db');

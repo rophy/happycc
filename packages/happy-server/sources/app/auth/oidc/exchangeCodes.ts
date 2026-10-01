@@ -4,9 +4,11 @@ import { generateOpaqueToken, hashToken } from './accessTokens';
 
 const EXCHANGE_CODE_TTL_MS = 60_000;
 
+export type ExchangeClientKind = 'web' | 'mobile' | 'agent';
+
 export async function createExchangeCode(input: {
     accountId: string;
-    clientKind: 'web' | 'mobile';
+    clientKind: ExchangeClientKind;
     pkceChallenge: string;
 }): Promise<string> {
     const code = generateOpaqueToken();
@@ -25,7 +27,7 @@ export async function createExchangeCode(input: {
 export async function redeemExchangeCode(
     code: string,
     codeVerifier: string,
-): Promise<{ accountId: string; clientKind: 'web' | 'mobile' } | null> {
+): Promise<{ accountId: string; clientKind: ExchangeClientKind } | null> {
     const row = await db.oidcExchangeCode.findUnique({ where: { codeHash: hashToken(code) } });
     if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) {
         return null;
@@ -41,5 +43,5 @@ export async function redeemExchangeCode(
     if (claimed.count !== 1) {
         return null;
     }
-    return { accountId: row.accountId, clientKind: row.clientKind as 'web' | 'mobile' };
+    return { accountId: row.accountId, clientKind: row.clientKind as ExchangeClientKind };
 }

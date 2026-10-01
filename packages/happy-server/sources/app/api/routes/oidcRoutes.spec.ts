@@ -201,4 +201,76 @@ describe('oidcRoutes', () => {
         expect(fake.lastCallbackUrl?.searchParams.get('code')).toBe('abc?def');
         expect(fake.lastCallbackUrl?.searchParams.get('state')).toBe(state);
     });
+
+    it('loopback: redirects to the agent listener and records an agent device holding the root secret', async () => {
+        const { verifier, challenge } = pkce();
+        const redirectUri = 'http://127.0.0.1:53682/callback';
+        const callback = await login(
+            `client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+            'r-loopback',
+        );
+        expect(callback.statusCode).toBe(302);
+        const location = new URL(callback.headers.location as string);
+        expect(`${location.origin}${location.pathname}`).toBe(redirectUri);
+        expect([...location.searchParams.keys()]).toEqual(['code']);
+        const code = location.searchParams.get('code')!;
+
+        const ephemeral = tweetnacl.box.keyPair();
+        const exchange = await app.inject({
+            method: 'POST',
+            url: '/v1/auth/oidc/exchange',
+            payload: {
+                code,
+                codeVerifier: verifier,
+                ephemeralPublicKey: privacyKit.encodeBase64(new Uint8Array(ephemeral.publicKey)),
+                deviceName: 'happy-agent@build-host',
+            },
+        });
+        expect(exchange.statusCode).toBe(200);
+        const body = exchange.json();
+        const bundle = privacyKit.decodeBase64(body.keyBundle);
+        const root = tweetnacl.box.open(bundle.slice(56), bundle.slice(32, 56), bundle.slice(0, 32), ephemeral.secretKey)!;
+        const account = await db.account.findUniqueOrThrow({ where: { id: body.accountId } });
+        expect(Buffer.from(root).equals(Buffer.from(vault.keyVault.unwrap(account.wrappedRootSecret!)))).toBe(true);
+        const device = await db.device.findFirstOrThrow({ where: { accountId: body.accountId } });
+        expect(device.kind).toBe('agent');
+        expect(device.name).toBe('happy-agent@build-host');
+    });
+
+    it('loopback: accepts the IPv6 loopback literal', async () => {
+        const { challenge } = pkce();
+        const callback = await login(
+            `client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('http://[::1]:8123/callback')}`,
+            'r-loopback-v6',
+        );
+        expect(callback.statusCode).toBe(302);
+        expect(callback.headers.location as string).toMatch(/^http:\/\/\[::1\]:8123\/callback\?code=/);
+    });
+
+    it.each([
+        'http://localhost:53682/callback',
+        'https://127.0.0.1:53682/callback',
+        'http://127.0.0.1:53682/other',
+        'http://127.0.0.1:53682/callback?x=1',
+        'http://127.0.0.1:0/callback',
+        'corpapp://auth/callback',
+    ])('loopback: rejects redirect_uri %s', async (uri) => {
+        const { challenge } = pkce();
+        const res = await app.inject({
+            method: 'GET',
+            url: `/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}&redirect_uri=${encodeURIComponent(uri)}`,
+        });
+        expect(res.statusCode).toBe(400);
+    });
+
+    it('loopback: requires a redirect_uri and a code challenge', async () => {
+        const { challenge } = pkce();
+        const noRedirect = await app.inject({ method: 'GET', url: `/v1/auth/oidc/login?client=loopback&code_challenge=${challenge}` });
+        expect(noRedirect.statusCode).toBe(400);
+        const noChallenge = await app.inject({
+            method: 'GET',
+            url: `/v1/auth/oidc/login?client=loopback&redirect_uri=${encodeURIComponent('http://127.0.0.1:53682/callback')}`,
+        });
+        expect(noChallenge.statusCode).toBe(400);
+    });
 });

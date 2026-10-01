@@ -11,6 +11,7 @@ import { boxForRecipient, decodeEphemeralPublicKey } from '@/app/auth/oidc/accou
 import { keyVault } from '@/app/auth/oidc/keyVault';
 import { createDevice } from '@/app/auth/oidc/devices';
 import { createExchangeCode, redeemExchangeCode } from '@/app/auth/oidc/exchangeCodes';
+import { parseLoopbackRedirectUri } from '@/app/auth/oidc/loopbackRedirect';
 import { LOGIN_COOKIE, SESSION_COOKIE, clearCookieHeader, readCookie, setCookieHeader } from '@/app/auth/oidc/browserCookies';
 import { idpUnavailablePage, messagePage, sendHtml } from '@/app/auth/oidc/pages';
 
@@ -23,6 +24,7 @@ export interface AuthRouteDeps {
 export type LoginTarget =
     | { kind: 'web'; appChallenge: string }
     | { kind: 'mobile'; appChallenge: string; redirectUri: string }
+    | { kind: 'loopback'; appChallenge: string; redirectUri: string }
     | { kind: 'activate'; userCode: string | null };
 
 interface LoginCookie extends OidcLoginParams {
@@ -39,7 +41,7 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
     app.get('/v1/auth/oidc/login', {
         schema: {
             querystring: z.object({
-                client: z.enum(['web', 'mobile', 'activate']),
+                client: z.enum(['web', 'mobile', 'loopback', 'activate']),
                 code_challenge: z.string().optional(),
                 redirect_uri: z.string().optional(),
                 user_code: z.string().max(16).optional(),
@@ -59,6 +61,12 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
                     return reply.code(400).send({ error: 'redirect_uri is not allowed' });
                 }
                 target = { kind: 'mobile', appChallenge: query.code_challenge, redirectUri: query.redirect_uri };
+            } else if (query.client === 'loopback') {
+                const redirectUri = parseLoopbackRedirectUri(query.redirect_uri);
+                if (!redirectUri) {
+                    return reply.code(400).send({ error: 'redirect_uri is not allowed' });
+                }
+                target = { kind: 'loopback', appChallenge: query.code_challenge, redirectUri };
             } else {
                 target = { kind: 'web', appChallenge: query.code_challenge };
             }
@@ -123,9 +131,10 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
             return reply.redirect(target.userCode ? `/activate?code=${encodeURIComponent(target.userCode)}` : '/activate');
         }
 
-        const code = await createExchangeCode({ accountId, clientKind: target.kind, pkceChallenge: target.appChallenge });
+        const clientKind = target.kind === 'loopback' ? 'agent' : target.kind;
+        const code = await createExchangeCode({ accountId, clientKind, pkceChallenge: target.appChallenge });
         reply.header('set-cookie', clearCookieHeader(LOGIN_COOKIE));
-        if (target.kind === 'mobile') {
+        if (target.kind === 'mobile' || target.kind === 'loopback') {
             return reply.redirect(`${target.redirectUri}?code=${encodeURIComponent(code)}`);
         }
         return reply.redirect(`${config.webappUrl}/auth/callback#code=${encodeURIComponent(code)}`);

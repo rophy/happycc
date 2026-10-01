@@ -59,7 +59,7 @@ replaces only *who generates the root secret* (server instead of app) and
   `email`, `wrappedRootSecret`, `disabledAt`, `idpRefreshToken` (latest IdP
   refresh token, encrypted with KeyTree), `idpCheckedAt`. `publicKey` stays and is
   populated from the generated root secret.
-- New `Device`: `id`, `accountId`, `kind` (`cli` | `web` | `mobile`), `name`,
+- New `Device`: `id`, `accountId`, `kind` (`cli` | `web` | `mobile` | `agent`), `name`,
   `host`, `lastSeenAt`, `refreshTokenHash`, `sessionStartedAt`, `revokedAt`.
 - New `RetiredRefreshToken`: `tokenHash` (unique), `deviceId`. Every rotated-out
   refresh token hash is kept here; presenting any retired token revokes its device.

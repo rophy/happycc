@@ -2,7 +2,7 @@ import { db } from '@/storage/db';
 import { createAccessToken, generateOpaqueToken, hashToken } from './accessTokens';
 import { disconnectDeviceSockets } from './deviceSockets';
 
-export type DeviceKind = 'cli' | 'web' | 'mobile';
+export type DeviceKind = 'cli' | 'web' | 'mobile' | 'agent';
 
 export interface TokenPair {
     accessToken: string;
