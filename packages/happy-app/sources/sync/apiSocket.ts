@@ -53,6 +53,19 @@ export type SyncSocketListener = (state: SyncSocketState) => void;
 // reconnecting daemon to rejoin the room, then a 30s call.
 const RPC_ACK_TIMEOUT_MS = 50_000;
 
+// Manual reconnect after the server cut the socket or refused its handshake.
+const RECONNECT_MIN_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+
+/**
+ * Delay before manual reconnect attempt `attempt` (0-based): 1 s doubling to 30 s,
+ * jittered down by up to half so many clients cut at once don't return in lockstep.
+ */
+export function reconnectDelayMs(attempt: number, random: number = Math.random()): number {
+    const base = Math.min(RECONNECT_MAX_MS, RECONNECT_MIN_MS * 2 ** attempt);
+    return Math.round(base / 2 + (base / 2) * random);
+}
+
 /**
  * Runs one step of an RPC and, if it throws, says which step that was.
  *
@@ -85,6 +98,8 @@ class ApiSocket {
     private reconnectedListeners: Set<() => void> = new Set();
     private statusListeners: Set<(status: 'disconnected' | 'connecting' | 'connected' | 'error') => void> = new Set();
     private currentStatus: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private reconnectAttempt = 0;
 
     //
     // Initialization
@@ -127,7 +142,8 @@ class ApiSocket {
                         return;
                     }
                     // Never log the error object itself (it may carry sensitive detail) —
-                    // only its message. Call cb anyway so socket.io's normal reconnect applies.
+                    // only its message. Call cb anyway: the server rejects the empty token,
+                    // and the connect_error handler schedules a backed-off retry.
                     console.log('[apiSocket] No access token for socket auth:', error instanceof Error ? error.message : String(error));
                     send('');
                 });
@@ -143,11 +159,44 @@ class ApiSocket {
     }
 
     disconnect() {
+        this.cancelReconnect();
         if (this.socket) {
-            this.socket.disconnect();
+            const socket = this.socket;
             this.socket = null;
+            socket.disconnect();
         }
         this.updateStatus('disconnected');
+    }
+
+    /**
+     * socket.io-client does not reconnect on its own after the server disconnects
+     * the socket (`io server disconnect`: token expired + 60 s, or revoked) or
+     * rejects its handshake (connect_error with `socket.active === false`). Retry
+     * with backoff; each attempt re-runs the `auth` callback, so it handshakes with
+     * a fresh access token. disconnect() (logout, LoggedOutError) cancels it.
+     */
+    private scheduleReconnect(socket: Socket) {
+        if (this.reconnectTimer || this.socket !== socket) {
+            return;
+        }
+        const delay = reconnectDelayMs(this.reconnectAttempt);
+        this.reconnectAttempt += 1;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            if (this.socket !== socket || socket.connected || socket.active) {
+                return;
+            }
+            this.updateStatus('connecting');
+            socket.connect();
+        }, delay);
+    }
+
+    private cancelReconnect() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        this.reconnectAttempt = 0;
     }
 
     //
@@ -311,10 +360,12 @@ class ApiSocket {
     }
 
     private setupEventHandlers() {
-        if (!this.socket) return;
+        const socket = this.socket;
+        if (!socket) return;
 
         // Connection events
-        this.socket.on('connect', () => {
+        socket.on('connect', () => {
+            this.cancelReconnect();
             if (this.isVerboseLogging()) {
                 console.log('🔌 SyncSocket: Connected, recovered: ' + this.socket?.recovered);
                 console.log('🔌 SyncSocket: Socket ID:', this.socket?.id);
@@ -325,22 +376,29 @@ class ApiSocket {
             }
         });
 
-        this.socket.on('disconnect', (reason) => {
+        socket.on('disconnect', (reason) => {
             if (this.isVerboseLogging()) {
                 console.log('🔌 SyncSocket: Disconnected', reason);
             }
             this.updateStatus('disconnected');
+            if (reason === 'io server disconnect') {
+                this.scheduleReconnect(socket);
+            }
         });
 
         // Error events
-        this.socket.on('connect_error', (error) => {
+        socket.on('connect_error', (error) => {
             if (this.isVerboseLogging()) {
                 console.error('🔌 SyncSocket: Connection error', error);
             }
             this.updateStatus('error');
+            if (!socket.active) {
+                // Handshake refused by the server middleware: socket.io gave up.
+                this.scheduleReconnect(socket);
+            }
         });
 
-        this.socket.on('error', (error) => {
+        socket.on('error', (error) => {
             if (this.isVerboseLogging()) {
                 console.error('🔌 SyncSocket: Error', error);
             }
@@ -348,7 +406,7 @@ class ApiSocket {
         });
 
         // Message handling
-        this.socket.onAny((event, data) => {
+        socket.onAny((event, data) => {
             if (this.isVerboseLogging()) {
                 console.log(`📥 SyncSocket: Received event '${event}':`, JSON.stringify(data).substring(0, 200));
             }

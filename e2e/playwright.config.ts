@@ -2,7 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 // The stack is started outside Playwright: docker compose --profile e2e up -d --build.
 // For the two-tab test to prove there is no refresh-token replay, start the server
-// with AUTH_REFRESH_REUSE_GRACE=0s (CI does).
+// with AUTH_REFRESH_REUSE_GRACE=0s (CI does). The socket reconnect test needs
+// AUTH_ACCESS_TOKEN_TTL=3m (CI does) and skips with longer tokens.
 export default defineConfig({
     testDir: './tests',
     fullyParallel: false,

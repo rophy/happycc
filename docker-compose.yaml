@@ -9,6 +9,8 @@
 # Users (no password, pick in the UI): alice, bob.
 # AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
 # retry window, so the e2e suite can prove that tabs never replay a refresh token.
+# AUTH_ACCESS_TOKEN_TTL=3m in the shell shortens access tokens so the e2e suite can
+# watch the server cut the sync socket at expiry and the app reconnect.
 services:
   oidc-mock:
     image: ghcr.io/rophy/oidc-mock:20260913-34fdbaf
@@ -55,6 +57,7 @@ services:
       OIDC_ALLOW_INSECURE_ISSUER: "true"
       MOBILE_REDIRECT_URIS: happy-dev://auth/callback,happy-preview://auth/callback
       AUTH_REFRESH_REUSE_GRACE: ${AUTH_REFRESH_REUSE_GRACE:-60s}
+      AUTH_ACCESS_TOKEN_TTL: ${AUTH_ACCESS_TOKEN_TTL:-15m}
     command: ["sh", "-c", "pnpm exec prisma migrate deploy && pnpm run start"]
 
   webapp:

@@ -42,8 +42,11 @@ jobs:
 
     # No lost-response grace on the compose server: a refresh-token replay between
     # tabs revokes the device, so the two-tab test proves the refresh lock works.
+    # Short access tokens let the socket test watch the server cut the sync socket
+    # at expiry and the app reconnect.
     env:
       AUTH_REFRESH_REUSE_GRACE: 0s
+      AUTH_ACCESS_TOKEN_TTL: 3m
 
     steps:
     - name: Checkout
