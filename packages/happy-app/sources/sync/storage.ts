@@ -22,6 +22,7 @@ import { getSessionActivityAt } from '@/utils/sessionActivity';
 import { applySettings, Settings } from "./settings";
 import { LocalSettings, applyLocalSettings } from "./localSettings";
 import { Profile } from "./profile";
+import { type ServerFeatures, serverFeaturesDefaults } from './apiFeatures';
 import { UserProfile, RelationshipUpdatedEvent } from "./friendTypes";
 import { loadSettings, loadLocalSettings, saveLocalSettings, saveSettings, loadProfile, saveProfile, loadSessionDrafts, saveSessionDrafts, loadRigComposerDraft, saveRigComposerDraft } from "./persistence";
 import { isAgentModePushPending } from "./agentModesPending";
@@ -280,6 +281,7 @@ interface StorageState {
     settingsVersion: number | null;
     localSettings: LocalSettings;
     profile: Profile;
+    features: ServerFeatures;
     sessions: Record<string, Session>;
     sessionsData: SessionListItem[] | null;  // Legacy - to be removed
     sessionListViewData: SessionListViewItem[] | null;
@@ -323,6 +325,7 @@ interface StorageState {
     applySettingsLocal: (settings: Partial<Settings>) => void;
     applyLocalSettings: (settings: Partial<LocalSettings>) => void;
     applyProfile: (profile: Profile) => void;
+    applyFeatures: (features: ServerFeatures) => void;
     applyGitStatus: (pathKey: string, status: GitStatus | null) => void;
     applyGitStatusFiles: (pathKey: string, files: GitStatusFiles | null) => void;
     applyProjectFiles: (pathKey: string, files: ProjectFilesList | null) => void;
@@ -499,6 +502,7 @@ export const storage = create<StorageState>()((set, get) => {
         settingsVersion: version,
         localSettings,
         profile,
+        features: serverFeaturesDefaults,
         sessions: {},
         machines: {},
         projects: {},
@@ -1136,6 +1140,10 @@ export const storage = create<StorageState>()((set, get) => {
                 profile
             };
         }),
+        applyFeatures: (features: ServerFeatures) => set((state) => ({
+            ...state,
+            features,
+        })),
         applyGitStatus: (pathKey: string, status: GitStatus | null) => set((state) => ({
             ...state,
             pathGitStatus: {
@@ -1966,6 +1974,10 @@ export function useIsDataReady(): boolean {
 
 export function useProfile() {
     return storage(useShallow((state) => state.profile));
+}
+
+export function useServerFeature(name: keyof ServerFeatures): boolean {
+    return storage((state) => state.features[name]);
 }
 
 export function useFriends() {

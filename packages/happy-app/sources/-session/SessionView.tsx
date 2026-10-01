@@ -30,7 +30,7 @@ import { getCurrentVoiceConversationId, getCurrentVoiceSessionDurationSeconds, s
 import { sessionAbort, sessionCancelCommunication, sessionGoalAction, sessionSetAgentModes, spawnSideChat, sessionKill, sessionArchive } from '@/sync/ops';
 import { dismissPendingChat, getPendingChat, setPendingChatDraft, submitPendingChat, usePendingChat, type PendingChat } from '@/sync/pendingChats';
 import { claimComposerFocus } from '@/utils/composerFocus';
-import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useSessionGitStatus, useSessionMessages, useSessionPendingCommunications, useSessionAvatar, useSessionUsage, useSetting, useSideChatSessions } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useServerFeature, useSessionGitStatus, useSessionMessages, useSessionPendingCommunications, useSessionAvatar, useSessionUsage, useSetting, useSideChatSessions } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { getSessionForkSource } from '@/utils/sessionFork';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -1111,6 +1111,8 @@ export function SessionViewLoaded({
     // Memoize mic button state to prevent flashing during chat transitions.
     // While a call runs the pill under the header is the only stop control,
     // so the composer mic disappears instead of doubling as a stop button.
+    // No voice on this server: no mic, so no voice entry point at all.
+    const voiceEnabled = useServerFeature('voice');
     const voiceSessionActive = realtimeStatus === 'connected' || realtimeStatus === 'connecting';
     const micButtonState = useMemo(() => ({
         onMicPress: voiceSessionActive ? undefined : handleMicrophonePress,
@@ -1181,8 +1183,8 @@ export function SessionViewLoaded({
                 connectionStatus={session ? connectionStatus : undefined}
                 blockSend={isRig && session?.thinking && session.metadata?.capabilities?.steering !== true}
                 onSend={handleSend}
-                onMicPress={(embedded || isDisconnected) ? undefined : micButtonState.onMicPress}
-                isMicActive={(embedded || isDisconnected) ? false : micButtonState.isMicActive}
+                onMicPress={(embedded || isDisconnected || !voiceEnabled) ? undefined : micButtonState.onMicPress}
+                isMicActive={(embedded || isDisconnected || !voiceEnabled) ? false : micButtonState.isMicActive}
                 onAbort={!session || isDisconnected || !rigCanAbort(session.metadata) ? undefined : handleAbort}
                 showAbortButton={!!session && rigCanAbort(session.metadata) && (
                     sessionStatus.state === 'thinking'

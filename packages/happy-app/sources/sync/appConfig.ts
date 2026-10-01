@@ -1,8 +1,11 @@
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
+import { applyAppConfigEnv } from './appConfigEnv';
 
 export interface AppConfig {
     postHogKey?: string;
+    postHogHost?: string;
+    enableClaudeConnect?: boolean;
     consoleLoggingDefault?: boolean;
     serverUrl?: string;
     buildCommitSha?: string;
@@ -62,18 +65,10 @@ export function loadAppConfig(): AppConfig {
 
     console.log('[loadAppConfig] Final merged config:', JSON.stringify(config, null, 2));
 
-    // Override with EXPO_PUBLIC_* env vars if present at runtime and different
-    // Why: Native config is baked at prebuild time, but EXPO_PUBLIC_* vars
-    // are available at runtime via process.env. This allows devs to change
-    // keys without rebuilding native code.
-    if (process.env.EXPO_PUBLIC_POSTHOG_KEY && config.postHogKey !== process.env.EXPO_PUBLIC_POSTHOG_KEY) {
-        console.log('[loadAppConfig] Override postHogKey from EXPO_PUBLIC_POSTHOG_KEY');
-        config.postHogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
-    }
-    if (process.env.EXPO_PUBLIC_SERVER_URL && config.serverUrl !== process.env.EXPO_PUBLIC_SERVER_URL) {
-        console.log('[loadAppConfig] Override serverUrl from EXPO_PUBLIC_SERVER_URL');
-        config.serverUrl = process.env.EXPO_PUBLIC_SERVER_URL;
-    }
-
-    return config as AppConfig;
+    return applyAppConfigEnv(config, {
+        EXPO_PUBLIC_POSTHOG_API_KEY: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
+        EXPO_PUBLIC_POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST,
+        EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: process.env.EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT,
+        EXPO_PUBLIC_SERVER_URL: process.env.EXPO_PUBLIC_SERVER_URL,
+    });
 }

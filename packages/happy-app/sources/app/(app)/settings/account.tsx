@@ -7,7 +7,7 @@ import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Modal } from '@/modal';
 import { t } from '@/text';
-import { useSettingMutable, useProfile } from '@/sync/storage';
+import { useSettingMutable, useProfile, useServerFeature } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { useUnistyles } from 'react-native-unistyles';
 import { Switch } from '@/components/Switch';
@@ -99,6 +99,8 @@ export default React.memo(() => {
     const auth = useAuth();
     const [analyticsOptOut, setAnalyticsOptOut] = useSettingMutable('analyticsOptOut');
     const profile = useProfile();
+    const githubConnectEnabled = useServerFeature('githubConnect');
+    const pushEnabled = useServerFeature('push');
     const currentPushDevice = useMemo(() => getCurrentPushDeviceMetadata(), []);
     const [pushTokens, setPushTokens] = useState<PushToken[]>([]);
     const [pushPermission, setPushPermission] = useState<PushPermissionInfo | null>(null);
@@ -318,8 +320,8 @@ export default React.memo(() => {
                             <Item
                                 title={t('settingsAccount.github')}
                                 detail={`@${githubUsername}`}
-                                subtitle={t('settingsAccount.tapToDisconnect')}
-                                onPress={handleDisconnectGitHub}
+                                subtitle={githubConnectEnabled ? t('settingsAccount.tapToDisconnect') : undefined}
+                                onPress={githubConnectEnabled ? handleDisconnectGitHub : undefined}
                                 loading={disconnecting}
                                 showChevron={false}
                                 icon={profile.avatar?.url ? (
@@ -408,6 +410,7 @@ export default React.memo(() => {
                     />
                 </ItemGroup>
 
+                {pushEnabled && (<>
                 <ItemGroup
                     title="Push Notifications"
                     footer="Shows every push token registered on your account. Tap an old token to delete it."
@@ -489,6 +492,7 @@ export default React.memo(() => {
                         </>
                     )}
                 </ItemGroup>
+                </>)}
 
                 {/* Danger Zone */}
                 <ItemGroup title={t('settingsAccount.dangerZone')}>

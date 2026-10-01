@@ -113,4 +113,18 @@ describe('buildExpoConfig', () => {
             expect(expo.extra.app).not.toHaveProperty(key);
         }
     });
+
+    it('carries analytics and Claude connect settings only when set', () => {
+        const off = buildExpoConfig({}).expo.extra.app;
+        expect(off.postHogKey).toBeUndefined();
+        expect(off.postHogHost).toBeUndefined();
+        expect(off.enableClaudeConnect).toBe(false);
+
+        const on = buildExpoConfig({
+            EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_test',
+            EXPO_PUBLIC_POSTHOG_HOST: 'https://posthog.corp.example',
+            EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: '1',
+        }).expo.extra.app;
+        expect(on).toMatchObject({ postHogKey: 'phc_test', postHogHost: 'https://posthog.corp.example', enableClaudeConnect: true });
+    });
 });

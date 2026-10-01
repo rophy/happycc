@@ -11,7 +11,8 @@ import { Typography } from "@/constants/Typography";
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
-import { useLocalSettingMutable, useSetting } from '@/sync/storage';
+import { useLocalSettingMutable, useServerFeature, useSetting } from '@/sync/storage';
+import { config } from '@/config';
 import { sync } from '@/sync/sync';
 import { trackWhatsNewClicked } from '@/track';
 import { Modal } from '@/modal';
@@ -90,6 +91,9 @@ export const SettingsView = React.memo(function SettingsView({
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
     const experiments = useSetting('experiments');
+    const voiceEnabled = useServerFeature('voice');
+    const githubConnectEnabled = useServerFeature('githubConnect');
+    const claudeConnectEnabled = config.enableClaudeConnect === true;
     const profile = useProfile();
     const displayName = getDisplayName(profile);
     const avatarUrl = getAvatarUrl(profile);
@@ -212,42 +216,48 @@ export const SettingsView = React.memo(function SettingsView({
                 </View>
             </View>
 
-            <ItemGroup title={t('settings.connectedAccounts')}>
-                <Item
-                    title="Claude Code"
-                    subtitle={isAnthropicConnected
-                        ? t('settingsAccount.statusActive')
-                        : t('settings.connectAccount')
-                    }
-                    icon={
-                        <Image
-                            source={require('@/assets/images/icon-claude.png')}
-                            style={{ width: 29, height: 29 }}
-                            contentFit="contain"
+            {(claudeConnectEnabled || githubConnectEnabled) && (
+                <ItemGroup title={t('settings.connectedAccounts')}>
+                    {claudeConnectEnabled && (
+                        <Item
+                            title="Claude Code"
+                            subtitle={isAnthropicConnected
+                                ? t('settingsAccount.statusActive')
+                                : t('settings.connectAccount')
+                            }
+                            icon={
+                                <Image
+                                    source={require('@/assets/images/icon-claude.png')}
+                                    style={{ width: 29, height: 29 }}
+                                    contentFit="contain"
+                                />
+                            }
+                            onPress={isAnthropicConnected ? handleDisconnectAnthropic : connectAnthropic}
+                            loading={connectingAnthropic || disconnectingAnthropic}
+                            showChevron={false}
                         />
-                    }
-                    onPress={isAnthropicConnected ? handleDisconnectAnthropic : connectAnthropic}
-                    loading={connectingAnthropic || disconnectingAnthropic}
-                    showChevron={false}
-                />
-                <Item
-                    title={t('settings.github')}
-                    subtitle={isGitHubConnected
-                        ? t('settings.githubConnected', { login: profile.github?.login! })
-                        : t('settings.connectGithubAccount')
-                    }
-                    icon={
-                        <Ionicons
-                            name="logo-github"
-                            size={29}
-                            color={isGitHubConnected ? theme.colors.status.connected : theme.colors.textSecondary}
+                    )}
+                    {githubConnectEnabled && (
+                        <Item
+                            title={t('settings.github')}
+                            subtitle={isGitHubConnected
+                                ? t('settings.githubConnected', { login: profile.github?.login! })
+                                : t('settings.connectGithubAccount')
+                            }
+                            icon={
+                                <Ionicons
+                                    name="logo-github"
+                                    size={29}
+                                    color={isGitHubConnected ? theme.colors.status.connected : theme.colors.textSecondary}
+                                />
+                            }
+                            onPress={isGitHubConnected ? handleDisconnectGitHub : connectGitHub}
+                            loading={connectingGitHub || disconnectingGitHub}
+                            showChevron={false}
                         />
-                    }
-                    onPress={isGitHubConnected ? handleDisconnectGitHub : connectGitHub}
-                    loading={connectingGitHub || disconnectingGitHub}
-                    showChevron={false}
-                />
-            </ItemGroup>
+                    )}
+                </ItemGroup>
+            )}
 
             {/* Social */}
             {/* <ItemGroup title={t('settings.social')}>
@@ -273,12 +283,14 @@ export const SettingsView = React.memo(function SettingsView({
                     icon={<Ionicons name="color-palette-outline" size={29} color="#5856D6" />}
                     onPress={() => router.push('/settings/appearance')}
                 />
-                <Item
-                    title={t('settings.voiceAssistant')}
-                    subtitle={t('settings.voiceAssistantSubtitle')}
-                    icon={<Ionicons name="mic-outline" size={29} color="#34C759" />}
-                    onPress={() => router.push('/settings/voice')}
-                />
+                {voiceEnabled && (
+                    <Item
+                        title={t('settings.voiceAssistant')}
+                        subtitle={t('settings.voiceAssistantSubtitle')}
+                        icon={<Ionicons name="mic-outline" size={29} color="#34C759" />}
+                        onPress={() => router.push('/settings/voice')}
+                    />
+                )}
                 <Item
                     title="Agents"
                     subtitle="Connected machines and agent defaults"

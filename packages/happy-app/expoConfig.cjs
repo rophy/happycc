@@ -170,7 +170,9 @@ function buildExpoConfig(env, buildMetadata = {}) {
             router: { root: './sources/app' },
             ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
             app: {
-                postHogKey: env.EXPO_PUBLIC_POSTHOG_API_KEY,
+                postHogKey: value(env, 'EXPO_PUBLIC_POSTHOG_API_KEY') || undefined,
+                postHogHost: value(env, 'EXPO_PUBLIC_POSTHOG_HOST') || undefined,
+                enableClaudeConnect: value(env, 'EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT') === '1',
                 consoleLoggingDefault: defaults.consoleLoggingDefault,
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,

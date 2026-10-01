@@ -6,6 +6,7 @@ import { AuthCredentials } from '@/auth/tokenStorage';
 import { Encryption } from '@/sync/encryption/encryption';
 import { decodeBase64, encodeBase64 } from '@/encryption/base64';
 import { storage } from './storage';
+import { fetchServerFeatures } from './apiFeatures';
 // Circular at module level (ops.ts imports sync) but safe: both sides only
 // touch each other's exports at runtime, never during module initialization.
 import { sessionSetAgentModes } from './ops';
@@ -179,6 +180,7 @@ class Sync {
     private projectAvatarGenerations = new Map<string, number>();
     private settingsSync: InvalidateSync;
     private profileSync: InvalidateSync;
+    private featuresSync: InvalidateSync;
     private machinesSync: InvalidateSync;
     private pushTokenSync: InvalidateSync;
     private nativeUpdateSync: InvalidateSync;
@@ -202,6 +204,7 @@ class Sync {
         this.projectsSync = new InvalidateSync(this.fetchProjects);
         this.settingsSync = new InvalidateSync(this.syncSettings);
         this.profileSync = new InvalidateSync(this.fetchProfile);
+        this.featuresSync = new InvalidateSync(this.fetchFeatures);
         this.machinesSync = new InvalidateSync(this.fetchMachines);
         this.nativeUpdateSync = new InvalidateSync(this.fetchNativeUpdate);
         this.artifactsSync = new InvalidateSync(this.fetchArtifactsList);
@@ -238,6 +241,7 @@ class Sync {
                 }
                 log.log('📱 App became active');
                 this.profileSync.invalidate();
+                this.featuresSync.invalidate();
                 this.machinesSync.invalidate();
                 this.pushTokenSync.invalidate();
                 this.sessionsSync.invalidate();
@@ -326,6 +330,7 @@ class Sync {
         this.sessionsSync.invalidate();
         this.settingsSync.invalidate();
         this.profileSync.invalidate();
+        this.featuresSync.invalidate();
         this.machinesSync.invalidate();
         this.pushTokenSync.invalidate();
         this.nativeUpdateSync.invalidate();
@@ -1947,6 +1952,11 @@ class Sync {
         storage.getState().applyProfile(parsedProfile);
     }
 
+    private fetchFeatures = async () => {
+        if (!this.credentials) return;
+        storage.getState().applyFeatures(await fetchServerFeatures());
+    }
+
     private fetchNativeUpdate = async () => {
         try {
             // Skip in development
@@ -2346,6 +2356,12 @@ class Sync {
     private registerPushToken = async () => {
         log.log('registerPushToken');
         try {
+            // Push is a server decision (PUSH_ENABLED): never register a token it will not use.
+            await this.featuresSync.awaitQueue();
+            if (!storage.getState().features.push) {
+                log.log('Push disabled by the server; skipping push token registration');
+                return;
+            }
             const result = await syncCurrentPushToken(this.credentials);
             log.log('Push token sync result: ' + JSON.stringify({
                 registered: result.registered,

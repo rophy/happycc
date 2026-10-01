@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { OAuthView } from '@/components/OAuthView';
 import { buildAuthorizationUrl, ClaudeAuthTokens, exchangeCodeForTokens } from '@/utils/oauth';
 import { Modal } from '@/modal';
@@ -13,8 +13,14 @@ import { Text } from '@/components/StyledText';
 import { StyleSheet } from 'react-native-unistyles';
 import { Platform } from 'react-native';
 import { MobileGlassSurface } from '@/components/MobileGlass';
+import { config } from '@/config';
 
 export default function ClaudeOAuth() {
+    // Claude.ai account connect talks to claude.ai directly; off unless the build opts in.
+    if (!config.enableClaudeConnect) {
+        return <Redirect href="/settings" />;
+    }
+
     // const router = useRouter();
     // const auth = useAuth();
 

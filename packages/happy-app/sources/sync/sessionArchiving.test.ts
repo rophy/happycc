@@ -12,6 +12,7 @@ vi.mock('./persistence', () => ({
 }));
 vi.mock('./sync', () => ({ sync: { encryption: null } }));
 vi.mock('./apiSocket', () => ({ apiSocket: { emitWithAck: vi.fn() } }));
+vi.mock('./apiFeatures', () => ({ serverFeaturesDefaults: { voice: false, githubConnect: false, push: false } }));
 vi.mock('@/realtime/RealtimeSession', () => ({ getCurrentRealtimeSessionId: () => null, getVoiceSession: () => null }));
 vi.mock('@/components/tools/knownTools', () => ({ isMutableTool: () => true }));
 vi.mock('@/text', () => ({ t: (key: string) => key }));
