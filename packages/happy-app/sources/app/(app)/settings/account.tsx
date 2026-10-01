@@ -17,6 +17,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { disconnectGitHub } from '@/sync/apiGithub';
 import { disconnectService } from '@/sync/apiServices';
 import { fetchPushTokens, type PushToken } from '@/sync/apiPush';
+import { tracking } from '@/track';
 import {
     getCurrentExpoPushToken,
     getCurrentPushDeviceMetadata,
@@ -388,27 +389,29 @@ export default React.memo(() => {
                 })()}
 
                 {/* Analytics Section */}
-                <ItemGroup
-                    title={t('settingsAccount.privacy')}
-                    footer={t('settingsAccount.privacyDescription')}
-                >
-                    <Item
-                        title={t('settingsAccount.analytics')}
-                        subtitle={analyticsOptOut ? t('settingsAccount.analyticsDisabled') : t('settingsAccount.analyticsEnabled')}
-                        rightElement={
-                            <Switch
-                                value={!analyticsOptOut}
-                                onValueChange={(value) => {
-                                    const optOut = !value;
-                                    setAnalyticsOptOut(optOut);
-                                }}
-                                trackColor={{ false: '#767577', true: '#34C759' }}
-                                thumbColor="#FFFFFF"
-                            />
-                        }
-                        showChevron={false}
-                    />
-                </ItemGroup>
+                {tracking && (
+                    <ItemGroup
+                        title={t('settingsAccount.privacy')}
+                        footer={t('settingsAccount.privacyDescription')}
+                    >
+                        <Item
+                            title={t('settingsAccount.analytics')}
+                            subtitle={analyticsOptOut ? t('settingsAccount.analyticsDisabled') : t('settingsAccount.analyticsEnabled')}
+                            rightElement={
+                                <Switch
+                                    value={!analyticsOptOut}
+                                    onValueChange={(value) => {
+                                        const optOut = !value;
+                                        setAnalyticsOptOut(optOut);
+                                    }}
+                                    trackColor={{ false: '#767577', true: '#34C759' }}
+                                    thumbColor="#FFFFFF"
+                                />
+                            }
+                            showChevron={false}
+                        />
+                    </ItemGroup>
+                )}
 
                 {pushEnabled && (<>
                 <ItemGroup
