@@ -48,3 +48,19 @@ export async function endRejectedSessionAndReload(failedRefreshToken: string | u
     }
     await reloadApp();
 }
+
+/**
+ * Cold start: pre-OIDC credentials can't be migrated, so the next sign-in is a new
+ * account. Drop them together with the old account's local data (settings, pending
+ * settings, profile, drafts, registered push token) and restart, so none of it
+ * carries over. The in-memory stores were already loaded from that data, hence the
+ * restart. Resolves false when there were no legacy credentials.
+ */
+export async function dropLegacySessionAndReload(): Promise<boolean> {
+    if (!(await TokenStorage.removeLegacyCredentials())) {
+        return false;
+    }
+    clearPersistence();
+    await reloadApp();
+    return true;
+}

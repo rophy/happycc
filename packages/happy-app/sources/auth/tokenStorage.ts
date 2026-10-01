@@ -31,6 +31,24 @@ export const TokenStorage = {
         return credentials;
     },
 
+    /**
+     * Removes pre-OIDC (keypair-era) credentials. True when there were some: they
+     * belong to an account that cannot be migrated, so the caller also wipes local data.
+     */
+    async removeLegacyCredentials(): Promise<boolean> {
+        let raw: string | null;
+        try {
+            raw = await readRaw();
+        } catch {
+            return false;
+        }
+        if (!raw || parseStoredCredentials(raw)) {
+            return false;
+        }
+        await TokenStorage.removeCredentials();
+        return true;
+    },
+
     async setCredentials(credentials: AuthCredentials): Promise<boolean> {
         const json = JSON.stringify(credentials);
         try {

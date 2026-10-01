@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { AuthCredentials, TokenStorage } from '@/auth/tokenStorage';
 import { AuthProvider } from '@/auth/AuthContext';
 import { startTokenStore } from '@/auth/tokenStoreRuntime';
+import { dropLegacySessionAndReload } from '@/auth/logout';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -216,6 +217,7 @@ export default function RootLayout() {
                 await loadFonts();
                 await sodium.ready;
 
+                await dropLegacySessionAndReload();
                 const credentials = await TokenStorage.getCredentials();
                 if (credentials) {
                     await startTokenStore(credentials);
