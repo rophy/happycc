@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -14,10 +15,9 @@ export async function connectService(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/connect/${service}/register`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/connect/${service}/register`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },
@@ -42,10 +42,9 @@ export async function disconnectService(credentials: AuthCredentials, service: s
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/connect/${service}`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/connect/${service}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });

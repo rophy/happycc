@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -27,10 +28,9 @@ export async function fetchFeed(
         const url = `${API_ENDPOINT}/v1/feed${params.toString() ? `?${params}` : ''}`;
         log.log(`📰 Fetching feed: ${url}`);
         
-        const response = await fetch(url, {
+        const response = await authFetch(url, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });

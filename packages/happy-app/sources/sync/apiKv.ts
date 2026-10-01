@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -74,9 +75,8 @@ export async function kvGet(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/kv/${encodeURIComponent(key)}`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/kv/${encodeURIComponent(key)}`, {
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });
@@ -116,9 +116,8 @@ export async function kvList(
         : `${API_ENDPOINT}/v1/kv`;
 
     return await backoff(async () => {
-        const response = await fetch(url, {
+        const response = await authFetch(url, {
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });
@@ -150,10 +149,9 @@ export async function kvBulkGet(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/kv/bulk`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/kv/bulk`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },
@@ -189,10 +187,9 @@ export async function kvMutate(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/kv`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/kv`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },

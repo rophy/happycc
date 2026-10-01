@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -28,10 +29,9 @@ export async function getGitHubOAuthParams(credentials: AuthCredentials): Promis
     const API_ENDPOINT = getServerUrl();
     
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/connect/github/params`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/connect/github/params`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -57,10 +57,9 @@ export async function getAccountProfile(credentials: AuthCredentials): Promise<A
     const API_ENDPOINT = getServerUrl();
     
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/account/profile`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/account/profile`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -82,10 +81,9 @@ export async function disconnectGitHub(credentials: AuthCredentials): Promise<vo
     const API_ENDPOINT = getServerUrl();
     
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/connect/github`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/connect/github`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });

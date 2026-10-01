@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 import {
     downloadEncryptedAttachment,
     requestAttachmentUpload,
@@ -40,10 +41,12 @@ beforeEach(() => {
     cleanupFormFile.mockResolvedValue(undefined);
     appendFormFile.mockReset();
     appendFormFile.mockResolvedValue(cleanupFormFile);
+    setAccessTokenProvider(staticAccessTokenProvider('test-token', 'https://api.cluster-fluster.com'));
 });
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    setAccessTokenProvider(null);
 });
 
 describe('requestAttachmentUpload', () => {

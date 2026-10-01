@@ -1,7 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { TokenStorage } from '@/auth/tokenStorage';
+import { authFetch, getAccessToken, headersToRecord } from '@/auth/authFetch';
+import { LoggedOutError } from '@/auth/tokenStore';
 import { Encryption } from './encryption/encryption';
 import { storage } from './storage';
 
@@ -38,7 +39,6 @@ export function getCurrentAppState(): 'active' | 'background' {
 
 export interface SyncSocketConfig {
     endpoint: string;
-    token: string;
 }
 
 export interface SyncSocketState {
@@ -109,18 +109,29 @@ class ApiSocket {
 
         this.socket = io(this.config.endpoint, {
             path: '/v1/updates',
-            // A callback, not an object literal: socket.io re-invokes it for
-            // every connect AND reconnect, so appState is read fresh each time.
-            // With a literal, a socket that first connected while foregrounded
-            // would keep announcing `active` on later reconnects, and the server
-            // would suppress pushes for a backgrounded user until the follow-up
-            // `app-state` event landed.
-            auth: (cb) => cb({
-                token: this.config!.token,
-                clientType: 'user-scoped' as const,
-                happyClient: getHappyClientId(),
-                appState: getCurrentAppState(),
-            }),
+            // A callback, not an object literal: socket.io re-invokes it on every
+            // connect AND reconnect, so appState and the access token are read fresh
+            // each time (the server disconnects sockets whose token expired).
+            auth: (cb) => {
+                const send = (token: string) => cb({
+                    token,
+                    clientType: 'user-scoped' as const,
+                    happyClient: getHappyClientId(),
+                    appState: getCurrentAppState(),
+                });
+                getAccessToken().then(send, (error) => {
+                    if (error instanceof LoggedOutError) {
+                        // Signed out: the logout path reloads the app. Don't let socket.io
+                        // keep spinning its reconnect loop against a session that's gone.
+                        this.disconnect();
+                        return;
+                    }
+                    // Never log the error object itself (it may carry sensitive detail) —
+                    // only its message. Call cb anyway so socket.io's normal reconnect applies.
+                    console.log('[apiSocket] No access token for socket auth:', error instanceof Error ? error.message : String(error));
+                    send('');
+                });
+            },
             transports: ['websocket'],
             reconnection: true,
             reconnectionDelay: 1000,
@@ -271,38 +282,13 @@ class ApiSocket {
         if (!this.config) {
             throw new Error('SyncSocket not initialized');
         }
-
-        const credentials = await TokenStorage.getCredentials();
-        if (!credentials) {
-            throw new Error('No authentication credentials');
-        }
-
-        const url = `${this.config.endpoint}${path}`;
-        const headers = {
-            'Authorization': `Bearer ${credentials.token}`,
-            'X-Happy-Client': getHappyClientId(),
-            ...options?.headers
-        };
-
-        return fetch(url, {
+        return authFetch(`${this.config.endpoint}${path}`, {
             ...options,
-            headers
+            headers: {
+                'X-Happy-Client': getHappyClientId(),
+                ...headersToRecord(options?.headers),
+            },
         });
-    }
-
-    //
-    // Token Management
-    //
-
-    updateToken(newToken: string) {
-        if (this.config && this.config.token !== newToken) {
-            this.config.token = newToken;
-
-            if (this.socket) {
-                this.disconnect();
-                this.connect();
-            }
-        }
     }
 
     //

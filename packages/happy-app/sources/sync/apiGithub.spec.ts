@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { disconnectGitHub } from './apiGithub';
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 
 // Mock the serverConfig
 vi.mock('./serverConfig', () => ({
@@ -29,10 +30,12 @@ describe('apiGithub', () => {
         vi.clearAllMocks();
         // Mock global fetch
         global.fetch = vi.fn();
+        setAccessTokenProvider(staticAccessTokenProvider('test-token', 'https://api.test.com'));
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        setAccessTokenProvider(null);
     });
 
     describe('disconnectGitHub', () => {

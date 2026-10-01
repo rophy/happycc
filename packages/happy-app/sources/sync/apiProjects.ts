@@ -4,6 +4,7 @@
  * module only transports opaque values and never exposes a public image URL.
  */
 import type { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { getHappyClientId } from './apiSocket';
 import { getServerUrl, rewriteLoopbackHost } from './serverConfig';
 import type { ApiProjectAvatar, ApiProjectRecord } from './projectTypes';
@@ -12,7 +13,6 @@ const PROJECT_BATCH_SIZE = 100;
 
 function authHeaders(credentials: AuthCredentials, contentType = true): Record<string, string> {
     return {
-        Authorization: `Bearer ${credentials.token}`,
         ...(contentType ? { 'Content-Type': 'application/json' } : {}),
         'X-Happy-Client': getHappyClientId(),
     };
@@ -87,7 +87,7 @@ export async function fetchProjects(
     for (let index = 0; index < ids.length; index += PROJECT_BATCH_SIZE) {
         const batch = ids.slice(index, index + PROJECT_BATCH_SIZE);
         const query = encodeURIComponent(batch.join(','));
-        const response = await fetch(`${getServerUrl()}/v1/projects?ids=${query}`, {
+        const response = await authFetch(`${getServerUrl()}/v1/projects?ids=${query}`, {
             headers: authHeaders(credentials),
         });
         if (response.status === 404) continue;
@@ -111,7 +111,7 @@ export async function requestProjectAvatarDownload(
     projectId: string,
 ): Promise<string> {
     const endpoint = `${getServerUrl()}/v1/projects/${encodeURIComponent(projectId)}/avatar/request-download`;
-    const response = await fetch(endpoint, {
+    const response = await authFetch(endpoint, {
         method: 'POST',
         headers: authHeaders(credentials, false),
     });
@@ -140,10 +140,10 @@ export async function downloadProjectAvatar(
 ): Promise<Uint8Array> {
     const serverUrl = getServerUrl();
     const downloadUrl = await requestProjectAvatarDownload(credentials, projectId);
-    const headers = isServerHostedUrl(downloadUrl, serverUrl)
-        ? { Authorization: `Bearer ${credentials.token}`, 'X-Happy-Client': getHappyClientId() }
+    const init = isServerHostedUrl(downloadUrl, serverUrl)
+        ? { headers: { 'X-Happy-Client': getHappyClientId() } }
         : undefined;
-    const response = await fetch(downloadUrl, headers ? { headers } : undefined);
+    const response = await authFetch(downloadUrl, init);
     if (!response.ok) {
         throw new Error(`Failed to download project avatar: ${response.status}`);
     }

@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { apiSocket, getCurrentAppState, getHappyClientId } from '@/sync/apiSocket';
+import { authFetch } from '@/auth/authFetch';
 import { notifyUnreadMessage } from '@/sync/webTabTitle';
 import { AuthCredentials } from '@/auth/tokenStorage';
 import { Encryption } from '@/sync/encryption/encryption';
@@ -1261,9 +1262,8 @@ class Sync {
         const avatarsBeforeFetch = storage.getState().sessions;
 
         const API_ENDPOINT = getServerUrl();
-        const response = await fetch(`${API_ENDPOINT}/v1/sessions`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/sessions`, {
             headers: {
-                'Authorization': `Bearer ${this.credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -1680,9 +1680,8 @@ class Sync {
 
         console.log('📊 Sync: Fetching machines...');
         const API_ENDPOINT = getServerUrl();
-        const response = await fetch(`${API_ENDPOINT}/v1/machines`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/machines`, {
             headers: {
-                'Authorization': `Bearer ${this.credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -1930,14 +1929,13 @@ class Sync {
                 const sentPending = { ...this.pendingSettings };
                 let version = storage.getState().settingsVersion;
                 let settings = applySettings(storage.getState().settings, this.pendingSettings);
-                const response = await fetch(`${API_ENDPOINT}/v1/account/settings`, {
+                const response = await authFetch(`${API_ENDPOINT}/v1/account/settings`, {
                     method: 'POST',
                     body: JSON.stringify({
                         settings: await this.encryption.encryptRaw(settingsToSyncPayload(settings)),
                         expectedVersion: version ?? 0
                     }),
                     headers: {
-                        'Authorization': `Bearer ${this.credentials.token}`,
                         'Content-Type': 'application/json',
                         'X-Happy-Client': getHappyClientId(),
                     }
@@ -2000,9 +1998,8 @@ class Sync {
         }
 
         // Run request
-        const response = await fetch(`${API_ENDPOINT}/v1/account/settings`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/account/settings`, {
             headers: {
-                'Authorization': `Bearer ${this.credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -2046,9 +2043,8 @@ class Sync {
         if (!this.credentials) return;
 
         const API_ENDPOINT = getServerUrl();
-        const response = await fetch(`${API_ENDPOINT}/v1/account/profile`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/account/profile`, {
             headers: {
-                'Authorization': `Bearer ${this.credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -3327,7 +3323,7 @@ async function syncInit(credentials: AuthCredentials, restore: boolean) {
 
     // Initialize socket connection
     const API_ENDPOINT = getServerUrl();
-    apiSocket.initialize({ endpoint: API_ENDPOINT, token: credentials.token }, encryption);
+    apiSocket.initialize({ endpoint: API_ENDPOINT }, encryption);
 
     // Wire socket status to storage
     apiSocket.onStatusChange((status) => {

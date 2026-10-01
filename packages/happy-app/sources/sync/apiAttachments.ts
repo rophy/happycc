@@ -11,6 +11,7 @@
  *   3. Embed ref in the file event sent to the CLI
  */
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import {
     createAttachmentDiagnosticError,
     errorMessageFromUnknown,
@@ -43,10 +44,9 @@ export async function requestAttachmentUpload(
 
     let response: Response;
     try {
-        response = await fetch(requestUrl, {
+        response = await authFetch(requestUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ filename, size }),
@@ -166,13 +166,7 @@ export async function uploadEncryptedBlob(
     }
 
     // PUT (local-storage mode): direct upload to our server.
-    const isServerUrl = upload.uploadUrl.startsWith(serverUrl);
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/octet-stream',
-    };
-    if (isServerUrl) {
-        headers['Authorization'] = `Bearer ${credentials.token}`;
-    }
+    const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream' };
 
     // Build a standalone ArrayBuffer of exactly encryptedData.length bytes.
     // RN's iOS Blob polyfill rejects Uint8Array/ArrayBuffer constructors
@@ -189,7 +183,7 @@ export async function uploadEncryptedBlob(
 
     let response: Response;
     try {
-        response = await fetch(upload.uploadUrl, {
+        response = await authFetch(upload.uploadUrl, {
             method: 'PUT',
             headers,
             body,
@@ -236,10 +230,9 @@ export async function downloadEncryptedAttachment(
 
     let requestRes: Response;
     try {
-        requestRes = await fetch(requestUrl, {
+        requestRes = await authFetch(requestUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ ref }),
@@ -278,14 +271,9 @@ export async function downloadEncryptedAttachment(
     }
     const downloadUrl = rewriteLoopbackHost(rawDownloadUrl);
 
-    const isServerUrl = downloadUrl.startsWith(API_ENDPOINT);
-    const headers: Record<string, string> = {};
-    if (isServerUrl) {
-        headers['Authorization'] = `Bearer ${credentials.token}`;
-    }
     let blobRes: Response;
     try {
-        blobRes = await fetch(downloadUrl, { headers });
+        blobRes = await authFetch(downloadUrl, { headers: {} });
     } catch (err) {
         const message = errorMessageFromUnknown(err);
         throw createAttachmentDiagnosticError(formatNetworkErrorMessage('Attachment download network error', message), {

@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -22,12 +23,11 @@ export async function searchUsersByUsername(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(
+        const response = await authFetch(
             `${API_ENDPOINT}/v1/user/search?${new URLSearchParams({ query: username })}`,
             {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${credentials.token}`,
                     'X-Happy-Client': getHappyClientId(),
                 }
             }
@@ -61,12 +61,11 @@ export async function getUserProfile(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(
+        const response = await authFetch(
             `${API_ENDPOINT}/v1/user/${userId}`,
             {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${credentials.token}`,
                     'X-Happy-Client': getHappyClientId(),
                 }
             }
@@ -117,10 +116,9 @@ export async function sendFriendRequest(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/friends/add`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/friends/add`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },
@@ -160,10 +158,9 @@ export async function getFriendsList(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/friends`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/friends`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'X-Happy-Client': getHappyClientId(),
             }
         });
@@ -193,10 +190,9 @@ export async function removeFriend(
     const API_ENDPOINT = getServerUrl();
 
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/friends/remove`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/friends/remove`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },

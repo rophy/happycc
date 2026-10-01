@@ -72,10 +72,11 @@ vi.mock('@/realtime/hooks/voiceHooks', () => ({ voiceHooks: {
 } }));
 
 import { sync } from './sync';
+import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 
 let engine: any;
 let encryption: { decryptMessages: ReturnType<typeof vi.fn> };
-afterEach(() => { engine?.sessionAvatars.clear(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => { engine?.sessionAvatars.clear(); vi.unstubAllGlobals(); vi.useRealTimers(); setAccessTokenProvider(null); });
 function response(messages: any[], hasMore = false) {
     return { ok: true, json: async () => ({ messages, hasMore }) };
 }
@@ -92,6 +93,7 @@ async function waitForPreload() {
 
 beforeEach(() => {
     vi.resetAllMocks();
+    setAccessTokenProvider(staticAccessTokenProvider('token', 'https://example.invalid'));
     mocks.state = {
         sessions: { a: { id: 'a', permissionMode: 'auto', metadata: {} }, b: { id: 'b', permissionMode: 'auto', metadata: {} } },
         sessionMessages: {}, currentViewingSessionId: null,

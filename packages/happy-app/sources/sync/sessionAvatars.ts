@@ -2,6 +2,7 @@ import { z } from "zod";
 import { encodeBase64 } from "@/encryption/base64";
 import { decryptBlob } from "@/encryption/blob";
 import type { AuthCredentials } from "@/auth/tokenStorage";
+import { authFetch } from "@/auth/authFetch";
 import type { Encryption } from "./encryption/encryption";
 import type { ProjectAvatar } from "./projectTypes";
 import type { SessionAvatarDescriptor } from "./sessionAvatarTypes";
@@ -30,10 +31,9 @@ export async function loadSessionAvatar(
   if (!preview.success || signal.aborted) return null;
   const serverUrl = getServerUrl();
   const headers = {
-    Authorization: `Bearer ${credentials.token}`,
     "X-Happy-Client": getHappyClientId(),
   };
-  const grant = await fetch(
+  const grant = await authFetch(
     `${serverUrl}/v1/sessions/${encodeURIComponent(sessionId)}/avatar/request-download`,
     {
       method: "POST",
@@ -48,8 +48,8 @@ export async function loadSessionAvatar(
   if (!download.success || download.data.ref !== descriptor.ref) return null;
   const url = new URL(rewriteLoopbackHost(download.data.downloadUrl));
   if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return null;
-  const response = await fetch(url.toString(), {
-    headers: url.origin === new URL(serverUrl).origin ? headers : undefined,
+  const response = await authFetch(url.toString(), {
+    headers,
     signal,
     redirect: "error",
   });

@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { z } from 'zod';
 import { getServerUrl } from './serverConfig';
@@ -20,10 +21,9 @@ export type PushToken = z.infer<typeof PushTokenSchema>;
 export async function registerPushToken(credentials: AuthCredentials, token: string): Promise<void> {
     const API_ENDPOINT = getServerUrl();
     await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/push-tokens`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/push-tokens`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },
@@ -44,10 +44,9 @@ export async function registerPushToken(credentials: AuthCredentials, token: str
 export async function fetchPushTokens(credentials: AuthCredentials): Promise<PushToken[]> {
     const API_ENDPOINT = getServerUrl();
     return backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/push-tokens`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/push-tokens`, {
             method: 'GET',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }
@@ -65,10 +64,9 @@ export async function fetchPushTokens(credentials: AuthCredentials): Promise<Pus
 export async function unregisterPushToken(credentials: AuthCredentials, token: string): Promise<void> {
     const API_ENDPOINT = getServerUrl();
     await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/push-tokens/${encodeURIComponent(token)}`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/push-tokens/${encodeURIComponent(token)}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             }

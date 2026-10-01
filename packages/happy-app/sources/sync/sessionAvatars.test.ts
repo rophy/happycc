@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { decrypt } = vi.hoisted(() => ({ decrypt: vi.fn(() => new Uint8Array([97])) }));
 vi.mock("@/encryption/blob", () => ({ decryptBlob: decrypt }));
 vi.mock("./apiSocket", () => ({ getHappyClientId: () => "test" }));
@@ -8,6 +8,7 @@ vi.mock("./serverConfig", () => ({
 }));
 import { loadSessionAvatar } from "./sessionAvatars";
 import type { Encryption } from "./encryption/encryption";
+import { setAccessTokenProvider, staticAccessTokenProvider } from "@/auth/authFetch";
 
 const descriptor = { ref: "sessions/s/avatar/a.enc", version: 1, preview: "opaque-preview" };
 const encryption = {
@@ -16,9 +17,14 @@ const encryption = {
   }),
   getSessionBlobKey: () => new Uint8Array(32),
 } as unknown as Encryption;
+beforeEach(() => {
+  setAccessTokenProvider(staticAccessTokenProvider("private-token", "https://happy.test"));
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  setAccessTokenProvider(null);
 });
 
 describe("encrypted session avatar download", () => {

@@ -53,6 +53,7 @@ import { Encryption } from './encryption/encryption';
 import { encodeBase64 } from '@/encryption/base64';
 import { settingsDefaults } from './settings';
 import { rigMetadataFixture } from './__testdata__/rigMetadata';
+import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 
 let engine: any;
 let writer: Encryption;
@@ -92,12 +93,14 @@ beforeEach(async () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     mocks.request.mockResolvedValue({ ok: true, json: async () => ({ messages: [] }) });
+    setAccessTokenProvider(staticAccessTokenProvider('token', 'https://example.invalid'));
 });
 
 afterEach(() => {
     engine.sessionsSync.stop();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    setAccessTokenProvider(null);
 });
 
 describe('first message session hydration', () => {

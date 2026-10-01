@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch } from '@/auth/authFetch';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
@@ -31,10 +32,9 @@ export async function queryUsage(
     const API_ENDPOINT = getServerUrl();
     
     return await backoff(async () => {
-        const response = await fetch(`${API_ENDPOINT}/v1/usage/query`, {
+        const response = await authFetch(`${API_ENDPOINT}/v1/usage/query`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${credentials.token}`,
                 'Content-Type': 'application/json',
                 'X-Happy-Client': getHappyClientId(),
             },

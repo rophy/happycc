@@ -5,6 +5,7 @@ import {
     type VoiceUsageResponse,
 } from '@slopus/happy-wire';
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { authFetch, headersToRecord } from '@/auth/authFetch';
 import { getServerUrl, getVoiceServerUrl } from './serverConfig';
 import { getHappyClientId } from './apiSocket';
 import { config } from '@/config';
@@ -13,33 +14,40 @@ import { decodeBase64 } from '@/encryption/base64';
 
 export type { VoiceConversationResponse, VoiceUsageResponse };
 
-async function getVoiceEndpoint(credentials: AuthCredentials): Promise<{ serverUrl: string; token: string }> {
-    const serverUrl = getVoiceServerUrl();
-    if (serverUrl === getServerUrl()) {
-        return { serverUrl, token: credentials.token };
+/**
+ * The voice endpoint is usually our own server (OIDC access token via
+ * authFetch). When the user opted a custom self-hosted server into handling
+ * sessions but kept voice on the default server (`getVoiceServerUrl() !==
+ * getServerUrl()`), that other server never saw this device's OIDC sign-in —
+ * it only has the account's root secret, so it's authenticated the legacy
+ * way (`authGetToken`, the old challenge/signature flow) instead.
+ */
+async function voiceFetch(credentials: AuthCredentials, path: string, init: RequestInit): Promise<Response> {
+    const voiceServerUrl = getVoiceServerUrl();
+    const url = `${voiceServerUrl}${path}`;
+    if (voiceServerUrl === getServerUrl()) {
+        return authFetch(url, init);
     }
-
     const secret = decodeBase64(credentials.secret, 'base64url');
-    const token = await authGetToken(secret, serverUrl);
-    return { serverUrl, token };
+    const token = await authGetToken(secret, voiceServerUrl);
+    const headers = headersToRecord(init.headers);
+    headers.Authorization = `Bearer ${token}`;
+    return fetch(url, { ...init, headers });
 }
 
 export async function fetchVoiceCredentials(
     credentials: AuthCredentials,
     sessionId: string
 ): Promise<VoiceConversationResponse> {
-    const { serverUrl, token } = await getVoiceEndpoint(credentials);
-
     const agentId = config.elevenLabsAgentId;
 
     if (!agentId) {
         throw new Error('Agent ID not configured');
     }
 
-    const response = await fetch(`${serverUrl}/v1/voice/conversations`, {
+    const response = await voiceFetch(credentials, '/v1/voice/conversations', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
             'X-Happy-Client': getHappyClientId(),
         },
@@ -58,12 +66,9 @@ export async function fetchVoiceCredentials(
 export async function fetchVoiceUsage(
     credentials: AuthCredentials
 ): Promise<VoiceUsageResponse> {
-    const { serverUrl, token } = await getVoiceEndpoint(credentials);
-
-    const response = await fetch(`${serverUrl}/v1/voice/usage`, {
+    const response = await voiceFetch(credentials, '/v1/voice/usage', {
         method: 'GET',
         headers: {
-            'Authorization': `Bearer ${token}`,
             'X-Happy-Client': getHappyClientId(),
         },
     });

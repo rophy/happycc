@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthCredentials } from '@/auth/tokenStorage';
+import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 import {
     downloadProjectAvatar,
     fetchProjects,
@@ -36,10 +37,12 @@ describe('project API transport', () => {
     beforeEach(() => {
         fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
+        setAccessTokenProvider(staticAccessTokenProvider('token-1', 'https://api.example.test'));
     });
 
     afterEach(() => {
         vi.unstubAllGlobals();
+        setAccessTokenProvider(null);
     });
 
     it('accepts the opaque project catalog contract without a data/avatar payload', async () => {
