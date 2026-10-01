@@ -1,7 +1,7 @@
 # Local Android screenshot setup
 
 This is one-time native-build and dedicated-device setup. Reuse the same owned
-AVDs afterward; start the mobile gym and isolated Agent/scenario separately.
+AVDs afterward; start the compose stack and isolated Agent/scenario separately.
 The capture runner repeats an explicit navigation plan once those prerequisites
 are ready. This is not yet a single command that builds, provisions, seeds,
 captures, and cleans up everything.
@@ -192,27 +192,25 @@ Require the exact owned name, boot value1, and listed native dimensions/density.
 Verify actual PNG orientation too; the first capture checked1080×1920 phone
 and1920×1080 tablets directly from their screenshot headers.
 
-## Connect the separately staged gym
+## Connect the local compose stack
 
-Start the mobile gym through its [documented owned lifecycle](../../packages/happy-mobile-gym/README.md),
-with explicit local server/Metro ports, and wait for `ready`. Stage the isolated
-Agent and sample scenario separately using [the screenshot guide](README.md).
-Do not use production authentication. Reusing a run preserves its account and
-database; record the current capture commit, not just its older creation commit.
+Start the server and IdP from the repository root with `docker compose up -d --build`
+(server on port 3005, oidc-mock on 8180) and Metro for the development build
+separately. Stage the isolated Agent and sample scenario using
+[the screenshot guide](README.md). Do not use production authentication.
 
-For each verified serial, create the exact gym port mappings. These examples
-use server64950 and Metro64951; change both sides together if your run differs:
+For each verified serial, map the server, IdP and Metro ports. These examples
+use Metro 8081; change both sides together if yours differs:
 
 ```sh
-"$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" reverse --no-rebind tcp:64950 tcp:64950
-"$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" reverse --no-rebind tcp:64951 tcp:64951
+"$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" reverse --no-rebind tcp:3005 tcp:3005
+"$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" reverse --no-rebind tcp:8180 tcp:8180
+"$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" reverse --no-rebind tcp:8081 tcp:8081
 ```
 
 On reuse, inspect existing mappings with the same explicit host/port/serial and
-`reverse --list`; reuse identical
-mappings and stop on unexpected ones instead of overwriting them. Reversal
-lets Android use the gym's exact `127.0.0.1` URLs. Do not change the harness to
-accept a LAN address or Android's host alias.
+`reverse --list`; reuse identical mappings and stop on unexpected ones instead
+of overwriting them.
 
 Install the verified APK on each new owned device, then open its local client:
 
@@ -220,15 +218,14 @@ Install the verified APK on each new owned device, then open its local client:
 "$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" install "$CAPTURE_APK"
 "$CAPTURE_ADB" -H 127.0.0.1 -P "$CAPTURE_ADB_PORT" -s "$CAPTURE_SERIAL" shell am start \
  -a android.intent.action.VIEW \
- -d 'exp+happy://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A64951' \
+ -d 'exp+happy://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081' \
  com.slopus.happy.dev
 ```
 
-An unchanged installed development client does not need reinstallation for
-every JS capture. Updating a rebuilt APK is a deliberate action on the same
-verified owned device; do not uninstall or clear its account data as routine
-setup. The URL above carries no credentials. The debug Metro bundle does carry
-the private gym account token/secret, so never track, upload, or distribute it.
+Sign in through the app's normal OIDC flow. An unchanged installed development
+client does not need reinstallation for every JS capture. Updating a rebuilt APK
+is a deliberate action on the same verified owned device; do not uninstall or
+clear its account data as routine setup.
 
 ## Appearance and repeat capture
 
@@ -259,7 +256,7 @@ node scripts/app-store/android-capture.mjs inspect \
 ```
 
 The runner validates emulator identity and native geometry; it does not build,
-install, reset devices, start adb/the gym, or seed sessions. Follow the main
+install, reset devices, start adb/the compose stack, or seed sessions. Follow the main
 screenshot guide for each explicit scene plan, fresh capture/output directories,
 composition, inspection, and fixture disclosures. Keep fictional participants
 and scripted responses labeled honestly; their rendering does not prove real
@@ -269,7 +266,7 @@ compositions and native-only tablet exports are separate outputs.
 ## Cleanup and reuse
 
 Keep the live process handles/foreground sessions created for this run. Stop
-the owned scenario/Agent and gym through their normal controller `stop()` or
+the owned scenario/Agent through its normal controller `stop()` (and the compose stack with `docker compose down`) or
 foreground Ctrl-C; stop each owned emulator and the foreground private adb
 process through its own live session handle/Ctrl-C. Stop private adb after its
 emulators. An automation owner should request graceful termination and use its

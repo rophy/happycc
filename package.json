@@ -6,7 +6,6 @@
         "release": "node ./scripts/release.cjs",
         "web": "pnpm --filter happy-app web",
         "app-logs": "pnpm --filter happy-app-logs start",
-        "mobile-gym": "pnpm --filter happy-mobile-gym cli",
         "screenshots:compose": "node scripts/app-store/compose.mjs",
         "screenshots:capture:android": "node scripts/app-store/android-capture.mjs",
         "postinstall": "node ./scripts/postinstall.cjs",
@@ -35,7 +34,6 @@
             "packages/happy-server-self-host",
             "packages/happy-wire",
             "packages/happy-app-logs",
-            "packages/happy-mobile-gym",
             "packages/expo-tailcat"
         ]
     },

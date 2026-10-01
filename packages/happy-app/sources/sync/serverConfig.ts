@@ -13,18 +13,6 @@ serverConfigStorage.delete('use-custom-server-for-voice');
 
 /** Deploy-time `window.__HAPPY_CONFIG__.serverUrl`, else build-time EXPO_PUBLIC_HAPPY_SERVER_URL. */
 export function getServerUrl(): string {
-    // happy-mobile-gym harness: pin the run to its explicit loopback server.
-    // Production ignores this path.
-    if (__DEV__ && process.env.EXPO_PUBLIC_HARNESS_MODE === '1') {
-        const configured = process.env.EXPO_PUBLIC_HAPPY_SERVER_URL;
-        if (!configured) throw new Error('Harness startup requires its explicit server URL.');
-        const parsed = new URL(configured);
-        if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]', '::1'].includes(parsed.hostname)
-            || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
-            throw new Error('Harness startup requires a plain loopback HTTP origin.');
-        }
-        return parsed.origin;
-    }
     return resolveServerUrl({
         deployUrl: (globalThis as any).__HAPPY_CONFIG__?.serverUrl,
         buildUrl: process.env.EXPO_PUBLIC_HAPPY_SERVER_URL,

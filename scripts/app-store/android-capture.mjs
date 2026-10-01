@@ -356,7 +356,7 @@ if (operation === "run") {
                   }
                 : {}),
             fixtures: [
-                "Real native Android app on an explicitly owned emulator; debug-only loopback mobile gym startup/auth. No screenshot-only UI patches.",
+                "Real native Android app on an explicitly owned emulator; debug build signed in through the local compose stack (oidc-mock). No screenshot-only UI patches.",
                 "Fictional projects and scripted responses delivered through the isolated real Agent and encrypted mobile integration. Auto permissions; synthetic gym provider disabled through normal settings.",
                 "Fictional Alex, Maya and Jamie participant envelopes use the encrypted server API. This proves native author rendering, not authenticated multi-account team sharing.",
                 "Source card shows the public mobile utils/sessionListTimestamp.ts through the real native Git diff viewer.",

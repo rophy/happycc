@@ -121,7 +121,7 @@ function assertGenericEnvironment(config: EnvironmentConfig, operation: string):
     if (config.isolated === true) {
         throw new Error(
             `Environment "${config.name}" is isolated; generic ${operation} is disabled. `
-            + "Use packages/happy-mobile-gym for a new private integration run.",
+            + `It was created by the removed mobile gym; delete it with: pnpm env:remove ${config.name}`,
         );
     }
 }
@@ -353,7 +353,7 @@ export async function createEnvironment(opts?: {
     console.log(`  Project: ${projectPath}`);
     console.log("");
     if (opts?.isolated) {
-        console.log("  Isolated environment; new private integration runs use packages/happy-mobile-gym.");
+        console.log("  Isolated environment: generic env commands are disabled for it.");
     } else {
         const envShRelative = path.relative(process.cwd(), path.join(envDir, "env.sh"));
         console.log("Start in separate terminals:");

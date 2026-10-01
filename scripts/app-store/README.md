@@ -47,9 +47,9 @@ without upscaling. Do not use the tall, mostly empty alternate desktop shot.
 
 ## Capture and regenerate
 
-1. Start `happy-mobile-gym` from current mobile main with its explicit run root.
-   It supplies only isolated debug startup/auth; create sample history through
-   the real local server/Agent APIs, then complete ordinary encrypted pairing.
+1. Start the local compose stack (`docker compose up -d --build`) and sign the
+   app in through oidc-mock as a test user from `deploy/oidc-mock/config.yaml`;
+   create sample history through the real local server/Agent APIs.
 2. Use a dedicated Simulator, not the developer's active device. Set 9:41,
    full battery, dark mode through Simulator controls. Navigate the actual app
    using accessibility/touch controls. Do not patch its model picker or labels.
@@ -126,18 +126,11 @@ so the native bottom-aligned conversation is populated; do not move messages
 with screenshot CSS. The third card documents the real companion desktop UI;
 it does not claim that its desktop-only controls run on iPhone or iPad.
 
-`node --import tsx scripts/app-store/seed-multiplayer.mjs <mobile repository> <mobile gym run root>` supplies the
-fictional Alex/Maya/Jamie conversation through normal encrypted APIs. Navigate
-to the returned session ID in the current run, not an ID from another run's
-database. This demonstrates the native participant-message renderer, **not**
-authenticated multi-account sharing, invite flows, or Agent-integrated team
-transport. Those require a separate end-to-end verification before publishing
-that card. The producer does not impersonate a running CLI version. Keep it
-running during capture: it owns a normal session-scoped connection and heartbeat,
-so the app correctly shows the conversation as active. Stop it with Ctrl-C after
-all captures; it confirms deactivation through the real CLI's archive endpoint,
-without deleting the sample history. A failed confirmation reports a nonzero exit.
-It never patches the app's archive filter or fabricates Agent metadata.
+The multiplayer card's fictional Alex/Maya/Jamie conversation came from a seed
+script that depended on the removed mobile gym. Until a producer that signs in
+through the compose stack exists, that card cannot be regenerated; reuse the
+existing export or drop the card. It never demonstrated authenticated
+multi-account sharing, invite flows, or Agent-integrated team transport.
 
 For the source card, put a short, real public source file into the isolated
 registered fixture project, then open the native session's **Changes** screen.
@@ -149,7 +142,7 @@ Never use a file-view screenshot that exposes a person's absolute host path.
 ## Android targets and capture contract
 
 Start with [the native Android setup recipe](ANDROID.md) for the debug build,
-dedicated devices, private ADB server, gym connection, and cleanup. After that
+dedicated devices, private ADB server, compose-stack connection, and cleanup. After that
 one-time setup, the checked-in plans in `plans/` replay real UI navigation and
 write a fresh capture manifest. Read each plan's `startState` before running it;
 close dialogs and restore that state through normal UI. Replace any explicit
