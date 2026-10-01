@@ -1,11 +1,14 @@
-# Local corporate deployment: oidc-mock (IdP) + Postgres + happy-server.
+# Local corporate deployment: oidc-mock (IdP) + Postgres + happy-server (+ web app).
 # The server shares oidc-mock's network namespace so that "localhost:8180" is the
 # same issuer URL for the server and for the browser on the host.
 #
-#   docker compose up -d oidc-mock         # IdP only (for integration tests)
-#   docker compose up -d --build           # full stack; open http://localhost:3005/activate
+#   docker compose up -d oidc-mock                   # IdP only (for integration tests)
+#   docker compose up -d --build                     # server stack; open http://localhost:3005/activate
+#   docker compose --profile e2e up -d --build       # + web app on http://localhost:8080 (Playwright e2e)
 #
 # Users (no password, pick in the UI): alice, bob.
+# AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
+# retry window, so the e2e suite can prove that tabs never replay a refresh token.
 services:
   oidc-mock:
     image: ghcr.io/rophy/oidc-mock:20260913-34fdbaf
@@ -50,7 +53,25 @@ services:
       OIDC_CLIENT_ID: happy-server
       OIDC_CLIENT_SECRET: happy-dev-secret
       OIDC_ALLOW_INSECURE_ISSUER: "true"
+      MOBILE_REDIRECT_URIS: happy-dev://auth/callback,happy-preview://auth/callback
+      AUTH_REFRESH_REUSE_GRACE: ${AUTH_REFRESH_REUSE_GRACE:-60s}
     command: ["sh", "-c", "pnpm exec prisma migrate deploy && pnpm run start"]
+
+  webapp:
+    profiles: [e2e]
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+      args:
+        # As seen by the browser on the host (oidc-mock publishes the server's port).
+        HAPPY_SERVER_URL: http://localhost:3005
+        # Placeholder identity for the production app config; unused on the web.
+        APP_BUNDLE_ID: com.example.happy.web
+        APP_SCHEME: happy-web
+    depends_on:
+      server: { condition: service_started }
+    ports:
+      - "8080:80"     # must match the server's WEBAPP_URL
 
 volumes:
   pgdata:
