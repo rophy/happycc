@@ -209,6 +209,40 @@ describe('authLogout', () => {
         expect(existsSync(config.credentialPath)).toBe(false);
     });
 
+    it('clears the credentials when the refresh succeeds but the logout POST fails', async () => {
+        const fresh = makeJwt(900);
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: fresh, refreshToken: 'refresh-2' } }),
+            'POST /v1/auth/logout': () => ({ status: 500, body: { error: 'server_error' } }),
+        });
+        const config = configFor(server.url);
+        writeCredentials(config, { token: makeJwt(-60), refreshToken: 'refresh-1', secret: getRandomBytes(32) });
+        await authLogout(config);
+        expect(server.calls.map((c) => c.path)).toEqual(['/v1/auth/refresh', '/v1/auth/logout']);
+        expect(existsSync(config.credentialPath)).toBe(false);
+        expect(logs).toContain('- Server session: Not revoked (server unreachable or session already ended)');
+    });
+
+    it('keeps a newer login that arrives during logout even after our own refresh rotated first', async () => {
+        // Our own refresh rotates refresh-1 -> refresh-rotated under the lock. Then, while
+        // the logout POST is in flight, a concurrent process writes a wholly new login
+        // (refresh-new-login). The refresh token captured for the clear-check must be the
+        // one *we* rotated to (refresh-rotated), not an unlocked re-read that could pick up
+        // the concurrent write instead — otherwise this would wrongly delete the new login.
+        let config!: Config;
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: makeJwt(900), refreshToken: 'refresh-rotated' } }),
+            'POST /v1/auth/logout': () => {
+                writeCredentials(config, { token: makeJwt(900), refreshToken: 'refresh-new-login', secret: getRandomBytes(32) });
+                return { status: 200, body: { success: true } };
+            },
+        });
+        config = configFor(server.url);
+        writeCredentials(config, { token: makeJwt(-60), refreshToken: 'refresh-1', secret: getRandomBytes(32) });
+        await authLogout(config);
+        expect(readCredentials(config)?.refreshToken).toBe('refresh-new-login');
+    });
+
     it('succeeds without credentials or a home directory', async () => {
         const config = { serverUrl: 'http://127.0.0.1:9', homeDir: join(homeDir, 'missing'), credentialPath: join(homeDir, 'missing', 'agent.key') };
         await expect(authLogout(config)).resolves.toBeUndefined();

@@ -1,10 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from './config';
 import { readCredentials, writeCredentials, type StoredCredentials } from './credentials';
+import * as credentialsModule from './credentials';
 import { getRandomBytes } from './encryption';
 import { makeJwt, startFakeServer } from './testing/fakeServer';
 import { LoggedOutError, TokenStore, socketAuth, withAuthRetry } from './tokenStore';
@@ -133,6 +134,124 @@ describe('TokenStore', () => {
         expect(error.message).not.toContain(stale);
         expect(readCredentials(config)?.token).toBe(stale);
     });
+
+    it('keeps a rotation in memory when the write fails, and persists it on the next refresh without burning a second token', async () => {
+        let refreshCalls = 0;
+        const next = makeJwt(900);
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => {
+                refreshCalls++;
+                return { status: 200, body: { accessToken: next, refreshToken: 'rt-rotated' } };
+            },
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale));
+
+        const writeSpy = vi.spyOn(credentialsModule, 'writeCredentials').mockImplementationOnce(() => {
+            throw new Error('disk full');
+        });
+        const firstToken = await store.getAccessToken();
+        writeSpy.mockRestore();
+
+        expect(firstToken).toBe(next);
+        expect(refreshCalls).toBe(1);
+        // Still unpersisted: the file has not caught up yet.
+        expect(readCredentials(config)?.token).toBe(stale);
+
+        // A second refresh (new process-local stale token, or another 401) must retry
+        // persisting the pending rotation rather than asking the server for another one.
+        const secondToken = await store.refresh(makeJwt(30));
+        expect(secondToken).toBe(next);
+        expect(refreshCalls).toBe(1);
+        const stored = readCredentials(config)!;
+        expect(stored.token).toBe(next);
+        expect(stored.refreshToken).toBe('rt-rotated');
+    });
+
+    it('drops a pending rotation that no longer matches the file instead of clobbering a newer login', async () => {
+        let refreshCalls = 0;
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => {
+                refreshCalls++;
+                return { status: 200, body: { accessToken: makeJwt(900), refreshToken: 'rt-rotated' } };
+            },
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale)); // refreshToken rt-1
+
+        const writeSpy = vi.spyOn(credentialsModule, 'writeCredentials').mockImplementationOnce(() => {
+            throw new Error('disk full');
+        });
+        await store.getAccessToken();
+        writeSpy.mockRestore();
+        expect(refreshCalls).toBe(1);
+
+        // A concurrent process logs in fresh, replacing the file entirely (different refresh
+        // token, same account). Our pendingRotation's `from` ('rt-1') no longer matches the
+        // file, so persisting it would clobber the concurrent login — it must be dropped.
+        const concurrentToken = makeJwt(900);
+        writeCredentials(config, { token: concurrentToken, refreshToken: 'rt-concurrent-login', secret });
+
+        const adopted = await store.refresh(makeJwt(30));
+        expect(adopted).toBe(concurrentToken);
+        expect(refreshCalls).toBe(1); // adopted directly (fresh); no extra server call
+        const stored = readCredentials(config)!;
+        expect(stored.refreshToken).toBe('rt-concurrent-login');
+    });
+
+    it('retries the refresh POST once immediately when the first attempt gets no response', async () => {
+        const next = makeJwt(900);
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: next, refreshToken: 'rt-2' } }),
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale));
+
+        const originalPost = axios.post.bind(axios);
+        const postSpy = vi.spyOn(axios, 'post')
+            .mockImplementationOnce(async () => {
+                throw new AxiosError('socket hang up', 'ECONNRESET');
+            })
+            .mockImplementation(originalPost as typeof axios.post);
+
+        const token = await store.getAccessToken();
+        expect(token).toBe(next);
+        expect(postSpy).toHaveBeenCalledTimes(2);
+        const stored = readCredentials(config)!;
+        expect(stored.token).toBe(next);
+        postSpy.mockRestore();
+    });
+
+    it('gives up and sanitizes the error when both refresh attempts get no response', async () => {
+        const config = configFor('http://127.0.0.1:9');
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale));
+        const postSpy = vi.spyOn(axios, 'post');
+
+        const error = await store.refresh(stale).catch((e: Error) => e) as Error;
+        expect(error).not.toBeInstanceOf(LoggedOutError);
+        expect(error.message).toMatch(/^Token refresh failed: /);
+        expect(postSpy).toHaveBeenCalledTimes(2);
+        expect(readCredentials(config)?.token).toBe(stale);
+        postSpy.mockRestore();
+    });
+
+    it('treats a malformed refresh response as a non-auth error and leaves the file untouched', async () => {
+        server = await startFakeServer({
+            'POST /v1/auth/refresh': () => ({ status: 200, body: { accessToken: 12345, refreshToken: 'rt-2' } }),
+        });
+        const config = configFor(server.url);
+        const stale = makeJwt(30);
+        const store = new TokenStore(config, seed(config, stale));
+
+        const error = await store.refresh(stale).catch((e: Error) => e) as Error;
+        expect(error).not.toBeInstanceOf(LoggedOutError);
+        expect(error.message).toMatch(/^Token refresh failed: /);
+        expect(readCredentials(config)?.token).toBe(stale);
+    });
 });
 
 describe('withAuthRetry', () => {
@@ -194,5 +313,37 @@ describe('socketAuth', () => {
             socketAuth({ getAccessToken: () => Promise.reject(new Error('network')) }, { clientType: 'x' })(resolve);
         });
         expect(payload).toEqual({ clientType: 'x', token: '' });
+    });
+
+    it('never raises an unhandled rejection even if the handshake callback throws', async () => {
+        const unhandled: unknown[] = [];
+        const onUnhandled = (err: unknown) => unhandled.push(err);
+        process.on('unhandledRejection', onUnhandled);
+        try {
+            socketAuth({ getAccessToken: async () => 't1' }, {})(() => {
+                throw new Error('consumer boom');
+            });
+            await new Promise((r) => setTimeout(r, 10));
+        } finally {
+            process.off('unhandledRejection', onUnhandled);
+        }
+        expect(unhandled).toHaveLength(0);
+    });
+
+    it('never raises an unhandled rejection even if onLoggedOut throws', async () => {
+        const unhandled: unknown[] = [];
+        const onUnhandled = (err: unknown) => unhandled.push(err);
+        process.on('unhandledRejection', onUnhandled);
+        try {
+            socketAuth(
+                { getAccessToken: () => Promise.reject(new LoggedOutError()) },
+                {},
+                () => { throw new Error('handler boom'); },
+            )(() => {});
+            await new Promise((r) => setTimeout(r, 10));
+        } finally {
+            process.off('unhandledRejection', onUnhandled);
+        }
+        expect(unhandled).toHaveLength(0);
     });
 });

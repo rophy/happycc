@@ -66,18 +66,22 @@ export async function authLogin(config: Config, opts?: { openBrowser?: boolean }
  * new refresh token under the credentials lock — still the same login, not a concurrent one.
  */
 async function revokeOnServer(config: Config, creds: Credentials): Promise<{ revoked: boolean; refreshToken: string }> {
+    // `currentRefreshToken()` reflects whatever this store last saw or wrote *under the
+    // credentials lock* — if the access token needed refreshing, that already happened by
+    // the time getAccessToken() resolves, so this is "ours" even if the later logout POST
+    // fails. An unlocked re-read here instead could capture a concurrent login's token,
+    // and then wrongly clear the file for a session this call never touched.
+    const tokenStore = new TokenStore(config, creds);
     try {
-        // An expired access token cannot identify the device; refresh first.
-        const token = await new TokenStore(config, creds).getAccessToken();
-        const refreshToken = readCredentials(config)?.refreshToken ?? creds.refreshToken;
+        const token = await tokenStore.getAccessToken();
         await axios.post(`${config.serverUrl}/v1/auth/logout`, {}, {
             headers: { Authorization: `Bearer ${token}`, 'X-Happy-Client': 'cli-control-plane/0.1.0' },
             timeout: LOGOUT_TIMEOUT_MS,
             signal: AbortSignal.timeout(LOGOUT_TIMEOUT_MS),
         });
-        return { revoked: true, refreshToken };
+        return { revoked: true, refreshToken: tokenStore.currentRefreshToken() ?? creds.refreshToken };
     } catch {
-        return { revoked: false, refreshToken: creds.refreshToken };
+        return { revoked: false, refreshToken: tokenStore.currentRefreshToken() ?? creds.refreshToken };
     }
 }
 

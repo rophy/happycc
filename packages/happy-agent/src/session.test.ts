@@ -197,6 +197,25 @@ describe('SessionClient', () => {
             expect(mockSocketInstance!.connected).toBe(false);
         });
 
+        it('rejects waitForConnect promptly when the token store is logged out, instead of waiting for the timeout', async () => {
+            const { LoggedOutError } = await import('./tokenStore');
+            const client = new SessionClient(makeOptions({ tokens: { getAccessToken: () => Promise.reject(new LoggedOutError()) } }));
+            // The mock socket's connect() optimistically flips `connected` to true before the
+            // (mocked) handshake actually completes; force it back to false so this exercises
+            // the not-yet-connected path waitForConnect actually hits in production.
+            mockSocketInstance!.connected = false;
+            const waitPromise = client.waitForConnect(5_000);
+            const auth = (mockSocketInstance!.opts as Record<string, unknown>).auth as (cb: (data: object) => void) => void;
+            // Simulate socket.io itself invoking the auth callback during the connection
+            // attempt, same as the previous test — but this time through the higher-level
+            // waitForConnect() that CLI commands (send/stop/wait) actually await.
+            auth(() => {});
+            const start = Date.now();
+            await expect(waitPromise).rejects.toBeInstanceOf(LoggedOutError);
+            expect(Date.now() - start).toBeLessThan(1_000);
+            client.close();
+        });
+
         it('connects to the correct server URL', async () => {
             const { io: mockIo } = vi.mocked(await import('socket.io-client'));
             const opts = makeOptions({ serverUrl: 'https://custom-server.example.com' });
