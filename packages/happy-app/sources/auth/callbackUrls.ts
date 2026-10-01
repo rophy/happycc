@@ -14,6 +14,14 @@ export function parseMobileCallbackUrl(url: string, redirectUri: string): string
     return new URLSearchParams(url.slice(redirectUri.length + 1)).get('code') || null;
 }
 
+/** Mobile: true when the user declined the sign-in confirmation page, i.e. the server redirected to `${redirectUri}?error=access_denied`. */
+export function isMobileCallbackDenied(url: string, redirectUri: string): boolean {
+    if (!url.startsWith(`${redirectUri}?`)) {
+        return false;
+    }
+    return new URLSearchParams(url.slice(redirectUri.length + 1)).get('error') === 'access_denied';
+}
+
 /** `scheme://auth/callback…`, `/auth/callback…` or `auth/callback…`. */
 export function isAuthCallbackPath(path: string): boolean {
     return /^(?:[a-z][a-z0-9+.-]*:\/\/|\/)?auth\/callback(?:[?#]|$)/i.test(path);

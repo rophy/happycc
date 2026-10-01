@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as WebBrowser from 'expo-web-browser';
 import { getServerUrl } from '@/sync/serverConfig';
-import { parseMobileCallbackUrl } from './callbackUrls';
+import { isMobileCallbackDenied, parseMobileCallbackUrl } from './callbackUrls';
 import {
     OidcLoginError,
     buildLoginUrl,
@@ -54,6 +54,9 @@ export async function signIn(): Promise<AuthCredentials | null> {
     }
     const code = parseMobileCallbackUrl(result.url, redirectUri);
     if (!code) {
+        if (isMobileCallbackDenied(result.url, redirectUri)) {
+            throw new OidcLoginError('Sign-in was cancelled');
+        }
         throw new OidcLoginError('Sign-in did not return a code. Please try again.');
     }
     return exchangeCode({ serverUrl, code, pending, deviceName: Device.modelName ?? Platform.OS });

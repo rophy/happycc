@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAuthCallbackPath, parseMobileCallbackUrl, parseWebCallbackHash } from './callbackUrls';
+import { isAuthCallbackPath, isMobileCallbackDenied, parseMobileCallbackUrl, parseWebCallbackHash } from './callbackUrls';
 
 describe('parseWebCallbackHash', () => {
     it('reads the exchange code from the fragment', () => {
@@ -22,6 +22,18 @@ describe('parseMobileCallbackUrl', () => {
         expect(parseMobileCallbackUrl('evil://auth/callback?code=xyz', redirect)).toBeNull();
         expect(parseMobileCallbackUrl('corpapp://auth/callback', redirect)).toBeNull();
         expect(parseMobileCallbackUrl('corpapp://auth/callback?state=1', redirect)).toBeNull();
+    });
+});
+
+describe('isMobileCallbackDenied', () => {
+    const redirect = 'corpapp://auth/callback';
+    it('detects a decline redirect', () => {
+        expect(isMobileCallbackDenied('corpapp://auth/callback?error=access_denied', redirect)).toBe(true);
+    });
+    it('ignores other URLs, missing errors, and other error values', () => {
+        expect(isMobileCallbackDenied('evil://auth/callback?error=access_denied', redirect)).toBe(false);
+        expect(isMobileCallbackDenied('corpapp://auth/callback?code=xyz', redirect)).toBe(false);
+        expect(isMobileCallbackDenied('corpapp://auth/callback?error=server_error', redirect)).toBe(false);
     });
 });
 
