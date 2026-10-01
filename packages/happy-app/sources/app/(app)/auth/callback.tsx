@@ -25,6 +25,10 @@ export default function AuthCallbackScreen() {
             return;
         }
         started.current = true;
+        // On the web this route is entered by a full page load, so the stack is
+        // [index (initialRouteName anchor), auth/callback]. Replacing it with `/` would
+        // leave a second, hidden home screen mounted under the visible one; dismissTo
+        // pops back to the anchored home instead.
         if (Platform.OS !== 'web') {
             router.replace('/');
             return;
@@ -32,7 +36,7 @@ export default function AuthCallbackScreen() {
         if (auth.isAuthenticated) {
             // Already signed in: the stray callback's verifier and key must not linger.
             discardPendingWebLogin();
-            router.replace('/');
+            router.dismissTo('/');
             return;
         }
         const code = takeWebCallbackCode();
@@ -44,7 +48,7 @@ export default function AuthCallbackScreen() {
             try {
                 const credentials = await completeWebSignIn(code);
                 await auth.login(credentials);
-                router.replace('/');
+                router.dismissTo('/');
             } catch (e) {
                 // Only our own messages are shown: other errors could quote a response body.
                 setError(e instanceof OidcLoginError ? e.message : 'Sign-in failed. Please try again.');
@@ -60,7 +64,7 @@ export default function AuthCallbackScreen() {
                         {error}
                     </Text>
                     <View style={{ width: 280, maxWidth: '100%' }}>
-                        <RoundButton title="Back to sign in" onPress={() => router.replace('/')} />
+                        <RoundButton title="Back to sign in" onPress={() => router.dismissTo('/')} />
                     </View>
                 </>
             ) : (
