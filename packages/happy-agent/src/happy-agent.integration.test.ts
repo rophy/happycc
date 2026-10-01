@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { decodeBase64, encodeBase64, libsodiumEncryptForPublicKey } from './encryption';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageDir = resolve(__dirname, '..');
@@ -12,6 +11,19 @@ const environmentsDir = join(repoRoot, 'environments', 'data', 'envs');
 const currentEnvironmentPath = join(repoRoot, 'environments', 'data', 'current.json');
 const binPath = resolve(packageDir, 'bin', 'happy-agent.mjs');
 const keepIntegrationEnv = ['1', 'true', 'yes'].includes((process.env.HAPPY_AGENT_KEEP_ENV ?? '').toLowerCase());
+const oidcIssuer = process.env.HAPPY_ENV_OIDC_ISSUER ?? 'http://localhost:8180';
+const oidcUser = process.env.HAPPY_ENV_OIDC_USER ?? 'alice';
+const httpBrowserPath = join(repoRoot, 'packages', 'happy-server', 'sources', 'testing', 'httpBrowser.ts');
+
+type BrowserResponse = { url: string; status: number; body: string; location: string | null };
+type HttpBrowserModule = {
+    HttpBrowser: new () => {
+        get(url: string): Promise<BrowserResponse>;
+        postForm(url: string, fields: Record<string, string>): Promise<BrowserResponse>;
+    };
+    pickerFields(html: string, sub: string): Record<string, string>;
+    htmlUnescape(value: string): string;
+};
 
 type EnvironmentConfig = {
     name: string;
@@ -71,15 +83,6 @@ function readEnvironmentConfig(envName: string): EnvironmentConfig {
     return JSON.parse(
         readFileSync(join(environmentsDir, envName, 'environment.json'), 'utf-8'),
     ) as EnvironmentConfig;
-}
-
-function readSeededCliCredentials(envDir: string): { token: string; secret: Uint8Array } {
-    const credentialPath = join(envDir, 'cli', 'home', 'access.key');
-    const parsed = JSON.parse(readFileSync(credentialPath, 'utf-8')) as { token: string; secret: string };
-    return {
-        token: parsed.token,
-        secret: decodeBase64(parsed.secret),
-    };
 }
 
 function readDaemonState(envDir: string): DaemonState | null {
@@ -199,41 +202,36 @@ async function waitFor(check: () => Promise<boolean>, timeoutMs: number, label: 
     throw new Error(`Timed out waiting for ${label}`);
 }
 
-async function approveAgentLogin(
-    serverUrl: string,
-    token: string,
-    secret: Uint8Array,
-    publicKeyBase64: string,
-): Promise<void> {
-    const publicKey = decodeBase64(publicKeyBase64);
-    const encryptedSecret = libsodiumEncryptForPublicKey(secret, publicKey);
-
-    const response = await fetch(`${serverUrl}/v1/auth/account/response`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'X-Happy-Client': 'cli-control-plane/0.1.0',
-        },
-        body: JSON.stringify({
-            publicKey: publicKeyBase64,
-            response: encodeBase64(encryptedSecret),
-        }),
-    });
-
-    if (!response.ok) {
-        throw new Error(`Account auth approval failed: ${response.status} ${await response.text()}`);
+/** Plays the user's browser: oidc-mock's user picker, the server's Allow/Deny confirm page, then the redirect back into the agent's loopback listener. */
+async function completeBrowserLogin(loginUrl: string): Promise<BrowserResponse> {
+    const { HttpBrowser, pickerFields, htmlUnescape } = await import(/* @vite-ignore */ httpBrowserPath) as HttpBrowserModule;
+    const browser = new HttpBrowser();
+    const picker = await browser.get(loginUrl);
+    if (!picker.url.startsWith(`${oidcIssuer}/authorize`)) {
+        throw new Error(`Expected the oidc-mock user picker, got ${picker.status} at ${picker.url}`);
     }
+
+    const confirm = await browser.postForm(`${oidcIssuer}/authorize/callback`, pickerFields(picker.body, oidcUser));
+    if (!confirm.url.endsWith('/v1/auth/oidc/loopback/confirm')) {
+        throw new Error(`Expected the loopback confirm page, got ${confirm.status} at ${confirm.url}`);
+    }
+    const csrfMatch = /<input type="hidden" name="csrf" value="([^"]*)">/.exec(confirm.body);
+    if (!csrfMatch) {
+        throw new Error(`Could not find the CSRF token on the loopback confirm page: ${confirm.body}`);
+    }
+
+    return browser.postForm(confirm.url, { csrf: htmlUnescape(csrfMatch[1]), decision: 'allow' });
 }
 
-async function runAgentAuthLogin(env: NodeJS.ProcessEnv, approval: { serverUrl: string; token: string; secret: Uint8Array }): Promise<string> {
-    return await new Promise<string>((resolvePromise, rejectPromise) => {
+async function runAgentAuthLogin(env: NodeJS.ProcessEnv): Promise<{ output: string; callback: BrowserResponse }> {
+    return await new Promise((resolvePromise, rejectPromise) => {
         const child = spawn(process.execPath, [
             '--no-warnings',
             '--no-deprecation',
             binPath,
             'auth',
             'login',
+            '--no-browser',
         ], {
             env,
             stdio: ['ignore', 'pipe', 'pipe'],
@@ -242,7 +240,7 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv, approval: { serverUrl: 
         let stdout = '';
         let stderr = '';
         let settled = false;
-        let approvalStarted = false;
+        let browserRun: Promise<BrowserResponse> | null = null;
 
         const timeout = setTimeout(() => {
             if (settled) {
@@ -253,42 +251,33 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv, approval: { serverUrl: 
             rejectPromise(new Error(`Timed out waiting for happy-agent auth login.\n${stdout}\n${stderr}`));
         }, 60_000);
 
-        const finish = (error?: Error, output?: string) => {
+        const finish = (error?: Error) => {
             if (settled) {
                 return;
             }
             settled = true;
             clearTimeout(timeout);
-            if (error) {
-                rejectPromise(error);
-            } else {
-                resolvePromise(output ?? stdout);
-            }
-        };
-
-        const maybeApprove = () => {
-            if (approvalStarted) {
+            if (error || !browserRun) {
+                rejectPromise(error ?? new Error(`happy-agent auth login printed no sign-in URL\n${stdout}\n${stderr}`));
                 return;
             }
-            const match = stdout.match(/- Public Key: `([^`]+)`/);
-            if (!match) {
-                return;
-            }
-            approvalStarted = true;
-
-            void approveAgentLogin(approval.serverUrl, approval.token, approval.secret, match[1]).catch(error => {
-                try {
-                    child.kill('SIGTERM');
-                } catch {
-                    // ignore
-                }
-                finish(error instanceof Error ? error : new Error(String(error)));
-            });
+            browserRun.then((callback) => resolvePromise({ output: stdout, callback }), rejectPromise);
         };
 
         child.stdout.on('data', (chunk: Buffer | string) => {
             stdout += chunk.toString();
-            maybeApprove();
+            const match = /(https?:\/\/\S+\/v1\/auth\/oidc\/login\?\S+)/.exec(stdout);
+            if (match && !browserRun) {
+                browserRun = completeBrowserLogin(match[1]);
+                browserRun.catch((error) => {
+                    try {
+                        child.kill('SIGTERM');
+                    } catch {
+                        // ignore
+                    }
+                    finish(error instanceof Error ? error : new Error(String(error)));
+                });
+            }
         });
 
         child.stderr.on('data', (chunk: Buffer | string) => {
@@ -304,7 +293,7 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv, approval: { serverUrl: 
                 finish(new Error(`happy-agent auth login exited with code ${code}\n${stdout}\n${stderr}`));
                 return;
             }
-            finish(undefined, stdout);
+            finish();
         });
     });
 }
@@ -407,23 +396,52 @@ describe('happy-agent integration', { timeout: 180_000 }, () => {
         }
     });
 
-    it('authenticates, lists machines, and spawns a session through the real daemon RPC path', async () => {
+    it('signs in through the loopback OIDC flow and decrypts account data', async () => {
+        if (!integrationConfig || !agentHomeDir) {
+            throw new Error('Integration environment not initialized');
+        }
+        const agentEnv = agentEnvVars(integrationConfig.serverPort, agentHomeDir);
+
+        const { output, callback } = await runAgentAuthLogin(agentEnv);
+        expect(callback.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/callback\?code=/);
+        expect(callback.status).toBe(200);
+        expect(callback.body).toContain('You can close this tab');
+        expect(output).toContain('- Status: Authenticated');
+
+        const credentialPath = join(agentHomeDir, 'agent.key');
+        expect(statSync(credentialPath).mode & 0o777).toBe(0o600);
+        const stored = JSON.parse(readFileSync(credentialPath, 'utf-8')) as { token?: string; refreshToken?: string; secret?: string };
+        expect(stored.token).toBeTruthy();
+        expect(stored.refreshToken).toBeTruthy();
+        expect(stored.secret).toBeTruthy();
+        expect(output).not.toContain(stored.token!);
+        expect(output).not.toContain(stored.refreshToken!);
+
+        const status = runAgentCli(['auth', 'status'], agentEnv);
+        expect(status).toContain('- Status: Authenticated');
+        expect(status).not.toContain(stored.token!);
+        expect(status).not.toContain(stored.refreshToken!);
+
+        // Machine metadata was encrypted by the seeded CLI daemon for the account's content key.
+        await waitFor(async () => {
+            const machines = parseJson<Array<{ metadata?: { homeDir?: unknown } | null }>>(runAgentCli(['machines', '--json'], agentEnv));
+            return machines.some(machine => typeof machine.metadata?.homeDir === 'string');
+        }, 20_000, 'a machine whose metadata happy-agent can decrypt');
+
+        // Round-trip a session through the server: encrypted by `create`, decrypted by `list` and `history`.
+        const tag = `agent-it-${Date.now()}`;
+        const created = parseJson<{ id: string }>(runAgentCli(['create', '--tag', tag, '--path', agentHomeDir, '--json'], agentEnv));
+        const sessions = parseJson<Array<{ id: string; metadata?: { tag?: string } }>>(runAgentCli(['list', '--json'], agentEnv));
+        expect(sessions.find(session => session.id === created.id)?.metadata?.tag).toBe(tag);
+        expect(parseJson<unknown[]>(runAgentCli(['history', created.id, '--json'], agentEnv))).toEqual([]);
+    });
+
+    it('lists machines and spawns a session through the real daemon RPC path', async () => {
         if (!integrationEnvDir || !integrationConfig || !agentHomeDir || !testProjectDir || !testWorktreeDir) {
             throw new Error('Integration environment not initialized');
         }
 
-        const serverUrl = `http://localhost:${integrationConfig.serverPort}`;
-        const seededCredentials = readSeededCliCredentials(integrationEnvDir);
         const agentEnv = agentEnvVars(integrationConfig.serverPort, agentHomeDir);
-
-        const authOutput = await runAgentAuthLogin(agentEnv, {
-            serverUrl,
-            token: seededCredentials.token,
-            secret: seededCredentials.secret,
-        });
-
-        expect(authOutput).toContain('- Status: Authenticated');
-        expect(existsSync(join(agentHomeDir, 'agent.key'))).toBe(true);
 
         const machineOutput = runAgentCli(['machines'], agentEnv);
         expect(machineOutput).toContain('## Machines');
