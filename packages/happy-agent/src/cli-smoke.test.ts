@@ -61,7 +61,7 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
 function makeCredentials(): Credentials {
     const secret = getRandomBytes(32);
     const contentKeyPair = deriveContentKeyPair(secret);
-    return { token: 'test-jwt-token', secret, contentKeyPair };
+    return { token: 'test-jwt-token', refreshToken: 'test-refresh-token', secret, contentKeyPair };
 }
 
 function makeRawSessionWithDataKey(
@@ -126,12 +126,13 @@ describe('Smoke: CLI command surface', () => {
     describe('1. auth commands', () => {
         it('auth login help shows expected description', () => {
             const { stdout } = runCli('auth', 'login', '--help');
-            expect(stdout).toContain('Authenticate via QR code');
+            expect(stdout).toContain('Sign in through your browser');
+            expect(stdout).toContain('--no-browser');
         });
 
         it('auth logout help shows expected description', () => {
             const { stdout } = runCli('auth', 'logout', '--help');
-            expect(stdout).toContain('Clear stored credentials');
+            expect(stdout).toContain('Revoke this device and clear stored credentials');
         });
 
         it('auth status help shows expected description', () => {

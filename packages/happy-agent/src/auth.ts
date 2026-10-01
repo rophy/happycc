@@ -1,96 +1,78 @@
-import axios, { AxiosError } from 'axios';
-import tweetnacl from 'tweetnacl';
-import qrcode from 'qrcode-terminal';
-import { encodeBase64, encodeBase64Url, decodeBase64, decryptBoxBundle, getRandomBytes } from './encryption';
-import { writeCredentials, clearCredentials, readCredentials } from './credentials';
+import { existsSync } from 'node:fs';
+import { hostname } from 'node:os';
+import axios from 'axios';
+import open from 'open';
 import type { Config } from './config';
+import {
+    CREDENTIALS_LOCK_OPTIONS,
+    clearCredentials,
+    credentialsLockFile,
+    readCredentials,
+    type Credentials,
+} from './credentials';
+import { encodeBase64 } from './encryption';
+import { withFileLock } from './fileLock';
+import { loopbackLogin } from './loopbackLogin';
 
-const POLL_INTERVAL_MS = 1000;
-const AUTH_TIMEOUT_MS = 120_000; // 2 minutes
+const LOGOUT_TIMEOUT_MS = 5_000;
 
-export type AuthRequestResponse = {
-    state: 'requested' | 'authorized';
-    token?: string;
-    response?: string; // base64-encoded encrypted account secret
-};
-
-export async function authLogin(config: Config): Promise<void> {
-    // 1. Generate ephemeral box keypair
-    const seed = getRandomBytes(32);
-    const keypair = tweetnacl.box.keyPair.fromSecretKey(seed);
-
-    // 2. POST /v1/auth/account/request with publicKey
-    const publicKeyBase64 = encodeBase64(keypair.publicKey);
-    try {
-        await axios.post(`${config.serverUrl}/v1/auth/account/request`, {
-            publicKey: publicKeyBase64,
-        }, {
-            headers: { 'X-Happy-Client': 'cli-control-plane/0.1.0' },
-        });
-    } catch (err) {
-        if (err instanceof AxiosError) {
-            throw new Error(`Failed to initiate auth: ${err.message}`);
-        }
-        throw err;
-    }
-
-    // 3. Generate and display QR code
-    const qrData = `happy:///account?${encodeBase64Url(keypair.publicKey)}`;
-    console.log('');
-    qrcode.generate(qrData, { small: true }, (code: string) => {
-        console.log(code);
+/**
+ * Signs in through the browser (OIDC loopback + PKCE). By default it also
+ * tries to open the login URL in the user's default browser; if that fails
+ * (headless box, no `open` handler, etc.) it keeps going quietly — the URL
+ * is always printed too. Pass `openBrowser: false` for `--no-browser`.
+ */
+export async function authLogin(config: Config, opts?: { openBrowser?: boolean }): Promise<void> {
+    const openBrowser = opts?.openBrowser ?? true;
+    await loopbackLogin({
+        config,
+        deviceName: `happy-agent@${hostname()}`,
+        io: {
+            print: (line) => console.log(line),
+            onUrl: async (url) => {
+                if (!openBrowser) {
+                    return;
+                }
+                try {
+                    await open(url);
+                } catch {
+                    // Best effort only; the URL was already printed to stdout.
+                }
+            },
+        },
     });
-    console.log('## Authentication');
-    console.log('- Action: Scan this QR code with the Happy app');
-    console.log('- Path: Settings -> Account -> Link New Device');
-    console.log(`- Public Key: \`${publicKeyBase64}\``);
-    console.log(`- URL: \`${qrData}\``);
     console.log('');
+    console.log('## Authentication');
+    console.log('- Status: Authenticated');
+}
 
-    // 4. Poll until authorized or timeout
-    const startTime = Date.now();
-    while (Date.now() - startTime < AUTH_TIMEOUT_MS) {
-        await sleep(POLL_INTERVAL_MS);
-
-        let result: AuthRequestResponse;
-        try {
-            const resp = await axios.post(`${config.serverUrl}/v1/auth/account/request`, {
-                publicKey: publicKeyBase64,
-            }, {
-                headers: { 'X-Happy-Client': 'cli-control-plane/0.1.0' },
-            });
-            result = resp.data as AuthRequestResponse;
-        } catch (err) {
-            if (err instanceof AxiosError) {
-                throw new Error(`Auth polling failed: ${err.message}`);
-            }
-            throw err;
-        }
-
-        if (result.state === 'authorized' && result.token && result.response) {
-            // 5. Decrypt the response to get account secret
-            const encryptedResponse = decodeBase64(result.response);
-            const secret = decryptBoxBundle(encryptedResponse, keypair.secretKey);
-            if (!secret) {
-                throw new Error('Failed to decrypt auth response');
-            }
-
-            // 6. Save credentials
-            writeCredentials(config, result.token, secret);
-
-            console.log('## Authentication');
-            console.log('- Status: Authenticated');
-            return;
-        }
+/** Best effort: the local logout proceeds whatever happens here. */
+async function revokeOnServer(config: Config, creds: Credentials): Promise<boolean> {
+    try {
+        await axios.post(`${config.serverUrl}/v1/auth/logout`, {}, {
+            headers: { Authorization: `Bearer ${creds.token}`, 'X-Happy-Client': 'cli-control-plane/0.1.0' },
+            timeout: LOGOUT_TIMEOUT_MS,
+            signal: AbortSignal.timeout(LOGOUT_TIMEOUT_MS),
+        });
+        return true;
+    } catch {
+        return false;
     }
-
-    throw new Error('Authentication timed out. Please try again.');
 }
 
 export async function authLogout(config: Config): Promise<void> {
-    clearCredentials(config);
+    const creds = readCredentials(config);
+    const revoked = creds ? await revokeOnServer(config, creds) : null;
+    if (existsSync(config.credentialPath)) {
+        await withFileLock(credentialsLockFile(config), async () => clearCredentials(config), CREDENTIALS_LOCK_OPTIONS);
+    }
     console.log('## Authentication');
     console.log('- Status: Logged out');
+    if (revoked !== null) {
+        console.log(revoked
+            ? '- Server session: Revoked'
+            : '- Server session: Not revoked (server unreachable or session already ended)');
+    }
     console.log('- Credentials: Cleared');
 }
 
@@ -99,13 +81,10 @@ export async function authStatus(config: Config): Promise<void> {
     console.log('## Authentication');
     if (creds) {
         console.log('- Status: Authenticated');
+        console.log(`- Server: ${config.serverUrl}`);
         console.log(`- Public Key: \`${encodeBase64(creds.contentKeyPair.publicKey)}\``);
     } else {
         console.log('- Status: Not authenticated');
         console.log('- Action: Run `happy-agent auth login` to authenticate.');
     }
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }

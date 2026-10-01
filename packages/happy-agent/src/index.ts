@@ -125,13 +125,16 @@ program
     .command('auth')
     .description('Manage authentication')
     .addCommand(
-        new Command('login').description('Authenticate via QR code').action(async () => {
-            const config = loadConfig();
-            await authLogin(config);
-        })
+        new Command('login')
+            .description('Sign in through your browser (prints a URL to open)')
+            .option('--no-browser', 'Only print the sign-in URL (happy-agent never opens a browser itself)')
+            .action(async (opts: { browser?: boolean }) => {
+                const config = loadConfig();
+                await authLogin(config, { openBrowser: opts.browser });
+            })
     )
     .addCommand(
-        new Command('logout').description('Clear stored credentials').action(async () => {
+        new Command('logout').description('Revoke this device and clear stored credentials').action(async () => {
             const config = loadConfig();
             await authLogout(config);
         })

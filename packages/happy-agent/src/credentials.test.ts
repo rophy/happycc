@@ -1,151 +1,82 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { readCredentials, writeCredentials, clearCredentials, requireCredentials } from './credentials';
-import { getRandomBytes, deriveContentKeyPair, encodeBase64 } from './encryption';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Config } from './config';
+import {
+    clearCredentials,
+    clearCredentialsIfRefreshToken,
+    credentialsLockFile,
+    readCredentials,
+    requireCredentials,
+    writeCredentials,
+} from './credentials';
+import { deriveContentKeyPair, encodeBase64, getRandomBytes } from './encryption';
 
-function makeTestConfig(): Config {
-    const homeDir = mkdtempSync(join(tmpdir(), 'happy-agent-test-'));
-    return {
-        serverUrl: 'https://api.cluster-fluster.com',
-        homeDir,
-        credentialPath: join(homeDir, 'agent.key'),
-    };
-}
+let homeDir: string;
+let config: Config;
+
+beforeEach(() => {
+    homeDir = mkdtempSync(join(tmpdir(), 'happy-agent-creds-'));
+    config = { serverUrl: 'https://api.example.test', homeDir, credentialPath: join(homeDir, 'nested', 'agent.key') };
+});
+afterEach(() => { rmSync(homeDir, { recursive: true, force: true }); });
 
 describe('credentials', () => {
-    let config: Config;
-
-    beforeEach(() => {
-        config = makeTestConfig();
+    it('round-trips token, refresh token and secret, and derives the content key pair', () => {
+        const secret = getRandomBytes(32);
+        writeCredentials(config, { token: 'access-1', refreshToken: 'refresh-1', secret });
+        const read = readCredentials(config)!;
+        expect(read.token).toBe('access-1');
+        expect(read.refreshToken).toBe('refresh-1');
+        expect(read.secret).toEqual(secret);
+        expect(read.contentKeyPair).toEqual(deriveContentKeyPair(secret));
     });
 
-    afterEach(() => {
-        rmSync(config.homeDir, { recursive: true, force: true });
-    });
-
-    describe('readCredentials / writeCredentials round-trip', () => {
-        it('writes and reads back credentials', () => {
-            const token = 'test-jwt-token';
-            const secret = getRandomBytes(32);
-
-            writeCredentials(config, token, secret);
-            const creds = readCredentials(config);
-
-            expect(creds).not.toBeNull();
-            expect(creds!.token).toBe(token);
-            expect(creds!.secret).toEqual(secret);
-        });
-
-        it('derives contentKeyPair correctly on read', () => {
-            const token = 'test-token';
-            const secret = getRandomBytes(32);
-            const expectedKeyPair = deriveContentKeyPair(secret);
-
-            writeCredentials(config, token, secret);
-            const creds = readCredentials(config);
-
-            expect(creds!.contentKeyPair.publicKey).toEqual(expectedKeyPair.publicKey);
-            expect(creds!.contentKeyPair.secretKey).toEqual(expectedKeyPair.secretKey);
-        });
-
-        it('stores secret as base64 in the file', () => {
-            const token = 'test-token';
-            const secret = getRandomBytes(32);
-
-            writeCredentials(config, token, secret);
-            const raw = JSON.parse(readFileSync(config.credentialPath, 'utf-8'));
-
-            expect(raw.token).toBe(token);
-            expect(raw.secret).toBe(encodeBase64(secret));
-        });
-
-        it('creates parent directory if missing', () => {
-            const deepConfig: Config = {
-                ...config,
-                credentialPath: join(config.homeDir, 'nested', 'dir', 'agent.key'),
-            };
-
-            writeCredentials(deepConfig, 'token', getRandomBytes(32));
-            expect(existsSync(deepConfig.credentialPath)).toBe(true);
+    it('writes {token, refreshToken, secret} with mode 0600 and leaves no temp file', () => {
+        const secret = getRandomBytes(32);
+        writeCredentials(config, { token: 'access-1', refreshToken: 'refresh-1', secret });
+        expect(statSync(config.credentialPath).mode & 0o777).toBe(0o600);
+        expect(existsSync(`${config.credentialPath}.tmp`)).toBe(false);
+        expect(JSON.parse(readFileSync(config.credentialPath, 'utf-8'))).toEqual({
+            token: 'access-1',
+            refreshToken: 'refresh-1',
+            secret: encodeBase64(secret),
         });
     });
 
-    describe('readCredentials with missing file', () => {
-        it('returns null when credential file does not exist', () => {
-            const creds = readCredentials(config);
-            expect(creds).toBeNull();
-        });
+    it('treats pre-OIDC credentials without a refresh token as logged out', () => {
+        writeCredentials(config, { token: 't', refreshToken: 'r', secret: getRandomBytes(32) });
+        writeFileSync(config.credentialPath, JSON.stringify({ token: 'old', secret: encodeBase64(getRandomBytes(32)) }));
+        expect(readCredentials(config)).toBeNull();
     });
 
-    describe('clearCredentials', () => {
-        it('removes the credential file', () => {
-            writeCredentials(config, 'token', getRandomBytes(32));
-            expect(existsSync(config.credentialPath)).toBe(true);
-
-            clearCredentials(config);
-            expect(existsSync(config.credentialPath)).toBe(false);
-        });
-
-        it('does not throw when file does not exist', () => {
-            expect(() => clearCredentials(config)).not.toThrow();
-        });
+    it('returns null for a missing file, invalid JSON or a wrong-length secret', () => {
+        expect(readCredentials(config)).toBeNull();
+        writeCredentials(config, { token: 't', refreshToken: 'r', secret: getRandomBytes(32) });
+        writeFileSync(config.credentialPath, '{not json');
+        expect(readCredentials(config)).toBeNull();
+        writeFileSync(config.credentialPath, JSON.stringify({ token: 't', refreshToken: 'r', secret: encodeBase64(getRandomBytes(16)) }));
+        expect(readCredentials(config)).toBeNull();
     });
 
-    describe('requireCredentials', () => {
-        it('returns credentials when file exists', () => {
-            const token = 'test-token';
-            const secret = getRandomBytes(32);
-            writeCredentials(config, token, secret);
-
-            const creds = requireCredentials(config);
-            expect(creds.token).toBe(token);
-            expect(creds.secret).toEqual(secret);
-        });
-
-        it('throws when credentials are missing', () => {
-            expect(() => requireCredentials(config)).toThrow(
-                'Not authenticated. Run `happy-agent auth login` first.'
-            );
-        });
+    it('clears credentials only while they still hold the given refresh token', () => {
+        writeCredentials(config, { token: 't', refreshToken: 'refresh-1', secret: getRandomBytes(32) });
+        expect(clearCredentialsIfRefreshToken(config, 'other')).toBe(false);
+        expect(readCredentials(config)).not.toBeNull();
+        expect(clearCredentialsIfRefreshToken(config, 'refresh-1')).toBe(true);
+        expect(existsSync(config.credentialPath)).toBe(false);
     });
 
-    describe('contentKeyPair derivation from secret', () => {
-        it('produces 32-byte public and secret keys', () => {
-            const secret = getRandomBytes(32);
-            writeCredentials(config, 'token', secret);
-            const creds = readCredentials(config);
+    it('clearCredentials tolerates a missing file', () => {
+        expect(() => clearCredentials(config)).not.toThrow();
+    });
 
-            expect(creds!.contentKeyPair.publicKey.length).toBe(32);
-            expect(creds!.contentKeyPair.secretKey.length).toBe(32);
-        });
+    it('requireCredentials points at auth login', () => {
+        expect(() => requireCredentials(config)).toThrow('Not authenticated. Run `happy-agent auth login` first.');
+    });
 
-        it('is deterministic — same secret produces same keypair', () => {
-            const secret = getRandomBytes(32);
-
-            writeCredentials(config, 'token1', secret);
-            const creds1 = readCredentials(config);
-
-            writeCredentials(config, 'token2', secret);
-            const creds2 = readCredentials(config);
-
-            expect(creds1!.contentKeyPair.publicKey).toEqual(creds2!.contentKeyPair.publicKey);
-            expect(creds1!.contentKeyPair.secretKey).toEqual(creds2!.contentKeyPair.secretKey);
-        });
-
-        it('different secrets produce different keypairs', () => {
-            const secret1 = getRandomBytes(32);
-            const secret2 = getRandomBytes(32);
-
-            writeCredentials(config, 'token', secret1);
-            const creds1 = readCredentials(config);
-
-            writeCredentials(config, 'token', secret2);
-            const creds2 = readCredentials(config);
-
-            expect(creds1!.contentKeyPair.publicKey).not.toEqual(creds2!.contentKeyPair.publicKey);
-        });
+    it('locks next to the credentials file', () => {
+        expect(credentialsLockFile(config)).toBe(`${config.credentialPath}.lock`);
     });
 });

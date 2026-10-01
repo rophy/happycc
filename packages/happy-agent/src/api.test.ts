@@ -67,7 +67,7 @@ function makeConfig(): Config {
 function makeCredentials(): Credentials {
     const secret = getRandomBytes(32);
     const contentKeyPair = deriveContentKeyPair(secret);
-    return { token: 'test-jwt-token', secret, contentKeyPair };
+    return { token: 'test-jwt-token', refreshToken: 'test-refresh-token', secret, contentKeyPair };
 }
 
 function makeRawSessionWithDataKey(

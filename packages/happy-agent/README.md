@@ -20,20 +20,23 @@ cd packages/happy-agent && npm link
 
 ## Authentication
 
-Happy Agent uses account authentication via QR code, the same flow as linking a device in the Happy mobile app.
+Happy Agent signs in with your organization's identity provider through the Happy server (OIDC, loopback redirect). It receives the account key, so it can read sessions created on any of your machines.
 
 ```bash
-# Authenticate by scanning QR code with the Happy mobile app
+# Opens the sign-in URL in your default browser (and prints it too). Waits up to 5 minutes.
 happy-agent auth login
 
-# Check authentication status
+# Only print the URL; happy-agent never opens a browser itself
+happy-agent auth login --no-browser
+
+# Check authentication status (never prints tokens)
 happy-agent auth status
 
-# Clear stored credentials
+# Revoke this device on the server and clear stored credentials
 happy-agent auth logout
 ```
 
-Credentials are stored at `~/.happy/agent.key`.
+Credentials are stored at `~/.happy/agent.key` (mode 0600). Access tokens refresh automatically; if the device is revoked or the session reaches its maximum age, run `happy-agent auth login` again.
 
 ## Commands
 
@@ -167,7 +170,7 @@ All machine and session data is end-to-end encrypted. New records use AES-256-GC
 ## Requirements
 
 - Node.js >= 20.0.0
-- A Happy mobile app account for authentication
+- An account at your organization's identity provider
 
 ## Publishing to npm
 
