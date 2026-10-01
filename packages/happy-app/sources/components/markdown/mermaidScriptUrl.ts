@@ -21,5 +21,7 @@ export function resolveMermaidScriptUrl(rawValue: string | undefined | null): st
     if (url.protocol !== 'https:') {
         return null;
     }
-    return trimmed;
+    // Normalised href percent-encodes quotes and angle brackets, so the value
+    // can be interpolated into the WebView's <script src="..."> safely.
+    return url.href;
 }

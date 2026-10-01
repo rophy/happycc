@@ -33,3 +33,11 @@ describe('resolveMermaidScriptUrl', () => {
             .toBe('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js');
     });
 });
+
+describe('resolveMermaidScriptUrl escaping', () => {
+    it('returns a normalised URL that cannot break out of an HTML attribute', () => {
+        const resolved = resolveMermaidScriptUrl('https://cdn.example.com/mermaid.js?x="><script>alert(1)</script>');
+        expect(resolved).not.toBeNull();
+        expect(resolved).not.toMatch(/["<>]/);
+    });
+});
