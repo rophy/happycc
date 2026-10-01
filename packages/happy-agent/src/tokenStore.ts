@@ -132,6 +132,15 @@ export class TokenStore implements TokenSource {
                 // No response at all (timeout, abort, connection reset): the server's
                 // refresh-reuse grace window covers safely retrying with the same
                 // refresh token once, immediately, still inside the lock.
+                //
+                // This uses up the server's one grace retry for this refresh token. If
+                // the server actually processed the first POST and only its response was
+                // lost, this retry hits `LOST_RACE` (the token was already rotated) and
+                // the device gets revoked. If a *second* process later replays the same
+                // on-disk refresh token (e.g. both of this process's attempts also lost
+                // their responses), the grace window is already spent and that replay
+                // revokes the device too. Rare, and the error path doesn't warn the user
+                // about the revoke risk — matches the spec's "one retry per rotation".
                 response = await postRefresh();
             }
             data = response.data as { accessToken: string; refreshToken: string };

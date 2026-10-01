@@ -59,5 +59,18 @@ describe('config', () => {
             expect(config.homeDir).toBe('/opt/happy');
             expect(config.credentialPath).toBe('/opt/happy/agent.key');
         });
+
+        it('expands a leading ~ in HAPPY_HOME_DIR, same as happy-cli', () => {
+            process.env.HAPPY_HOME_DIR = '~/custom-happy';
+            const config = loadConfig();
+            expect(config.homeDir).toBe(join(homedir(), 'custom-happy'));
+            expect(config.credentialPath).toBe(join(homedir(), 'custom-happy', 'agent.key'));
+        });
+
+        it('expands a bare ~ in HAPPY_HOME_DIR', () => {
+            process.env.HAPPY_HOME_DIR = '~';
+            const config = loadConfig();
+            expect(config.homeDir).toBe(homedir());
+        });
     });
 });

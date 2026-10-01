@@ -2809,3 +2809,19 @@ git add scripts/app-store package.json pnpm-workspace.yaml pnpm-lock.yaml \
 git status --short   # expect only staged changes (D/M), nothing unstaged
 git commit -m "chore: remove happy-mobile-gym and the app harness mode"
 ```
+
+## Execution notes
+
+The following rulings in this plan/ledger were reversed during execution;
+the plan body above is left as written and is not authoritative on these
+points:
+
+- `pendingRotation` (described as dropped) was restored in the agent's
+  `tokenStore.ts`, so an unpersisted rotation can be retried instead of
+  burning a second refresh token.
+- The browser for login is opened via `open`, not left to print-URL-only.
+- The loopback and mobile confirmation pages (`/v1/auth/oidc/loopback/confirm`,
+  `/v1/auth/oidc/mobile/confirm`) were added as a CSRF-protected gate, where
+  the plan did not call for them.
+- The no-response retry inside the refresh lock (one immediate retry on a
+  lost response, still under the lock) was added to `tokenStore.ts`.

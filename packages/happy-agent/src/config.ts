@@ -9,7 +9,11 @@ export type Config = {
 
 export function loadConfig(): Config {
     const serverUrl = (process.env.HAPPY_SERVER_URL ?? 'https://api.cluster-fluster.com').replace(/\/+$/, '');
-    const homeDir = process.env.HAPPY_HOME_DIR ?? join(homedir(), '.happy');
+    // Expand a leading `~` the same way happy-cli's `configuration.ts` does, so
+    // `HAPPY_HOME_DIR=~/x` resolves to the same `agent.key` path in both.
+    const homeDir = process.env.HAPPY_HOME_DIR
+        ? process.env.HAPPY_HOME_DIR.replace(/^~/, homedir())
+        : join(homedir(), '.happy');
     const credentialPath = join(homeDir, 'agent.key');
     return { serverUrl, homeDir, credentialPath };
 }

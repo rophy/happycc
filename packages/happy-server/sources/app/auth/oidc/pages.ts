@@ -73,8 +73,12 @@ export function loopbackConfirmPage(opts: { port: string; csrf: string }): strin
 
 export function mobileConfirmPage(opts: { appName: string; csrf: string }): string {
     const safeName = escapeHtml(opts.appName);
+    // The configured name (default "the Happy app") is lowercase, but it opens the
+    // sentence here — capitalize the sentence, not the name itself.
+    const sentence = `${safeName} on this phone will get full access to your account, including all your sessions.`;
+    const capitalizedSentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
     return confirmGatePage(`Sign in to ${opts.appName} on this device?`, `
-<p>${safeName} on this phone will get full access to your account, including all your sessions.</p>`, {
+<p>${capitalizedSentence}</p>`, {
         action: '/v1/auth/oidc/mobile/confirm',
         csrf: opts.csrf,
         continueLabel: 'Continue',
