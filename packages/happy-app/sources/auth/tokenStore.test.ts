@@ -325,6 +325,23 @@ describe('TokenStore', () => {
         expect(onLoggedOut).not.toHaveBeenCalled();
     });
 
+    it('neither adopts nor redeems credentials of a different account found in storage', async () => {
+        const stale = makeJwt(60);
+        const server = rotatingServer();
+        const otherAccount = { ...creds(makeJwt(900), 'rt-9'), secret: 'other-secret' };
+        const storage = memoryStorage(otherAccount);
+        const onLoggedOut = vi.fn();
+        const store = track(new TokenStore(creds(stale), deps(storage, server.fetchImpl, { onLoggedOut })));
+
+        await expect(store.refresh(stale)).rejects.toBeInstanceOf(Error);
+        expect(store.current().secret).toBe('root-secret');
+        expect(server.calls).toHaveLength(0);
+        expect(storage.write).not.toHaveBeenCalled();
+        expect(onLoggedOut).not.toHaveBeenCalled();
+        // Stopped like an external account switch: no further tokens from this store.
+        await expect(store.getAccessToken()).rejects.toBeInstanceOf(LoggedOutError);
+    });
+
     it('refreshes proactively two minutes before expiry', async () => {
         vi.useFakeTimers();
         const token = makeJwt(600);

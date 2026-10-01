@@ -306,6 +306,14 @@ export class TokenStore implements AccessTokenProvider {
         if (!stored) {
             throw new LoggedOutError();
         }
+        if (stored.secret !== this.credentials.secret) {
+            // Another account signed in elsewhere (its storage event was missed): never
+            // adopt or redeem its tokens with this tab's keys. Stop silently, as
+            // applyExternalChange and persist() do for a different account.
+            this.silent = true;
+            this.stop();
+            throw new StoppedError();
+        }
         if (stored.token !== rejectedToken && this.isFresh(stored.token)) {
             return stored;
         }
