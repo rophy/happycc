@@ -60,7 +60,7 @@ export type ReconnectableHappySession = ResumableHappySession & {
 export function resolveSessionRecordByPrefix<T extends { id: string }>(records: T[], sessionId: string): T {
     const trimmed = sessionId.trim();
     if (!trimmed) {
-        throw new Error('Happy session ID is required: happy resume <session-id>');
+        throw new Error('Happy session ID is required: happyco resume <session-id>');
     }
 
     const matches = records.filter((record) => record.id.startsWith(trimmed));

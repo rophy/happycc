@@ -159,7 +159,7 @@ export async function handleSandboxStatus(): Promise<void> {
     const config = settings.sandboxConfig;
 
     if (!config) {
-        console.log('Sandbox is not configured. Run `happy sandbox configure`.');
+        console.log('Sandbox is not configured. Run `happyco sandbox configure`.');
         return;
     }
 
@@ -188,12 +188,12 @@ export async function handleSandboxDisable(): Promise<void> {
 
 export function handleSandboxHelp(): void {
     console.log(`
-${chalk.bold('happy sandbox')} - Sandbox management
+${chalk.bold('happyco sandbox')} - Sandbox management
 
 ${chalk.bold('Usage:')}
-  happy sandbox configure      Configure sandbox settings interactively
-  happy sandbox status         Show current sandbox configuration
-  happy sandbox disable        Disable sandboxing
-  happy sandbox help           Show this help
+  happyco sandbox configure      Configure sandbox settings interactively
+  happyco sandbox status         Show current sandbox configuration
+  happyco sandbox disable        Disable sandboxing
+  happyco sandbox help           Show this help
 `);
 }

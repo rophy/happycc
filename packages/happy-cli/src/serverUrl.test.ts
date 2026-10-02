@@ -43,6 +43,37 @@ describe('commandNeedsServerUrl', () => {
         expect(message.startsWith('HAPPY_SERVER_URL is not set')).toBe(true);
         expect(message).toContain('/home/u/.happy/settings.json');
     });
+
+    it('includes a copy-paste export hint', () => {
+        const message = missingServerUrlMessage('/home/u/.happyco/settings.json');
+        expect(message).toContain('export HAPPY_SERVER_URL=');
+    });
+});
+
+describe('configuration default home directory', () => {
+    const savedEnv = { ...process.env };
+    let fakeHome: string;
+
+    beforeEach(() => {
+        fakeHome = mkdtempSync(join(tmpdir(), 'happy-home-'));
+        delete process.env.HAPPY_HOME_DIR;
+        vi.resetModules();
+        vi.doMock('node:os', async () => {
+            const actual = await vi.importActual<typeof import('node:os')>('node:os');
+            return { ...actual, homedir: () => fakeHome };
+        });
+    });
+
+    afterEach(() => {
+        vi.doUnmock('node:os');
+        process.env = { ...savedEnv };
+        rmSync(fakeHome, { recursive: true, force: true });
+    });
+
+    it('defaults to ~/.happyco when HAPPY_HOME_DIR is not set', async () => {
+        const { configuration } = await import('./configuration');
+        expect(configuration.happyHomeDir).toBe(join(fakeHome, '.happyco'));
+    });
 });
 
 describe('configuration server URL', () => {

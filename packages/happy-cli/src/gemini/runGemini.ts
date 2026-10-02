@@ -94,7 +94,7 @@ export async function runGemini(opts: {
   });
 
   //
-  // Fetch Gemini cloud token (from 'happy connect gemini')
+  // Fetch Gemini cloud token (from 'happyco connect gemini')
   //
   let cloudToken: string | undefined = undefined;
   let currentUserEmail: string | undefined = undefined;
@@ -637,8 +637,8 @@ export async function runGemini(opts: {
           // Check for authentication error and provide helpful message
           if (errorMessage.includes('Authentication required')) {
             errorMessage = `Authentication required.\n` +
-              `For Google Workspace accounts, run: happy gemini project set <project-id>\n` +
-              `Or use a different Google account: happy connect gemini\n` +
+              `For Google Workspace accounts, run: happyco gemini project set <project-id>\n` +
+              `Or use a different Google account: happyco connect gemini\n` +
               `Guide: https://goo.gle/gemini-cli-auth-docs#workspace-gca`;
           }
           
@@ -1203,8 +1203,8 @@ export async function runGemini(opts: {
                      errorDetails.includes('Authentication required') ||
                      errorCode === -32000) {
               errorMsg = `Authentication required. For Google Workspace accounts, you need to set a Google Cloud Project:\n` +
-                         `  happy gemini project set <your-project-id>\n` +
-                         `Or use a different Google account: happy connect gemini\n` +
+                         `  happyco gemini project set <your-project-id>\n` +
+                         `Or use a different Google account: happyco connect gemini\n` +
                          `Guide: https://goo.gle/gemini-cli-auth-docs#workspace-gca`;
             }
             // Check for empty error (command not found)

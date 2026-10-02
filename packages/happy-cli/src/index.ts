@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * CLI entry point for happy command
+ * CLI entry point for happyco command
  * 
  * Simple argument parsing without any CLI framework dependencies
  */
@@ -48,7 +48,7 @@ import { commandNeedsServerUrl, missingServerUrlMessage } from './serverUrl'
 
   // If --version is passed - do not log, its likely daemon inquiring about our version
   if (!args.includes('--version')) {
-    logger.debug('Starting happy CLI with args: ', process.argv)
+    logger.debug('Starting happyco CLI with args: ', process.argv)
   }
 
   // Check if first argument is a subcommand
@@ -63,10 +63,10 @@ import { commandNeedsServerUrl, missingServerUrlMessage } from './serverUrl'
     if (args[1] === 'clean') {
       if (args.slice(2).some(a => a === '--help' || a === '-h')) {
         console.log(`
-${chalk.bold('happy doctor clean')} - Kill all happy-related processes (daemon + sessions)
+${chalk.bold('happyco doctor clean')} - Kill all happyco-related processes (daemon + sessions)
 
 ${chalk.bold('Usage:')}
-  happy doctor clean
+  happyco doctor clean
 
 ${chalk.bold('Warning:')} This is destructive — it terminates the daemon and every running session.
 Conversation history is preserved on the server, but in-flight tool calls are interrupted.
@@ -148,7 +148,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
     // Handle gemini subcommands
     const geminiSubcommand = args[1];
     
-    // Handle "happy gemini model set <model>" command
+    // Handle "happyco gemini model set <model>" command
     if (geminiSubcommand === 'model' && args[2] === 'set' && args[3]) {
       const modelName = args[3];
       const validModels = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
@@ -198,7 +198,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
     }
     
-    // Handle "happy gemini model get" command
+    // Handle "happyco gemini model get" command
     if (geminiSubcommand === 'model' && args[2] === 'get') {
       try {
         const { existsSync, readFileSync } = require('fs');
@@ -237,7 +237,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
     }
     
-    // Handle "happy gemini project set <project-id>" command
+    // Handle "happyco gemini project set <project-id>" command
     if (geminiSubcommand === 'project' && args[2] === 'set' && args[3]) {
       const projectId = args[3];
       
@@ -278,7 +278,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
     }
     
-    // Handle "happy gemini project get" command
+    // Handle "happyco gemini project get" command
     if (geminiSubcommand === 'project' && args[2] === 'get') {
       try {
         const { readGeminiLocalConfig } = await import('@/gemini/utils/config');
@@ -297,7 +297,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
           console.log('No Google Cloud Project configured.');
           console.log('');
           console.log('If you see "Authentication required" error, you may need to set a project:');
-          console.log('  happy gemini project set <your-project-id>');
+          console.log('  happyco gemini project set <your-project-id>');
           console.log('');
           console.log('This is required for Google Workspace accounts.');
           console.log('Guide: https://goo.gle/gemini-cli-auth-docs#workspace-gca');
@@ -309,9 +309,9 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
     }
     
-    // Handle "happy gemini project" (no subcommand) - show help
+    // Handle "happyco gemini project" (no subcommand) - show help
     if (geminiSubcommand === 'project' && !args[2]) {
-      console.log('Usage: happy gemini project <command>');
+      console.log('Usage: happyco gemini project <command>');
       console.log('');
       console.log('Commands:');
       console.log('  set <project-id>   Set Google Cloud Project ID');
@@ -327,7 +327,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
     // Handle gemini command (ACP-based agent)
     try {
       // The standalone gemini CLI is EOL; agy (Antigravity CLI) is its successor.
-      console.warn(chalk.yellow('⚠ The gemini backend is deprecated and may be removed in a future release. Use `happy agy` (Antigravity CLI) instead.'));
+      console.warn(chalk.yellow('⚠ The gemini backend is deprecated and may be removed in a future release. Use `happyco agy` (Antigravity CLI) instead.'));
 
       const { runGemini } = await import('@/gemini/runGemini');
 
@@ -470,7 +470,7 @@ Conversation history is preserved on the server, but in-flight tool calls are in
     return;
   } else if (subcommand === 'logout') {
     // Keep for backward compatibility - redirect to auth logout
-    console.log(chalk.yellow('Note: "happy logout" is deprecated. Use "happy auth logout" instead.\n'));
+    console.log(chalk.yellow('Note: "happyco logout" is deprecated. Use "happyco auth logout" instead.\n'));
     try {
       await handleAuthCommand(['logout']);
     } catch (error) {
@@ -575,20 +575,20 @@ Conversation history is preserved on the server, but in-flight tool calls are in
       }
     } else {
       console.log(`
-${chalk.bold('happy daemon')} - Daemon management
+${chalk.bold('happyco daemon')} - Daemon management
 
 ${chalk.bold('Usage:')}
-  happy daemon start              Start the daemon (detached)
-  happy daemon stop               Stop the daemon (sessions stay alive)
-  happy daemon status             Show daemon status
-  happy daemon list               List active sessions
+  happyco daemon start              Start the daemon (detached)
+  happyco daemon stop               Stop the daemon (sessions stay alive)
+  happyco daemon status             Show daemon status
+  happyco daemon list               List active sessions
 
-  If you want to kill all happy related processes run 
-  ${chalk.cyan('happy doctor clean')}
+  If you want to kill all happyco related processes run 
+  ${chalk.cyan('happyco doctor clean')}
 
 ${chalk.bold('Note:')} The daemon runs in the background and manages Claude sessions.
 
-${chalk.bold('To clean up runaway processes:')} Use ${chalk.cyan('happy doctor clean')}
+${chalk.bold('To clean up runaway processes:')} Use ${chalk.cyan('happyco doctor clean')}
 `)
     }
     return;
@@ -692,45 +692,45 @@ ${chalk.bold('To clean up runaway processes:')} Use ${chalk.cyan('happy doctor c
     // Show help
     if (showHelp) {
       console.log(`
-${chalk.bold('happy')} - Claude Code On the Go
+${chalk.bold('happyco')} - Claude Code On the Go
 
 ${chalk.bold('Usage:')}
-  happy [options]         Start Claude with mobile control
-  happy auth              Manage authentication
-  happy resume            Resume a previous Happy session by Happy session ID
-  happy codex             Start Codex mode
-  happy gemini            Start Gemini mode (ACP) [deprecated — use agy]
-  happy agy               Start agy (Antigravity CLI) mode
-  happy acp               Start a generic ACP-compatible agent
-  happy connect           Connect AI vendor API keys
-  happy sandbox           Configure and manage OS-level sandboxing
-  happy daemon            Manage background service that allows
+  happyco [options]         Start Claude with mobile control
+  happyco auth              Manage authentication
+  happyco resume            Resume a previous Happy session by Happy session ID
+  happyco codex             Start Codex mode
+  happyco gemini            Start Gemini mode (ACP) [deprecated — use agy]
+  happyco agy               Start agy (Antigravity CLI) mode
+  happyco acp               Start a generic ACP-compatible agent
+  happyco connect           Connect AI vendor API keys
+  happyco sandbox           Configure and manage OS-level sandboxing
+  happyco daemon            Manage background service that allows
                             to spawn new sessions away from your computer
-  happy doctor            System diagnostics & troubleshooting
+  happyco doctor            System diagnostics & troubleshooting
 
 ${chalk.bold('Examples:')}
-  happy                    Start session
-  happy resume cmmij8      Resume a previous session by Happy session ID
-  happy --yolo             Start with bypassing permissions
-                            happy sugar for --dangerously-skip-permissions
-  happy --chrome           Enable Chrome browser access for this session
-  happy --no-chrome        Disable Chrome even if default is on
-  happy --no-sandbox       Disable Happy sandbox for this session
-  happy --js-runtime bun   Use bun instead of node to spawn Claude Code
-  happy --claude-env ANTHROPIC_BASE_URL=http://127.0.0.1:3456
+  happyco                    Start session
+  happyco resume cmmij8      Resume a previous session by Happy session ID
+  happyco --yolo             Start with bypassing permissions
+                            happyco sugar for --dangerously-skip-permissions
+  happyco --chrome           Enable Chrome browser access for this session
+  happyco --no-chrome        Disable Chrome even if default is on
+  happyco --no-sandbox       Disable Happy sandbox for this session
+  happyco --js-runtime bun   Use bun instead of node to spawn Claude Code
+  happyco --claude-env ANTHROPIC_BASE_URL=http://127.0.0.1:3456
                            Use a custom API endpoint (e.g., claude-code-router)
-  happy acp gemini         Start Gemini via generic ACP runner
-  happy acp -- opencode --acp
+  happyco acp gemini         Start Gemini via generic ACP runner
+  happyco acp -- opencode --acp
                            Start a custom ACP command
-  happy acp opencode --verbose
+  happyco acp opencode --verbose
                            Print raw ACP backend/envelope events
-  happy auth login --force Authenticate
-  happy doctor             Run diagnostics
+  happyco auth login --force Authenticate
+  happyco doctor             Run diagnostics
 
 ${chalk.bold('Happy supports ALL Claude options!')}
-  Use any claude flag with happy as you would with claude. Our favorite:
+  Use any claude flag with happyco as you would with claude. Our favorite:
 
-  happy --resume
+  happyco --resume
 
 ${chalk.gray('─'.repeat(60))}
 ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
@@ -750,7 +750,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
 
     // Show version
     if (showVersion) {
-      console.log(`happy version: ${packageJson.version}`)
+      console.log(`happyco version: ${packageJson.version}`)
       // Don't exit - continue to pass --version to Claude Code
     }
 

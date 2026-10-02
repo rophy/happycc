@@ -1,5 +1,5 @@
 {
-  "name": "happy",
+  "name": "happyco",
   "version": "1.2.5",
   "description": "Mobile and Web client for Claude Code and Codex",
   "author": "Kirill Dubovitskiy",
@@ -12,7 +12,7 @@
     "url": "https://github.com/slopus/happy"
   },
   "bin": {
-    "happy": "./bin/happy.mjs",
+    "happyco": "./bin/happy.mjs",
     "happy-mcp": "./bin/happy-mcp.mjs"
   },
   "main": "./dist/index.cjs",

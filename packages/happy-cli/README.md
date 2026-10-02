@@ -7,19 +7,17 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-npm install -g happy
+npm install -g happyco
 ```
-
-> Migrated from the `happy-coder` package. Thanks to [@franciscop](https://github.com/franciscop) for donating the `happy` package name!
 
 ## Usage
 
 ### Claude Code (default)
 
 ```bash
-happy
+happyco
 # or
-happy claude
+happyco claude
 ```
 
 This will:
@@ -31,14 +29,14 @@ This will:
 ### More agents
 
 ```
-happy codex
-happy agy        # Antigravity CLI (Gemini's successor)
-happy gemini     # deprecated — use `happy agy`
-happy openclaw
+happyco codex
+happyco agy        # Antigravity CLI (Gemini's successor)
+happyco gemini     # deprecated — use `happyco agy`
+happyco openclaw
 
 # or any ACP-compatible CLI
-happy acp opencode
-happy acp -- custom-agent --flag
+happyco acp opencode
+happyco acp -- custom-agent --flag
 ```
 
 > **Note on agy permissions:** the agy backend runs `agy --print`, which is
@@ -55,27 +53,27 @@ happy acp -- custom-agent --flag
 The daemon is a background service that stays running on your machine. It lets you spawn and manage coding sessions remotely — from your phone or the web app — without needing an open terminal.
 
 ```bash
-happy daemon start
-happy daemon stop
-happy daemon status
-happy daemon list
+happyco daemon start
+happyco daemon stop
+happyco daemon status
+happyco daemon list
 ```
 
-The daemon starts automatically when you run `happy`, so you usually don't need to manage it manually.
+The daemon starts automatically when you run `happyco`, so you usually don't need to manage it manually.
 
 ### Keeping the daemon running across reboots
 
-If you want the daemon to come back automatically after a reboot — without opening a `happy` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
+If you want the daemon to come back automatically after a reboot — without opening a `happyco` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
 
 ```bash
 # ~/.zshrc or ~/.bashrc
 if [[ -o interactive ]] && [[ -z "$HAPPY_DAEMON_CHECKED" ]]; then
     export HAPPY_DAEMON_CHECKED=1
     () {
-        local state=$HOME/.happy/daemon.state.json
+        local state=$HOME/.happyco/daemon.state.json
         local pid=$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$state" 2>/dev/null | grep -oE '[0-9]+')
         if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
-            happy daemon start >/dev/null 2>&1
+            happyco daemon start >/dev/null 2>&1
         fi
     } &!
 fi
@@ -88,33 +86,33 @@ The first interactive shell after a reboot triggers the start; subsequent shells
 ## Authentication
 
 ```bash
-happy auth login
-happy auth logout
+happyco auth login
+happyco auth logout
 ```
 
-`happy auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
+`happyco auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
 
 To connect third-party agent APIs:
 
 ```bash
-happy connect gemini
-happy connect claude
-happy connect codex
-happy connect status
+happyco connect gemini
+happyco connect claude
+happyco connect codex
+happyco connect status
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `happy` | Start Claude Code session (default) |
-| `happy codex` | Start Codex mode |
-| `happy agy` | Start agy (Antigravity CLI) session |
-| `happy gemini` | Start Gemini CLI session (**deprecated** — use `happy agy`) |
-| `happy openclaw` | Start OpenClaw session |
-| `happy acp` | Start any ACP-compatible agent |
-| `happy resume <id>` | Resume a previous session |
-| `happy doctor` | Diagnostics & troubleshooting |
+| `happyco` | Start Claude Code session (default) |
+| `happyco codex` | Start Codex mode |
+| `happyco agy` | Start agy (Antigravity CLI) session |
+| `happyco gemini` | Start Gemini CLI session (**deprecated** — use `happyco agy`) |
+| `happyco openclaw` | Start OpenClaw session |
+| `happyco acp` | Start any ACP-compatible agent |
+| `happyco resume <id>` | Resume a previous session |
+| `happyco doctor` | Diagnostics & troubleshooting |
 
 ---
 
@@ -124,9 +122,9 @@ happy connect status
 
 | Variable | Description |
 |----------|-------------|
-| `HAPPY_SERVER_URL` | Your Happy server URL. Required: there is no default (or set `serverUrl` in `~/.happy/settings.json`) |
+| `HAPPY_SERVER_URL` | Your Happy server URL. Required: there is no default (or set `serverUrl` in `~/.happyco/settings.json`) |
 | `HAPPY_WEBAPP_URL` | Your web app URL (no default) |
-| `HAPPY_HOME_DIR` | Custom home directory for Happy data (default: `~/.happy`) |
+| `HAPPY_HOME_DIR` | Custom home directory for Happy data (default: `~/.happyco`) |
 | `HAPPY_DISABLE_CAFFEINATE` | Disable macOS sleep prevention |
 | `HAPPY_EXPERIMENTAL` | Enable experimental features |
 
@@ -135,9 +133,9 @@ happy connect status
 Happy can run agents inside an OS-level sandbox to restrict file system and network access.
 
 ```bash
-happy sandbox configure
-happy sandbox status
-happy sandbox disable
+happyco sandbox configure
+happyco sandbox status
+happyco sandbox disable
 ```
 
 ### Building from source
@@ -146,7 +144,7 @@ happy sandbox disable
 git clone https://github.com/slopus/happy
 cd happy-cli
 yarn install
-yarn workspace happy cli --help
+yarn workspace happyco cli --help
 ```
 
 ## Requirements
@@ -155,7 +153,7 @@ yarn workspace happy cli --help
 - For Claude: `claude` CLI installed & logged in
 - For Codex: `codex` CLI installed & logged in
 - For agy: install the Antigravity CLI (`agy`) and log in
-- For Gemini (**deprecated** — use agy): `npm install -g @google/gemini-cli` + `happy connect gemini`
+- For Gemini (**deprecated** — use agy): `npm install -g @google/gemini-cli` + `happyco connect gemini`
 
 ## License
 
