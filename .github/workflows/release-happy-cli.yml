@@ -75,9 +75,9 @@ jobs:
             echo "Release $RELEASE_TAG already exists." >&2
             exit 1
           fi
-          npm view happy name --registry https://registry.npmjs.org/
-          if npm view "happy@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
-            echo "happy@$RELEASE_VERSION is already published." >&2
+          npm view happyco name --registry https://registry.npmjs.org/
+          if npm view "happyco@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "happyco@$RELEASE_VERSION is already published." >&2
             exit 1
           fi
       - name: Install dependencies
@@ -87,12 +87,12 @@ jobs:
       - name: Build wire and run CLI type checks, build, and unit tests
         run: |
           pnpm --filter @slopus/happy-wire --fail-if-no-match build
-          pnpm --filter happy --fail-if-no-match run prepublishOnly
+          pnpm --filter happyco --fail-if-no-match run prepublishOnly
       - name: Pack the exact npm artifact
         run: |
           mkdir -p release-assets "$RUNNER_TEMP/happy-unpacked"
-          pnpm --filter happy --fail-if-no-match pack --pack-destination "$GITHUB_WORKSPACE/release-assets"
-          tarball="release-assets/happy-$RELEASE_VERSION.tgz"
+          pnpm --filter happyco --fail-if-no-match pack --pack-destination "$GITHUB_WORKSPACE/release-assets"
+          tarball="release-assets/happyco-$RELEASE_VERSION.tgz"
           shasum -a 256 "$tarball" > "$tarball.sha256"
           cp packages/happy-cli/package.json release-assets/package.json
           tar -xzf "$tarball" -C "$RUNNER_TEMP/happy-unpacked"
@@ -100,7 +100,7 @@ jobs:
       - name: Smoke test the packed package outside the monorepo
         run: |
           smoke_root="$(mktemp -d "$RUNNER_TEMP/happy-packed-smoke.XXXXXX")"
-          npm install --prefix "$smoke_root" "$GITHUB_WORKSPACE/release-assets/happy-$RELEASE_VERSION.tgz" --no-audit --no-fund
+          npm install --prefix "$smoke_root" "$GITHUB_WORKSPACE/release-assets/happyco-$RELEASE_VERSION.tgz" --no-audit --no-fund
           node scripts/cli-release.cjs smoke "$smoke_root"
       - name: Upload the npm artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -161,12 +161,12 @@ jobs:
             echo "Release $RELEASE_TAG already exists." >&2
             exit 1
           fi
-          node "$NPM_CLI" view happy name --registry https://registry.npmjs.org/
-          if node "$NPM_CLI" view "happy@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
-            echo "happy@$RELEASE_VERSION is already published. Verify it before retrying." >&2
+          node "$NPM_CLI" view happyco name --registry https://registry.npmjs.org/
+          if node "$NPM_CLI" view "happyco@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "happyco@$RELEASE_VERSION is already published. Verify it before retrying." >&2
             exit 1
           fi
-          shasum -a 256 -c "release-assets/happy-$RELEASE_VERSION.tgz.sha256"
+          shasum -a 256 -c "release-assets/happyco-$RELEASE_VERSION.tgz.sha256"
           artifact_version="$(node -p "require('./release-assets/package.json').version")"
           test "$artifact_version" = "$RELEASE_VERSION"
       - name: Persist stable package versions on main
@@ -190,27 +190,27 @@ jobs:
         # checkout so npm cannot substitute the workspace's package.json.
         working-directory: ${{ runner.temp }}
         run: |
-          node "$NPM_CLI" publish "$GITHUB_WORKSPACE/release-assets/happy-$RELEASE_VERSION.tgz" \
+          node "$NPM_CLI" publish "$GITHUB_WORKSPACE/release-assets/happyco-$RELEASE_VERSION.tgz" \
             --access public --tag "$RELEASE_CHANNEL" --provenance --registry https://registry.npmjs.org/
       - name: Verify npm publication
         run: |
           published_version=''
           published_tag=''
           for attempt in {1..30}; do
-            published_version="$(node "$NPM_CLI" view "happy@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ 2>/dev/null || true)"
-            published_tag="$(node "$NPM_CLI" view happy "dist-tags.$RELEASE_CHANNEL" --registry https://registry.npmjs.org/ 2>/dev/null || true)"
+            published_version="$(node "$NPM_CLI" view "happyco@$RELEASE_VERSION" version --registry https://registry.npmjs.org/ 2>/dev/null || true)"
+            published_tag="$(node "$NPM_CLI" view happyco "dist-tags.$RELEASE_CHANNEL" --registry https://registry.npmjs.org/ 2>/dev/null || true)"
             if [[ "$published_version" == "$RELEASE_VERSION" && "$published_tag" == "$RELEASE_VERSION" ]]; then break; fi
             sleep 2
           done
           test "$published_version" = "$RELEASE_VERSION"
           test "$published_tag" = "$RELEASE_VERSION"
-          expected_integrity="sha512-$(openssl dgst -sha512 -binary "release-assets/happy-$RELEASE_VERSION.tgz" | openssl base64 -A)"
-          test "$(node "$NPM_CLI" view "happy@$RELEASE_VERSION" dist.integrity)" = "$expected_integrity"
-          test -n "$(node "$NPM_CLI" view "happy@$RELEASE_VERSION" dist.attestations.url)"
+          expected_integrity="sha512-$(openssl dgst -sha512 -binary "release-assets/happyco-$RELEASE_VERSION.tgz" | openssl base64 -A)"
+          test "$(node "$NPM_CLI" view "happyco@$RELEASE_VERSION" dist.integrity)" = "$expected_integrity"
+          test -n "$(node "$NPM_CLI" view "happyco@$RELEASE_VERSION" dist.attestations.url)"
       - name: Verify a fresh npm installation
         run: |
           smoke_root="$(mktemp -d "$RUNNER_TEMP/happy-registry-smoke.XXXXXX")"
-          node "$NPM_CLI" install --prefix "$smoke_root" "happy@$RELEASE_VERSION" --registry https://registry.npmjs.org/ --no-audit --no-fund
+          node "$NPM_CLI" install --prefix "$smoke_root" "happyco@$RELEASE_VERSION" --registry https://registry.npmjs.org/ --no-audit --no-fund
           node scripts/cli-release.cjs smoke "$smoke_root"
       - name: Create the release tag and GitHub Release
         env:
@@ -226,4 +226,4 @@ jobs:
             --title "Happy CLI v$RELEASE_VERSION" --notes-file "$notes_file" \
             --latest=false "${release_args[@]}"
           release_url="$(gh release view "$RELEASE_TAG" --json url --jq .url)"
-          printf 'Published [happy@%s](%s) to npm tag %s.\n' "$RELEASE_VERSION" "$release_url" "$RELEASE_CHANNEL" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Published [happyco@%s](%s) to npm tag %s.\n' "$RELEASE_VERSION" "$release_url" "$RELEASE_CHANNEL" >> "$GITHUB_STEP_SUMMARY"

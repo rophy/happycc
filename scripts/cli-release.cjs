@@ -10,11 +10,11 @@ function releaseInput(version, channel) {
   assert(typeof version === 'string' && version.length < 100, 'A release version is required');
   assert((channel === 'beta' ? beta : stable).test(version),
     `Version must be ${channel === 'beta' ? 'X.Y.Z-beta.N' : 'X.Y.Z'} for ${channel}`);
-  return { version, channel, tag: `cli-${version}`, tarball: `happy-${version}.tgz` };
+  return { version, channel, tag: `cli-${version}`, tarball: `happyco-${version}.tgz` };
 }
 
 function checkManifest(manifest, version) {
-  assert.equal(manifest.name, 'happy');
+  assert.equal(manifest.name, 'happyco');
   assert.equal(manifest.version, version);
   const repository = typeof manifest.repository === 'string'
     ? manifest.repository : manifest.repository?.url;
@@ -29,15 +29,17 @@ function checkManifest(manifest, version) {
 }
 
 function checkVersionOutput(output, version) {
-  assert(output.split(/\r?\n/).includes(`happy version: ${version}`),
-    `The installed CLI did not report happy version: ${version}\n${output}`);
+  assert(output.split(/\r?\n/).includes(`happyco version: ${version}`),
+    `The installed CLI did not report happyco version: ${version}\n${output}`);
 }
 
 function checkPackage(root, version) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   checkManifest(manifest, version);
-  for (const bin of ['happy', 'happy-mcp']) {
-    assert.equal(manifest.bin?.[bin]?.replace(/^\.\//, ''), `bin/${bin}.mjs`);
+  // The bin *keys* are the published command names; the entrypoint filenames
+  // stay on their original names (bin/happy.mjs) to limit upstream-merge churn.
+  for (const [bin, file] of [['happyco', 'happy'], ['happy-mcp', 'happy-mcp']]) {
+    assert.equal(manifest.bin?.[bin]?.replace(/^\.\//, ''), `bin/${file}.mjs`);
     assert(fs.existsSync(path.join(root, manifest.bin[bin])), `Missing ${bin} entrypoint`);
   }
   for (const file of ['dist/index.mjs', 'dist/index.cjs', 'dist/lib.mjs', 'dist/lib.cjs']) {
@@ -61,7 +63,7 @@ function checkPackage(root, version) {
 }
 
 function smoke(prefix, version) {
-  const root = path.join(prefix, 'node_modules', 'happy');
+  const root = path.join(prefix, 'node_modules', 'happyco');
   checkPackage(root, version);
   for (const args of [['--version'], ['--help'], ['daemon', 'status']]) {
     const result = spawnSync(process.execPath, [path.join(root, 'bin/happy.mjs'), ...args], {
@@ -70,7 +72,7 @@ function smoke(prefix, version) {
       timeout: 30_000,
       env: {
         ...process.env,
-        HAPPY_HOME_DIR: path.join(prefix, 'happy-home'),
+        HAPPY_HOME_DIR: path.join(prefix, 'happyco-home'),
         HAPPY_BOOT_AGENT: '0',
         HAPPY_EXPERIMENTAL: '0',
       },
@@ -78,7 +80,7 @@ function smoke(prefix, version) {
     process.stdout.write(result.stdout || '');
     process.stderr.write(result.stderr || '');
     if (result.error) throw result.error;
-    assert.equal(result.status, 0, `happy ${args.join(' ')} failed`);
+    assert.equal(result.status, 0, `happyco ${args.join(' ')} failed`);
     if (args[0] === '--version') checkVersionOutput(result.stdout, version);
   }
 }
@@ -87,7 +89,7 @@ async function main() {
   const release = releaseInput(process.env.RELEASE_VERSION, process.env.RELEASE_CHANNEL);
   const [command, target] = process.argv.slice(2);
   if (command === 'validate') {
-    console.log(`Validated happy@${release.version} for ${release.channel}`);
+    console.log(`Validated happyco@${release.version} for ${release.channel}`);
   } else if (command === 'prepare') {
     const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
     manifest.version = release.version;
