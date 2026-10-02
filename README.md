@@ -36,20 +36,18 @@ Step 2: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happy
+npm install -g happyco
 ```
 
-> Migrated from the `happy-coder` package. Thanks to [@franciscop](https://github.com/franciscop) for donating the `happy` package name!
-
 <h3 align="center">
-Step 3: Start using `happy` instead of `claude` or `codex`
+Step 3: Start using `happyco` instead of `claude` or `codex`
 </h3>
 
 ```bash
 # Instead of claude, use:
-happy claude
+happyco claude
 # or
-happy codex
+happyco codex
 ```
 
 <h3 align="center">
@@ -72,7 +70,7 @@ Prefer a native app over the terminal? <a href="https://github.com/slopus/happy-
 
 ## How does it work?
 
-On your computer, run `happy` instead of `claude` or `happy codex` instead of `codex` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
+On your computer, run `happyco` instead of `claude` or `happyco codex` instead of `codex` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
 
 ## 🔥 Why Happy Coder?
 

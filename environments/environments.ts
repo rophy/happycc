@@ -366,7 +366,7 @@ export async function createEnvironment(opts?: {
         console.log(`  One-liner: ${buildCliCommand(envDir)}`);
         console.log("");
         console.log(`  source ${envShRelative}`);
-        console.log(`  happy`);
+        console.log(`  happyco`);
         console.log("");
         console.log(`Full env.sh path: ${path.join(envDir, "env.sh")}`);
     }
@@ -475,7 +475,7 @@ export async function seedEnvironment(name: string): Promise<void> {
         return !!match;
     }, 30_000, "device login URL").catch(() => {
         login.kill();
-        throw new Error(`happy auth login did not print a sign-in URL:\n${output}`);
+        throw new Error(`happyco auth login did not print a sign-in URL:\n${output}`);
     });
 
     try {
@@ -496,7 +496,7 @@ export async function seedEnvironment(name: string): Promise<void> {
             new Promise<number | null>((resolve) => { timer = setTimeout(() => resolve(-1), 60_000); }),
         ]).finally(() => clearTimeout(timer));
         if (exitCode !== 0) {
-            throw new Error(`happy auth login failed (exit ${exitCode}):\n${output}`);
+            throw new Error(`happyco auth login failed (exit ${exitCode}):\n${output}`);
         }
     } catch (error) {
         login.kill();
@@ -866,8 +866,8 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
     lines.push(`export PATH="${path.join(envDir, "bin")}:$PATH"`);
     lines.push("");
     lines.push("# Commands exposed by this env");
-    lines.push("# - happy");
-    lines.push("# - happy-agent");
+    lines.push("# - happyco");
+    lines.push("# - happyco-agent");
     lines.push("");
 
     return lines.join("\n");
@@ -879,11 +879,11 @@ function writeEnvCommands(envDir: string): void {
 
     const commands = [
         {
-            name: "happy",
+            name: "happyco",
             entrypoint: path.join(REPO_ROOT, "packages", "happy-cli", "bin", "happy.mjs"),
         },
         {
-            name: "happy-agent",
+            name: "happyco-agent",
             entrypoint: path.join(REPO_ROOT, "packages", "happy-agent", "bin", "happy-agent.mjs"),
         },
     ];
@@ -901,7 +901,7 @@ function writeEnvCommands(envDir: string): void {
 }
 
 function buildCliCommand(envDir: string): string {
-    return `source "${path.join(envDir, "env.sh")}" && happy`;
+    return `source "${path.join(envDir, "env.sh")}" && happyco`;
 }
 
 // ============================================================================

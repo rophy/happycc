@@ -15,16 +15,16 @@ Happy is a pnpm monorepo. Everything uses pnpm workspaces — do not use `npm` o
 
 ```bash
 pnpm install                       # installs deps for every package
-pnpm --filter happy cli:install    # builds happy-cli + links it as the global `happy` binary
+pnpm --filter happyco cli:install  # builds happy-cli + links it as the global `happyco` binary
 ```
 
-`cli:install` replaces whatever `happy` is on your PATH (npm-installed or not) with a symlink to `packages/happy-cli/`. Daemon is restarted as part of the script. Uses `~/.happy/` — same as production.
+`cli:install` replaces whatever `happyco` is on your PATH (npm-installed or not) with a symlink to `packages/happy-cli/`. Daemon is restarted as part of the script. Uses `~/.happyco/` — same as production.
 
-To undo: `npm unlink -g happy && npm i -g happy@latest`.
+To undo: `npm unlink -g happyco && npm i -g happyco@latest`.
 
 ## Packages
 
-    packages/happy-cli     # the `happy` CLI and daemon, published to npm
+    packages/happy-cli     # the `happyco` CLI and daemon, published to npm
     packages/happy-server  # Node + Prisma server, deployed via TeamCity
     packages/happy-app     # Expo app: iOS, Android, web, Tauri desktop
     packages/happy-agent   # agent runtime
@@ -44,39 +44,39 @@ To undo: `npm unlink -g happy && npm i -g happy@latest`.
 Work loop:
 
 ```bash
-pnpm --filter happy cli:install   # rebuild + relink + restart daemon
-happy daemon status               # confirm your build is running
-happy doctor                      # list all happy processes
-tail -f ~/.happy/logs/$(ls -t ~/.happy/logs/ | head -1)
+pnpm --filter happyco cli:install  # rebuild + relink + restart daemon
+happyco daemon status              # confirm your build is running
+happyco doctor                     # list all happyco processes
+tail -f ~/.happyco/logs/$(ls -t ~/.happyco/logs/ | head -1)
 ```
 
 Run a single test file quickly:
 
 ```bash
-pnpm --filter happy exec vitest run src/path/to/file.test.ts
+pnpm --filter happyco exec vitest run src/path/to/file.test.ts
 ```
 
 Unit-only (fast, ~1 min):
 
 ```bash
-pnpm --filter happy exec vitest run --project unit
+pnpm --filter happyco exec vitest run --project unit
 ```
 
 Integration tests hit real APIs and are flaky — run on demand, never in the release gate.
 
 ### Dev data sandbox (optional)
 
-`happy` reads `HAPPY_HOME_DIR` to override `~/.happy/`. To run two versions side-by-side without touching your prod auth:
+`happyco` reads `HAPPY_HOME_DIR` to override `~/.happyco/`. To run two versions side-by-side without touching your prod auth:
 
 ```bash
-HAPPY_HOME_DIR=~/.happy-dev happy daemon start
-HAPPY_HOME_DIR=~/.happy-dev happy auth
+HAPPY_HOME_DIR=~/.happyco-dev happyco daemon start
+HAPPY_HOME_DIR=~/.happyco-dev happyco auth
 ```
 
 Point at a local server the same way:
 
 ```bash
-HAPPY_SERVER_URL=http://localhost:3005 happy daemon start
+HAPPY_SERVER_URL=http://localhost:3005 happyco daemon start
 ```
 
 ## happy-server
@@ -149,7 +149,7 @@ pnpm --filter happy-app-logs dev       # starts on http://0.0.0.0:8787
 ```
 
 Receives POST requests to `/logs` from the mobile app's patched console (see `consoleLogging.ts`).
-Logs to stdout and `~/.happy/app-logs/<timestamp>.log`.
+Logs to stdout and `~/.happyco/app-logs/<timestamp>.log`.
 
 To connect: set the log server URL in the app's dev settings to `http://<LAN_IP>:8787`.
 The app's `consoleLogging.ts` sends all console.log/warn/error to this endpoint when configured.
@@ -170,9 +170,9 @@ Do not publish by hand. Use `/release` — it handles npm publish, git tags, Git
 
 ## Troubleshooting
 
-    happy: command not found     → pnpm --filter happy cli:install
-    daemon won't start           → happy daemon stop; rm ~/.happy/daemon.state.json.lock; happy daemon start
-    wrong `happy` version        → which happy && ls -la $(which happy) — confirms where it resolves to
+    happyco: command not found     → pnpm --filter happyco cli:install
+    daemon won't start             → happyco daemon stop; rm ~/.happyco/daemon.state.json.lock; happyco daemon start
+    wrong `happyco` version        → which happyco && ls -la $(which happyco) — confirms where it resolves to
     tools/unpacked missing       → pnpm install (postinstall re-extracts)
     stale deps after branch swap → pnpm install (pnpm is picky about lockfile drift)
 
@@ -181,4 +181,4 @@ Do not publish by hand. Use `/release` — it handles npm publish, git tags, Git
 - Never use `npm install` or `yarn install` — only pnpm.
 - Never add a `dev` / `cli` tsx-based script back to happy-cli. The build step is not optional — daemon spawns the built binary and would desync.
 - Never bring back `release-it`. Releases go through `/release`.
-- Never introduce `~/.happy-dev` as a default. It exists as an opt-in via `HAPPY_HOME_DIR`, nothing more.
+- Never introduce `~/.happyco-dev` as a default. It exists as an opt-in via `HAPPY_HOME_DIR`, nothing more.

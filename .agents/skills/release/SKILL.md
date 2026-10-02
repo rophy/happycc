@@ -82,7 +82,7 @@ after you; find out from what.
 
 Ask which component to release:
 
-- **CLI** — npm package `happy`
+- **CLI** — npm package `happyco`
 - **Mobile** — Expo/EAS builds for iOS + Android
 - **Web** — Docker image + K8s deploy via TeamCity
 - **Server** — Docker image + K8s deploy via TeamCity
@@ -95,7 +95,7 @@ Present these as options. Wait for the user to pick.
 ## CLI Release
 
     Package:     packages/happy-cli
-    npm name:    happy
+    npm name:    happyco
     Registry:    https://registry.npmjs.org
     Git tags:    cli-{version}
 
@@ -116,7 +116,7 @@ Tag namespace note:
 ### Step 2: Gather state
 
 Run these in parallel:
-1. `npm view happy dist-tags` — see current latest + beta
+1. `npm view happyco dist-tags` — see current latest + beta
 2. `cat packages/happy-cli/package.json | grep version` — local version
 3. `git status --short` — check for dirty state
 4. `git branch --show-current` — confirm branch
@@ -147,7 +147,7 @@ The workflow stamps its requested version into `packages/happy-cli/package.json`
 before building. Do NOT use `npm version` (it chokes on pnpm workspace protocol).
 Beta identities stay in the artifact; stable releases persist the version on main.
 
-IMPORTANT: do this **before** build/test for the CLI. The build imports `package.json` and bakes the version into the generated bundle. If you build first and bump later, `happy --version` can still report the old prerelease version even though npm metadata shows the new one.
+IMPORTANT: do this **before** build/test for the CLI. The build imports `package.json` and bakes the version into the generated bundle. If you build first and bump later, `happyco --version` can still report the old prerelease version even though npm metadata shows the new one.
 
 ### Step 4b: `@slopus/happy-wire` must stay bundled — do NOT move it back
 
@@ -191,39 +191,39 @@ symbol. `workspace:*` publishes the local version NUMBER, never the local CODE.
 all 792 unit tests — always sees the correct code. It only fails against the
 registry. The isolated install smoke check is what catches that class of bug.
 
-**Still exposed — `happy-agent` and `happy-server-self-host`** both keep
+**Still exposed — `happyco-agent` and `happy-server-self-host`** both keep
 happy-wire in `dependencies`, so they carry the original trap. Before publishing
 either, bundle it the same way or get happy-wire republished first.
 
 **Publish rights:** `@slopus/happy-wire` is owned solely by `steve.kite
-<steve@korshakov.com>`. `bra1ndump` is an owner of `happy` but NOT of the
+<steve@korshakov.com>`. `bra1ndump` is an owner of `happyco` but NOT of the
 `@slopus` scope, so publishing happy-wire 404s for them. Bundling exists partly
 to route around that.
 
-Note: `happy --version` prints BOTH happy's own version and the Claude Code
+Note: `happyco --version` prints BOTH happyco's own version and the Claude Code
 version it found:
 
 ```
-happy version: 1.2.1-beta.1
+happyco version: 1.2.1-beta.1
 Using Claude Code v2.1.224 from native installer
 2.1.224 (Claude Code)
 ```
 
-Do NOT pipe it through `tail -2` — that cuts the happy line off and makes it
+Do NOT pipe it through `tail -2` — that cuts the happyco line off and makes it
 look like the command only reports Claude Code's version. Read the first line.
 
 ### Step 5: Build
 
 ```bash
 cd packages/happy-cli
-pnpm --filter happy run build
+pnpm --filter happyco run build
 ```
 
 Report success/failure. Stop on failure.
 
 ### Step 5b: Self-host server split
 
-The `happy` npm package no longer bundles the self-host server binary or webapp.
+The `happyco` npm package no longer bundles the self-host server binary or webapp.
 Packaged installs resolve those from the separately installed
 `happy-server-self-host` package. Do not rebuild or ship `tools/server` or
 `tools/webapp` as part of a CLI release.
@@ -260,7 +260,7 @@ aborted the publish at the `prepublishOnly` test step.)
 
 ```bash
 cd packages/happy-cli
-pnpm --filter happy exec vitest run --project unit
+pnpm --filter happyco exec vitest run --project unit
 ```
 
 Integration tests are slow and flaky — skip them for releases. Unit tests are the gate.
@@ -296,7 +296,7 @@ a pinned npm CLI is supported and matches Happy Terminal's CI. Do not run raw
 `npm publish` against the source workspace. npm 11.5.1+ supports OIDC; the workflow
 pins and directly invokes npm 11.18.0 so Node's bundled npm cannot shadow it.
 
-One-time trust configuration on npm: GitHub owner `slopus`, repository `happy`,
+One-time trust configuration on npm: GitHub owner `slopus`, repository `happy`, package `happyco`,
 workflow `release-happy-cli.yml`, environment `npm`, direct publishing allowed.
 The GitHub environment permits only main. Never request npm passwords, tokens,
 browser authentication links, or OTPs in chat, and never fall back to local npm
@@ -305,12 +305,12 @@ credentials if OIDC fails.
 ### Step 8: Verify
 
 ```bash
-npm view happy@{version} version   # did the version actually publish?
-npm view happy dist-tags           # did the channel tag move?
+npm view happyco@{version} version   # did the version actually publish?
+npm view happyco dist-tags           # did the channel tag move?
 ```
 
 Watch the dispatched run to completion using the product's durable wait/monitor
-mechanism and GitHub CLI status/logs. Check `npm view happy@X.Y.Z version` before
+mechanism and GitHub CLI status/logs. Check `npm view happyco@X.Y.Z version` before
 retrying any failed publication: npm versions are immutable. A failed publish
 must leave the release tag and GitHub Release absent. If publication succeeded
 but a later gate failed, investigate before retrying; do not overwrite the version
@@ -320,7 +320,7 @@ or move an existing tag.
 only confirms the tarball was *accepted* — it says nothing about what's *inside* it.
 A bundle stamped with the wrong version (the `--ignore-scripts` footgun above) passes
 this check cleanly. The authoritative check is the workflow's fresh-install
-smoke test (`happy --version`). Never report a release as done on the
+smoke test (`happyco --version`). Never report a release as done on the
 metadata check alone.
 
 Then confirm the new version appears under the correct dist-tag. The tag often
@@ -340,7 +340,7 @@ do not automatically replace GitHub's latest release.
 
 The workflow checks the tarball SHA-256 after artifact download, compares the npm
 integrity and provenance metadata, then installs the published version in a fresh
-directory and checks `happy --version`, `happy --help`, and `happy daemon status`.
+directory and checks `happyco --version`, `happyco --help`, and `happyco daemon status`.
 Verify that these gates passed. Do not replace the maintainer's global CLI or
 restart their daemon as an implicit release step. After stable releases, fetch
 and fast-forward/rebase the workflow's version commit while preserving local work.
@@ -524,7 +524,7 @@ Separate repo, not part of this monorepo. Guide the user to push to that repo.
 - **Always present options** — never assume which component, channel, or version.
 - **Always verify before publishing** — show the user what will be published and get confirmation.
 - **CLI releases use the approved GitHub workflow** — dispatch from main with the confirmed version and notes; never publish from local credentials or handle npm credentials/OTP.
-- **Do not bundle self-host server/webapp into `happy`** — self-host runtime and the bundled webapp ship through `happy-server-self-host`, not the main CLI package.
+- **Do not bundle self-host server/webapp into `happyco`** — self-host runtime and the bundled webapp ship through `happy-server-self-host`, not the main CLI package.
 - **Unit tests are the gate, not integration tests** — integration tests are slow and have flaky abort/interrupt tests.
 - **Use pnpm to pack the workspace** — CI uploads that exact tested tarball with its pinned npm CLI; never use raw npm publishing on the source workspace.
 - **Run prepublishOnly after stamping and before packing** — tarball upload does not run the workspace's lifecycle scripts. Never skip this gate.
