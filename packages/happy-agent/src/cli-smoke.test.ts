@@ -560,7 +560,7 @@ describe('Smoke: Full test suite runs', () => {
             process.env.HAPPY_SERVER_URL = 'https://happy.corp.example';
             const config = loadConfig();
             expect(config.serverUrl).toBe('https://happy.corp.example');
-            expect(config.homeDir).toContain('.happy');
+            expect(config.homeDir).toMatch(/[\/]\.happyco$/);
             expect(config.credentialPath).toContain('agent.key');
         } finally {
             if (origUrl !== undefined) process.env.HAPPY_SERVER_URL = origUrl;

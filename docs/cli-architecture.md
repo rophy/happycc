@@ -14,7 +14,7 @@ graph TB
         Persist[Persistence]
     end
 
-    subgraph "~/.happy"
+    subgraph "~/.happyco"
         Settings[settings.json]
         AccessKey[access.key]
         DaemonState[daemon.state.json]
@@ -42,7 +42,7 @@ graph TB
 - **Entry point:** `src/index.ts` parses subcommands and routes execution.
 - **API client:** `src/api` handles HTTP + Socket.IO, encryption, and RPC.
 - **Daemon:** `src/daemon` runs in the background, spawns sessions, and maintains machine state.
-- **Persistence/config:** `src/persistence.ts` + `src/configuration.ts` manage local state in `~/.happy`.
+- **Persistence/config:** `src/persistence.ts` + `src/configuration.ts` manage local state in `~/.happyco`.
 - **Agents:** `src/claude`, `src/codex`, `src/gemini` provide provider-specific runners.
 
 ## CLI entry flow
@@ -80,7 +80,7 @@ flowchart TD
 
 ```mermaid
 graph LR
-    subgraph "~/.happy"
+    subgraph "~/.happyco"
         direction TB
         settings["settings.json<br/><i>profile, onboarding</i>"]
         access["access.key<br/><i>encryption keys</i>"]
@@ -101,7 +101,7 @@ graph LR
     E1 -.-> settings & access & daemon & logs
 ```
 
-Local state lives under `~/.happy` (or `HAPPY_HOME_DIR`):
+Local state lives under `~/.happyco` (or `HAPPY_HOME_DIR`):
 - `settings.json`: onboarding and profile settings (validated/migrated).
 - `access.key`: local key material for encryption/auth.
 - `daemon.state.json`: daemon PID + control port + version.
