@@ -1,0 +1,55 @@
+# happyco CLI on a simulated client device: the CLI packed from this repo and
+# installed globally like a release, plus Claude Code and git.
+# Used by the `cli` service in docker-compose.yaml.
+
+FROM node:20 AS deps
+
+RUN apt-get update && apt-get install -y python3 make g++ build-essential && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+
+WORKDIR /repo
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY scripts ./scripts
+COPY patches ./patches
+
+RUN mkdir -p packages/happy-cli packages/happy-wire
+
+COPY packages/happy-cli/package.json packages/happy-cli/
+COPY packages/happy-wire/package.json packages/happy-wire/
+
+# Workspace postinstall requirements
+COPY packages/happy-cli/scripts packages/happy-cli/scripts
+COPY packages/happy-cli/tools packages/happy-cli/tools
+
+RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happyco...
+
+FROM deps AS builder
+
+COPY packages/happy-wire ./packages/happy-wire
+COPY packages/happy-cli ./packages/happy-cli
+
+RUN pnpm --filter @slopus/happy-wire --fail-if-no-match build
+RUN pnpm --filter happyco --fail-if-no-match build
+# Pack it like a release, so the device installs it the way users do.
+RUN mkdir /pack && pnpm --filter happyco --fail-if-no-match pack --pack-destination /pack \
+    && mv /pack/happyco-*.tgz /pack/happyco.tgz
+
+FROM node:20 AS runner
+
+ARG CLAUDE_CODE_VERSION=2.1.288
+
+RUN apt-get update && apt-get install -y git ripgrep && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && npm cache clean --force
+
+RUN --mount=type=bind,from=builder,source=/pack,target=/pack \
+    npm install -g /pack/happyco.tgz --no-audit --no-fund && npm cache clean --force
+
+RUN mkdir -p /workspace /home/node/.happyco /home/node/.claude \
+    && chown node:node /workspace /home/node/.happyco /home/node/.claude
+
+USER node
+WORKDIR /workspace
+
+# Keep the device up; use `docker compose exec cli happyco ...` to drive it.
+CMD ["sleep", "infinity"]

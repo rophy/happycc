@@ -6,6 +6,12 @@
 #   docker compose up -d --build                     # server stack; open http://localhost:3005/activate
 #   docker compose --profile e2e up -d --build       # + web app on http://localhost:8080 (Playwright e2e)
 #
+# The cli service is a simulated client device running the happyco CLI:
+#   docker compose exec cli happyco auth login       # open the printed link, sign in, Approve
+#   docker compose exec -it cli happyco              # start a session; it shows up in the web app
+# Claude Code inside uses ANTHROPIC_API_KEY from the shell, or sign in once with
+# `docker compose exec -it cli claude` (kept in the cli-claude volume).
+#
 # Users (no password, pick in the UI): alice, bob.
 # AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
 # retry window, so the e2e suite can prove that tabs never replay a refresh token.
@@ -76,5 +82,27 @@ services:
     ports:
       - "8080:80"     # must match the server's WEBAPP_URL
 
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+    # Same network namespace as the server, so localhost:3005 is the same URL
+    # here and in the browser on the host.
+    network_mode: "service:oidc-mock"
+    depends_on:
+      server: { condition: service_started }
+    environment:
+      # Fixed on purpose: a HAPPY_SERVER_URL in the host shell must not leak in.
+      HAPPY_SERVER_URL: http://localhost:3005
+      HAPPY_WEBAPP_URL: http://localhost:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - cli-happyco:/home/node/.happyco
+      - cli-claude:/home/node/.claude
+      - cli-workspace:/workspace
+
 volumes:
   pgdata:
+  cli-happyco:
+  cli-claude:
+  cli-workspace:
