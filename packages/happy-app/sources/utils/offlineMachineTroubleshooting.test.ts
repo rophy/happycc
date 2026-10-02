@@ -77,6 +77,6 @@ describe('offline machine troubleshooting', () => {
         ], []);
 
         expect(guide.projectName).toBe('Happy');
-        expect(guide.happyHomeDir).toBe('~/.happy');
+        expect(guide.happyHomeDir).toBe('~/.happyco');
     });
 });

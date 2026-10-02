@@ -8,6 +8,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useAllMachines } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { useRouter } from 'expo-router';
+import { getServerUrl } from '@/sync/serverConfig';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -79,7 +80,14 @@ const stylesheet = StyleSheet.create((theme) => ({
 }));
 
 /** Commands that link a computer in the corporate fork (OIDC device login, no QR pairing). */
-const LINK_COMMANDS = ['$ npm install -g happy', '$ happy auth login', '$ happy'];
+function getLinkCommands(): string[] {
+    return [
+        '$ npm install -g happyco',
+        `$ export HAPPY_SERVER_URL=${getServerUrl()}`,
+        '$ happyco auth login',
+        '$ happyco',
+    ];
+}
 
 export function EmptyMainScreen({
     hasArchivedSessions = false,
@@ -93,6 +101,7 @@ export function EmptyMainScreen({
     const router = useRouter();
     const machines = useAllMachines({ includeOffline: true });
     const machineChoices = React.useMemo(() => collectMachineChoices(machines), [machines]);
+    const linkCommands = React.useMemo(() => getLinkCommands(), []);
     const showArchivedAction = hasArchivedSessions && onShowArchived ? (
         <Pressable
             onPress={onShowArchived}
@@ -128,10 +137,10 @@ export function EmptyMainScreen({
                 Your computer shows up here as soon as it connects.
             </Text>
             <View style={styles.terminalBlock}>
-                {LINK_COMMANDS.map((line, index) => (
+                {linkCommands.map((line, index) => (
                     <Text
                         key={line}
-                        style={[styles.terminalText, index < LINK_COMMANDS.length - 1 && styles.terminalTextFirst]}
+                        style={[styles.terminalText, index < linkCommands.length - 1 && styles.terminalTextFirst]}
                     >
                         {line}
                     </Text>

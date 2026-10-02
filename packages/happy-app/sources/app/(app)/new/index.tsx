@@ -1489,7 +1489,7 @@ function NewSessionScreen() {
                 t('common.error'),
                 agentType === 'rig'
                     ? 'Happy Agent is not running on this computer'
-                    : 'Happy CLI is not available on your computer. Run `happy daemon start` on your computer, then try again.',
+                    : 'Happy CLI is not available on your computer. Run `happyco daemon start` on your computer, then try again.',
             );
             return;
         }
@@ -1498,7 +1498,7 @@ function NewSessionScreen() {
                 t('common.error'),
                 agentType === 'rig'
                     ? 'Machine is offline'
-                    : 'Happy CLI is offline on your computer. Run `happy daemon start` on your computer, then try again.',
+                    : 'Happy CLI is offline on your computer. Run `happyco daemon start` on your computer, then try again.',
             );
             return;
         }

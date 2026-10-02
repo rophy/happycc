@@ -26,11 +26,11 @@ const HELP_LINKS: readonly { label: () => string; url: string }[] = [
     { label: () => t('onboarding.helpIssues'), url: 'https://github.com/slopus/happy/issues' },
 ];
 
-// Corporate fork: a computer links itself by signing in with `happy auth login`
+// Corporate fork: a computer links itself by signing in with `happyco auth login`
 // (OIDC device flow). English-only copy until it goes through translation.
 const SIGN_IN_STEP_TITLE = 'Sign in on your computer';
 const SIGN_IN_STEP_BODY = 'Run this in a terminal and approve the sign-in in your browser.';
-const SIGN_IN_COMMAND = 'happy auth login';
+const SIGN_IN_COMMAND = 'happyco auth login';
 const START_STEP_TITLE = 'Start Happy';
 const START_STEP_BODY = 'This screen updates as soon as your computer connects.';
 

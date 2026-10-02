@@ -54,10 +54,10 @@ export default function ClaudeOAuth() {
 
     return (
         <>
-            <OAuthViewUnsupported name="Claude" command="happy connect claude" />
+            <OAuthViewUnsupported name="Claude" command="happyco connect claude" />
             {/* <OAuthView
                 name="Claude"
-                command="happy connect claude"
+                command="happyco connect claude"
                 backgroundColor={'#1F1E1C'}
                 foregroundColor={'#FFFFFF'}
                 config={{
@@ -75,7 +75,7 @@ const OAuthViewUnsupported = React.memo((props: {
     name: string;
     command?: string;
 }) => {
-    const command = props.command || `happy connect ${props.name.toLowerCase()}`;
+    const command = props.command || `happyco connect ${props.name.toLowerCase()}`;
 
     return (
         <View style={styles.unsupportedContainer}>

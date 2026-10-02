@@ -30,10 +30,10 @@ function buildResumeInvocation(metadata: ResumeCommandMetadata): string | null {
         return null;
     }
     if ((metadata.flavor === 'codex' || metadata.flavor === 'openai' || metadata.flavor === 'gpt') && metadata.codexThreadId) {
-        return `happy codex --resume ${metadata.codexThreadId}`;
+        return `happyco codex --resume ${metadata.codexThreadId}`;
     }
     if (metadata.claudeSessionId) {
-        return `happy claude --resume ${metadata.claudeSessionId}`;
+        return `happyco claude --resume ${metadata.claudeSessionId}`;
     }
     return null;
 }

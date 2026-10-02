@@ -288,7 +288,7 @@ export function useStartSessionFromDraft() {
                 t('common.error'),
                 agentType === 'rig'
                     ? 'Happy Agent is not running on this computer'
-                    : 'Happy CLI is not available on your computer. Run `happy daemon start` on your computer, then try again.',
+                    : 'Happy CLI is not available on your computer. Run `happyco daemon start` on your computer, then try again.',
             );
             return false;
         }
@@ -297,7 +297,7 @@ export function useStartSessionFromDraft() {
                 t('common.error'),
                 agentType === 'rig'
                     ? 'Machine is offline'
-                    : 'Happy CLI is offline on your computer. Run `happy daemon start` on your computer, then try again.',
+                    : 'Happy CLI is offline on your computer. Run `happyco daemon start` on your computer, then try again.',
             );
             return false;
         }

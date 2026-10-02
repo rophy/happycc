@@ -430,7 +430,7 @@ describe('useStartSessionFromDraft', () => {
 
         expect(mocks.alert).toHaveBeenCalledWith(
             'common.error',
-            'Happy CLI is offline on your computer. Run `happy daemon start` on your computer, then try again.',
+            'Happy CLI is offline on your computer. Run `happyco daemon start` on your computer, then try again.',
         );
         expect(mocks.machineSpawnNewSession).not.toHaveBeenCalled();
     });
@@ -449,7 +449,7 @@ describe('useStartSessionFromDraft', () => {
         }));
         expect(mocks.alert).not.toHaveBeenCalledWith(
             'common.error',
-            expect.stringContaining('happy daemon start'),
+            expect.stringContaining('happyco daemon start'),
         );
     });
 

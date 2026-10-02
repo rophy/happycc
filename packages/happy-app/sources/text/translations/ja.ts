@@ -423,7 +423,7 @@ export const ja: TranslationStructure = {
         cliVersionOutdated: 'CLIの更新が必要',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `バージョン ${currentVersion} がインストールされています。${requiredVersion} 以降に更新してください`,
-        updateCliInstructions: 'npm install -g happy@latest を実行してください',
+        updateCliInstructions: 'npm install -g happyco@latest を実行してください',
         deleteSession: 'セッションを削除',
         deleteSessionSubtitle: 'このセッションを完全に削除',
         deleteSessionConfirm: 'セッションを完全に削除しますか？',
@@ -907,7 +907,7 @@ export const ja: TranslationStructure = {
     machine: {
         launchNewSessionInDirectory: 'ディレクトリで新しいセッションを起動',
         offlineUnableToSpawn: 'マシンがオフラインのためランチャーは無効です',
-        offlineHelp: '• コンピューターがオンラインであることを確認してください\n• `happy daemon status`を実行して診断してください\n• 最新のCLIバージョンを使用していますか？`npm install -g happy@latest`でアップグレードしてください',
+        offlineHelp: '• コンピューターがオンラインであることを確認してください\n• `happyco daemon status`を実行して診断してください\n• 最新のCLIバージョンを使用していますか？`npm install -g happyco@latest`でアップグレードしてください',
         daemon: 'デーモン',
         status: 'ステータス',
         stopDaemon: 'デーモンを停止',
