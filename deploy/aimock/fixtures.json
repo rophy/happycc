@@ -1,0 +1,8 @@
+{
+  "fixtures": [
+    {
+      "match": {},
+      "response": { "content": "This is a mocked reply from aimock. No real model is behind this session." }
+    }
+  ]
+}
