@@ -61,8 +61,8 @@ ${bodyHtml}
 }
 
 export function loopbackConfirmPage(opts: { port: string; csrf: string }): string {
-    return confirmGatePage('Allow happy-agent?', `
-<p>Allow happy-agent on this computer to access your account? It will be able to read all your sessions.</p>
+    return confirmGatePage('Allow happyco-agent?', `
+<p>Allow happyco-agent on this computer to access your account? It will be able to read all your sessions.</p>
 <p>Redirect port: <strong>${escapeHtml(opts.port)}</strong></p>`, {
         action: '/v1/auth/oidc/loopback/confirm',
         csrf: opts.csrf,
