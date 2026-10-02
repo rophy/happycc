@@ -162,7 +162,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('list');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -176,7 +176,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('status', 'abc');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -197,7 +197,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('create', '--tag', 'test');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -214,7 +214,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('send', 'abc', 'hello');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -229,7 +229,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('history', 'abc');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -242,7 +242,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('stop', 'abc');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 
@@ -256,7 +256,7 @@ describe('Smoke: CLI command surface', () => {
         it('fails with auth error when not authenticated', () => {
             const { stderr, exitCode } = runCli('wait', 'abc');
             expect(exitCode).not.toBe(0);
-            expect(stderr).toContain('happy-agent auth login');
+            expect(stderr).toContain('happyco-agent auth login');
         });
     });
 });
@@ -315,7 +315,7 @@ describe('Smoke: Error handling', () => {
             for (const args of commands) {
                 const { stderr, exitCode } = runCli(...args);
                 expect(exitCode).not.toBe(0);
-                expect(stderr).toContain('happy-agent auth login');
+                expect(stderr).toContain('happyco-agent auth login');
             }
         });
     });
@@ -351,8 +351,8 @@ describe('Smoke: Error handling', () => {
     describe('server error handling (via API error mapper)', () => {
         it('HTTP 401 maps to re-authenticate message', async () => {
             // This is tested in api.test.ts but we verify the error message format here
-            const errorMsg = 'Authentication expired. Run `happy-agent auth login` to re-authenticate.';
-            expect(errorMsg).toContain('happy-agent auth login');
+            const errorMsg = 'Authentication expired. Run `happyco-agent auth login` to re-authenticate.';
+            expect(errorMsg).toContain('happyco-agent auth login');
         });
 
         it('HTTP 404 maps to not found message', () => {

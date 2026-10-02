@@ -248,7 +248,7 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv): Promise<{ output: stri
             }
             settled = true;
             child.kill('SIGKILL');
-            rejectPromise(new Error(`Timed out waiting for happy-agent auth login.\n${stdout}\n${stderr}`));
+            rejectPromise(new Error(`Timed out waiting for happyco-agent auth login.\n${stdout}\n${stderr}`));
         }, 60_000);
 
         const finish = (error?: Error) => {
@@ -258,7 +258,7 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv): Promise<{ output: stri
             settled = true;
             clearTimeout(timeout);
             if (error || !browserRun) {
-                rejectPromise(error ?? new Error(`happy-agent auth login printed no sign-in URL\n${stdout}\n${stderr}`));
+                rejectPromise(error ?? new Error(`happyco-agent auth login printed no sign-in URL\n${stdout}\n${stderr}`));
                 return;
             }
             browserRun.then((callback) => resolvePromise({ output: stdout, callback }), rejectPromise);
@@ -290,7 +290,7 @@ async function runAgentAuthLogin(env: NodeJS.ProcessEnv): Promise<{ output: stri
 
         child.on('close', code => {
             if (code !== 0) {
-                finish(new Error(`happy-agent auth login exited with code ${code}\n${stdout}\n${stderr}`));
+                finish(new Error(`happyco-agent auth login exited with code ${code}\n${stdout}\n${stderr}`));
                 return;
             }
             finish();

@@ -72,7 +72,7 @@ async function startCallbackListener(): Promise<{ redirectUri: string; result: P
         handled = true;
         const code = url.searchParams.get('code');
         if (url.searchParams.has('error') || !code) {
-            send(res, 400, 'text/html; charset=utf-8', page('Sign-in failed', 'Return to your terminal and run happy-agent auth login again.'));
+            send(res, 400, 'text/html; charset=utf-8', page('Sign-in failed', 'Return to your terminal and run happyco-agent auth login again.'));
             settle({
                 error: url.searchParams.has('error')
                     ? 'Sign-in was cancelled or denied in the browser.'
@@ -129,7 +129,7 @@ export async function loopbackLogin(opts: {
         io.print('Waiting for the browser to finish signing in...');
         const timeout = new Promise<CallbackResult>((resolve) => {
             timer = setTimeout(
-                () => resolve({ error: 'Sign-in timed out. Run `happy-agent auth login` again.' }),
+                () => resolve({ error: 'Sign-in timed out. Run `happyco-agent auth login` again.' }),
                 opts.timeoutMs ?? LOGIN_TIMEOUT_MS,
             );
         });

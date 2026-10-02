@@ -52,7 +52,7 @@ async function runLogin(config: Config, browser: (loginUrl: URL) => Promise<void
     try {
         credentials = await loopbackLogin({
             config,
-            deviceName: 'happy-agent@test-host',
+            deviceName: 'happyco-agent@test-host',
             timeoutMs,
             io: {
                 print: (line) => {
@@ -90,7 +90,7 @@ describe('loopbackLogin', () => {
 
         const exchange = fake.calls.find((c) => c.path === '/v1/auth/oidc/exchange')!;
         expect(exchange.body.code).toBe('exchange-code-1');
-        expect(exchange.body.deviceName).toBe('happy-agent@test-host');
+        expect(exchange.body.deviceName).toBe('happyco-agent@test-host');
         expect(createHash('sha256').update(exchange.body.codeVerifier).digest('base64url')).toBe(challenge);
 
         const stored = readCredentials(configFor(fake.url))!;

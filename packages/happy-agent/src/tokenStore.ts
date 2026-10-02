@@ -16,7 +16,7 @@ const REFRESH_TIMEOUT_MS = 10_000;
 
 export class LoggedOutError extends Error {
     constructor() {
-        super('Logged out. Run `happy-agent auth login` to sign in again.');
+        super('Logged out. Run `happyco-agent auth login` to sign in again.');
         this.name = 'LoggedOutError';
     }
 }
@@ -43,7 +43,7 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 type PendingRotation = { from: string; rotated: StoredCredentials };
 
 /**
- * Access token for one happy-agent process. Refreshes on demand (2 minutes before
+ * Access token for one happyco-agent process. Refreshes on demand (2 minutes before
  * expiry, or after a 401), single-flight within the process and under the credentials
  * file lock across processes; adopts a token another process already rotated.
  */
