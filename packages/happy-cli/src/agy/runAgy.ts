@@ -32,9 +32,10 @@ import { MessageBuffer } from '@/ui/ink/messageBuffer';
 import { AgyDisplay } from '@/ui/ink/AgyDisplay';
 import type { AgentMessage } from '@/agent/core';
 import { normalizeRemotePermissionMode } from '@/claude/utils/permissionMode';
-import { capPermissionMode } from '@/utils/permissionModeCeiling';
+import { decideAppPermissionMode } from '@/utils/permissionModeCeiling';
 import { AgyBackend } from './AgyBackend';
 import {
+  AGY_STARTING_PERMISSION_MODE,
   DEFAULT_AGY_EFFORT,
   DEFAULT_AGY_MODEL,
   normalizeAgyEffort,
@@ -77,8 +78,8 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
     flavor: 'agy',
     machineId: settings.machineId,
     startedBy: opts.startedBy,
-    // Same as STARTING_PERMISSION_MODE below: the app may never raise the session above it.
-    permissionModeCeiling: 'default',
+    // The app may never raise the session above its starting mode.
+    permissionModeCeiling: AGY_STARTING_PERMISSION_MODE,
   });
   const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
   if (response) {
@@ -123,10 +124,9 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
   let selectedEffort = DEFAULT_AGY_EFFORT;
   let displayedModel = resolveAgyModelName(selectedModel, selectedEffort);
 
-  const STARTING_PERMISSION_MODE = 'default';
   const backend = new AgyBackend({
     cwd: process.cwd(),
-    permissionMode: STARTING_PERMISSION_MODE,
+    permissionMode: AGY_STARTING_PERMISSION_MODE,
     model: selectedModel,
     effort: selectedEffort,
     log,
@@ -208,10 +208,11 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
     if (message.meta?.permissionMode) {
       const mode = normalizeRemotePermissionMode(message.meta.permissionMode);
       if (mode) {
-        // The backend starts in 'default'; the app may lower that, never raise it.
-        if (capPermissionMode(mode, STARTING_PERMISSION_MODE).capped) {
-          messageBuffer.addMessage(`Ignored a request from the app to raise the permission mode to ${mode}.`, 'status');
-        } else {
+        // The backend starts in AGY_STARTING_PERMISSION_MODE; the app may lower that, never raise it.
+        const decision = decideAppPermissionMode(mode, AGY_STARTING_PERMISSION_MODE, () => true);
+        if (decision.kind === 'refuse') {
+          messageBuffer.addMessage(decision.notice, 'status');
+        } else if (decision.kind === 'apply') {
           backend.setPermissionMode(mode);
         }
       }

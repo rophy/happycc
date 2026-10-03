@@ -120,3 +120,6 @@ export const AGY_CONVERSATIONS_CACHE = join(
   'cache',
   'last_conversations.json',
 );
+
+/** agy sessions start in this permission mode; the app may lower it, never raise it. */
+export const AGY_STARTING_PERMISSION_MODE = 'default';

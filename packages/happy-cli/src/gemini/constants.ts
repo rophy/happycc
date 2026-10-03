@@ -27,3 +27,9 @@ export const CHANGE_TITLE_INSTRUCTION = trimIdent(
   `Based on this message, call functions.happy__change_title to change chat session title that would represent the current task. If chat idea would change dramatically - call this function again to update the title.`
 );
 
+
+/** Gemini sessions start in this permission mode; the app may lower it, never raise it. */
+export const GEMINI_STARTING_PERMISSION_MODE = 'default';
+
+/** The permission modes Gemini accepts from the app. */
+export const GEMINI_APP_PERMISSION_MODES: readonly string[] = ['default', 'read-only', 'safe-yolo', 'yolo'];

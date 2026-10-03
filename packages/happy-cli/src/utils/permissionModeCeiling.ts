@@ -38,3 +38,28 @@ export function capPermissionMode(requested: string, ceiling: string | undefined
     }
     return { mode: requested, capped: false };
 }
+
+export type AppPermissionModeDecision =
+    | { kind: 'apply'; mode: string }
+    | { kind: 'refuse'; notice: string }
+    | { kind: 'unsupported' };
+
+/**
+ * What a runner does with a permission mode the app asks for: modes the agent
+ * does not support are dropped, modes above the starting mode are refused with
+ * a notice for the user, and the rest are applied.
+ */
+export function decideAppPermissionMode(
+    requested: string,
+    startingMode: string,
+    isSupported: (mode: string) => boolean,
+): AppPermissionModeDecision {
+    if (!isSupported(requested)) {
+        return { kind: 'unsupported' };
+    }
+    const result = capPermissionMode(requested, startingMode);
+    if (result.capped) {
+        return { kind: 'refuse', notice: permissionModeCapNotice(requested, result) };
+    }
+    return { kind: 'apply', mode: requested };
+}
