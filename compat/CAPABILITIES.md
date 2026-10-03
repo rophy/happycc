@@ -30,7 +30,7 @@ SDK dependency, not the `Dockerfile.cli` build arg.
 | tool-deny | ✓ (turn not closed, [bug 2](#bugs-found)) | ✓ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | abort | ✓ | runner crashes ([bug 4](#bugs-found)) | runner crashes ([bug 4](#bugs-found)) |
 | kill | `stop` leaves the process running ([bug 3](#bugs-found)) | same | same |
-| offline-start | fails ([bug 6](#bugs-found)) | ✓ | ✓ |
+| offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✓ | ✓ |
 | resume | ✓ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
 | spawn | ✓ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
 
@@ -166,7 +166,7 @@ OpenCode and Pi: see bug 4.
 - kill: known-bug #3 on all three agents. `stop` returns 0 and the session reports `active: false`, but the runner
   pid from `metadata.hostPid` is still alive 30 s later.
 - offline-start: OpenCode and Pi pass (CLI logs `offline mode`, then `Reconnected`, a session appears and answers
-  `compat:hello`). Claude fails, see bug 6.
+  `compat:hello`). Claude is N/A by design, see [below](#claude-offline-start-is-a-local-terminal-session).
 
 ## Stack fixes
 
@@ -219,11 +219,18 @@ Harness findings (in `src/session.ts`):
    the turn also archives the session (seen with the old 1500 ms fixture).
 5. **ACP turn end is a 500 ms silence heuristic** (`DEFAULT_IDLE_TIMEOUT_MS`), not the ACP prompt response. A reply
    that pauses for over 500 ms is split into two turns. Worked around in the fixture (stack fix 2), not fixed.
-6. **Claude: `happycc --happy-starting-mode remote` started while the server is down does not become a remote session.**
-   `runClaude.ts` (~line 182) handles an unreachable server by running Claude locally (`claudeLocal`, interactive) and
-   only mirroring its transcript after reconnect. Without a TTY (the suite's detached start) Claude runs in `--print`
-   mode and exits: CLI log `Error: Input must be provided either through stdin or as a prompt argument when using --print`,
-   `Error: Process exited with code: 1`, and no `Reconnected`. With a TTY (`script -qec`) it reconnects and a session
-   appears, but `send --wait compat:hello` times out (exit 124) and history holds only the user message: the offline
-   path never wires incoming app messages to Claude. (Claude's first-run theme prompt was also on screen in that
-   experiment, so the second symptom is not isolated from it.) The cell stays a plain failure, not a known-bug cell.
+
+## Claude offline-start is a local terminal session
+
+By design, not a bug. When the server is unreachable at start, `packages/happy-cli/src/claude/runClaude.ts`
+(offline branch, lines 182-257) runs Claude Code locally (`claudeLocal`, interactive terminal) and after reconnect
+(`onReconnected`) only mirrors the local transcript to the server; app input is not offered in that mode.
+
+Evidence (`happycc --happy-starting-mode remote` started with the server stopped, server started 15 s later):
+
+- Without a TTY (the suite's detached start): CLI log `Error: Input must be provided either through stdin or as a prompt argument when using --print`,
+  `Error: Process exited with code: 1`; no `Reconnected`.
+- With a TTY (`script -qec`): `Reconnected! Session syncing in background.`, a session appears, but
+  `send --wait compat:hello` timed out (exit 124) and history held only the user message.
+
+OpenCode and Pi use their normal runners and reconnect fully (cells pass). → `offline-start`: N/A for Claude.
