@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { SERVER_URL, readCredentials, signIn } from './helpers';
 
-// The compose stack configures no voice, GitHub, PostHog or Claude connect; push keeps its default.
+// The compose stack configures no GitHub, PostHog or Claude connect (voice was removed); push keeps its default.
 
 test('the server reports its integrations to signed-in clients only', async ({ page }) => {
     await signIn(page);
@@ -11,7 +11,7 @@ test('the server reports its integrations to signed-in clients only', async ({ p
         const signedIn = await fetch(`${url}/v1/features`, { headers: { Authorization: `Bearer ${token}` } });
         return { anonymous: anonymous.status, status: signedIn.status, body: await signedIn.json() };
     }, [SERVER_URL, credentials.token] as const);
-    expect(result).toEqual({ anonymous: 401, status: 200, body: { voice: false, githubConnect: false, push: true } });
+    expect(result).toEqual({ anonymous: 401, status: 200, body: { githubConnect: false, push: true } });
 });
 
 test('settings hide integrations that are not configured', async ({ page }) => {

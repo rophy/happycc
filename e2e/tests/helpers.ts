@@ -54,6 +54,40 @@ export async function expectSignedIn(page: Page): Promise<void> {
     expect(page.url()).not.toContain('#code');
 }
 
+/**
+ * Signed in, whatever the account holds: the app shell is up and credentials are stored.
+ * Unlike expectSignedIn it does not rely on the empty-home hint.
+ */
+export async function expectSignedInShell(page: Page): Promise<void> {
+    await expect(page.getByRole('heading', { name: 'Sessions' }).first()).toBeVisible();
+    await expect(page.getByText('Sign in', { exact: true })).toHaveCount(0);
+    const credentials = await readCredentials(page);
+    expect(credentials?.refreshToken).toBeTruthy();
+    expect(page.url()).not.toContain('#code');
+}
+
+/** Same sign-in flow as signIn, ending on the app shell instead of the empty home. */
+export async function signInToShell(page: Page, user = 'Alice Example'): Promise<void> {
+    await page.goto('/');
+    await page.getByText('Sign in', { exact: true }).click();
+    await page.getByRole('button', { name: new RegExp(user) }).click();
+    await page.waitForURL((url) => url.origin === new URL(WEBAPP_URL).origin && url.pathname === '/');
+    await expectSignedInShell(page);
+}
+
+/** Creates an (undecryptable) session row for the signed-in account so the home is populated. */
+export async function createSession(page: Page): Promise<string> {
+    const credentials = (await readCredentials(page))!;
+    return page.evaluate(async ([url, token]) => {
+        const response = await fetch(`${url}/v1/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ tag: `e2e-${Date.now()}`, metadata: 'e2e' }),
+        });
+        return (await response.json()).session.id as string;
+    }, [SERVER_URL, credentials.token] as const);
+}
+
 export async function expectSignedOut(page: Page): Promise<void> {
     await expect(page.getByText('Sign in', { exact: true })).toBeVisible();
     expect(await readCredentials(page)).toBeNull();

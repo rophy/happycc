@@ -51,7 +51,7 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
 - Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).
 
 ## Session RPC isolation
-The server binds RPC registration to the session's own CLI socket: a CLI connection that authenticates for a session may register RPC methods only for that session, and session ownership is checked when the socket connects. A CLI therefore cannot register handlers for another session or machine. Combined with the app's `workstationOnly` flag (see `docs/deploy-app.md`), sessions are only ever started from the workstation.
+The server binds RPC registration to the session's own CLI socket. Only a session-scoped CLI socket may register RPC methods, and only methods prefixed with its own session id (`<sessionId>:<method>`); machine-scoped and app sockets cannot register at all. Session ownership is also checked when the socket connects, so a client cannot attach to a session its account does not own. A client therefore cannot register, and intercept, another session's methods. Combined with the app's `workstationOnly` flag (see `docs/deploy-app.md`), sessions are only ever started from the workstation.
 
 ## Docker image
 A production Dockerfile is provided at `Dockerfile.server`.
