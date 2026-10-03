@@ -17,7 +17,7 @@ npm test
 ```
 
 Global setup waits for the server and aimock, signs the `cli` and `app` devices in as `alice` through the OIDC
-mock (skipped when they are already signed in), and writes `.versions.json` with the pinned tool versions.
+mock (skipped when they are already signed in; no daemon is started, this is the workstation-only build), and writes `.versions.json` with the pinned tool versions.
 
 Outputs land in `compat/`: `results.json` (vitest JSON), `report.md`, `logs/`, `.versions.json` (all git-ignored).
 
@@ -55,3 +55,9 @@ the same report to the job summary.
 2. Rebuild: `docker compose up -d --build`.
 3. Run `npm test`, then `npm run report`.
 4. If a cell changes, update `CAPABILITIES.md` (and `src/agents.ts` for N/A or known-bug entries).
+
+## Boundary
+
+`resume` and `spawn` are N/A for every agent (the app cannot start or resume sessions in this build). The
+`blocked-spawn` scenario (`tests/boundary.test.ts`) proves it: `happycc-agent spawn`/`resume` fail while a live
+session keeps working.

@@ -38,9 +38,10 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 | tool-deny | ❌ #2 | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | abort | ✅ | ❌ #4 | ❌ #4 |
 | kill | ✅ | ✅ | ✅ |
+| blocked-spawn | ✅ | ✅ | ✅ |
 | offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✅ | ✅ |
-| resume | ✅ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
-| spawn | ✅ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
+| resume | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
+| spawn | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
 
 Scenarios 1-3 (`tests/conversation.test.ts`). Known-bug cells (`AGENTS[...].knownBugs`) are normal tests titled
 `known bug #n`: the body asserts the correct behaviour and throws a `KnownBugSymptom` at the exact point the bug shows
@@ -135,34 +136,6 @@ Pi wrote the file without asking. pi-acp 0.0.34 calls `conn.requestPermission` i
 `requestExtensionPermission` (`dist/index.js` ~line 1363), for Pi extension UI confirmations only; built-in tools
 never ask. → `tool-allow`, `tool-deny`: N/A, "Pi has no permission prompts; it runs tools without asking."
 
-## ACP sessions cannot be resumed
-
-Runner killed on cli (`pkill -f "[h]appycc(/dist/index\.mjs)? acp"`), then from app:
-
-```
-$ happycc-agent resume S       # OpenCode session
-Failed to resume session: Happy session cmusck9j60046rx3q8jjxli1q uses unsupported flavor "opencode".
-$ happycc-agent resume S       # Pi session
-Failed to resume session: Happy session cmuscunu0006grx3qq147dsul uses unsupported flavor "acp".
-```
-
-Thrown by `packages/happy-cli/src/resume/handleResumeCommand.ts:89`, which only builds launches for `claude` and
-`codex`. → `resume`: N/A for OpenCode and Pi.
-
-Claude Code control (same steps): `Session Resumed`, the daemon spawns
-`index.mjs claude --happy-starting-mode remote …`, a following `compat:hello` is answered and the earlier reply is
-still in history.
-
-Before the `init: true` fix (see [Stack fixes](#stack-fixes)) the same resume returned `Session Resumed` but spawned
-nothing: the killed runner was a zombie, so the daemon's `isPidAlive` saw it as running and answered success.
-
-## ACP agents cannot be spawned
-
-`happycc-agent spawn --help` lists `--agent <agent>  Agent to start (claude, codex, gemini, openclaw, agy)`, and the
-daemon maps any other value to `claude` (`packages/happy-cli/src/daemon/run.ts:440`). → `spawn`: N/A for OpenCode
-and Pi. Claude control: `spawn --machine <cli> --path /workspace --agent claude --json` → `"type": "success"`, and the
-session answers `compat:hello`.
-
 ## Abort
 
 Claude Code: `send 'compat:slow'`, `abort S` after 6 s → `turn-end` `cancelled`, event `Aborted by user`, no
@@ -185,18 +158,22 @@ OpenCode and Pi: see bug 4.
 - offline-start: OpenCode and Pi pass (CLI logs `offline mode`, then `Reconnected`, a session appears and answers
   `compat:hello`). Claude is N/A by design, see [below](#claude-offline-start-is-a-local-terminal-session).
 
-## Scenarios 7-8 (`tests/remote-control.test.ts`)
+## Workstation-only boundary
 
-- resume (Claude): pass. Start, `warmUp` (one `COMPAT-HELLO-OK`), `kill <metadata.hostPid>` on cli (that runner only),
-  wait until `status` reports inactive, `resume S --json` -> `type: success` with the **same** session id, then wait
-  until `active: true`, `compat:hello` completes (`send --wait` returns: the first turn after a resume does get its
-  `turn-end`) and the history holds `COMPAT-HELLO-OK` exactly twice. The resumed runner (`index.mjs claude
-  --started-by daemon --resume <claude session>`) takes ~35-40 s to report active (waits are 90 s), and the session's
-  `metadata.hostPid` still shows the old pid afterwards (not updated by the resumed runner).
-- spawn (Claude): pass. `spawn --machine <cli machine id> --path /workspace --agent claude --json` -> `success` with a
-  new session id; a spawned session hits bug 1 on its first turn too, so `warmUp` runs first and the asserted turn is
-  the second (`COMPAT-HELLO-OK` twice).
-- OpenCode and Pi: N/A cells, see above.
+Scenarios 7-8 (`resume`, `spawn`) are N/A for every agent: "Removed in the workstation-only build: the app cannot
+start or resume sessions." The build has no daemon (`happycc daemon ...` exits 1, the cli container no longer starts
+one, global setup does not either), so nothing on the cli device answers a machine-scoped RPC, and the server refuses
+machine-scoped RPC registration. Earlier evidence for these scenarios (Claude resume and spawn passed with the daemon;
+ACP agents could never be resumed or spawned) is superseded.
+
+New scenario `blocked-spawn` (`tests/boundary.test.ts`, all three agents): with a live session on cli,
+`happycc-agent spawn --machine <cli machine id> --path /workspace --agent claude` exits 1 with
+`Machine <id> is offline or its daemon is not connected.` and `happycc-agent resume S` fails likewise (the pass
+condition is non-zero exit and a message containing "not available", "not allowed" or "offline"). Afterwards
+`compat:hello` is answered by the live session (`warmUp`; no turn-end wait, because the session's first turn never
+gets one, bug 1). The task brief wrote `spawn <machine id>`; the real syntax is `spawn --machine <id>`.
+
+Outcome changes from the new boundary: none to the other cells (same matrix as before apart from resume/spawn).
 
 ## Stack fixes
 
@@ -209,6 +186,8 @@ Made during this investigation (config of our stack, not product code):
    ends a turn after 500 ms without a chunk (`DEFAULT_IDLE_TIMEOUT_MS`,
    `packages/happy-cli/src/agent/acp/sessionUpdateHandlers.ts:19`), so at 1500 ms OpenCode/Pi got a `turn-end`
    after the first 4 characters and there was nothing left to abort. The reply is longer now (~20 s total).
+
+Historical notes (the daemon is gone from this build; `init: true` is kept so killed runners are reaped and `pidAlive` is accurate).
 
 Harness findings (in `src/session.ts`):
 

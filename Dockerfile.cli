@@ -69,5 +69,4 @@ USER node
 WORKDIR /workspace
 
 # Keep the device up; use `docker compose exec cli happycc ...` to drive it.
-# Once signed in, the daemon comes back on every container start.
-CMD ["sh", "-c", "if [ -f ~/.happycc/access.key ]; then happycc daemon start; fi; exec sleep infinity"]
+CMD ["sleep", "infinity"]

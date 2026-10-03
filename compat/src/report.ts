@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 export type VitestJson = { testResults: Array<{ assertionResults: Array<{ title: string; status: string }> }> };
 
 const AGENTS: Array<[id: string, label: string]> = [['claude', 'Claude Code'], ['opencode', 'OpenCode'], ['pi', 'Pi']];
-const SCENARIOS = ['roundtrip', 'tool-allow', 'tool-deny', 'abort', 'kill', 'offline-start', 'resume', 'spawn'];
+const SCENARIOS = ['roundtrip', 'tool-allow', 'tool-deny', 'abort', 'kill', 'blocked-spawn', 'offline-start', 'resume', 'spawn'];
 
 type Cell = { text: string; kind: 'pass' | 'na' | 'bug' | 'fail' };
 

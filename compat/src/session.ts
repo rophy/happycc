@@ -59,10 +59,9 @@ export async function killSession(sessionId: string): Promise<void> {
     await exec('app', `happycc-agent kill ${shellQuote(sessionId)}`);
 }
 
-/** Kill leftover agent runners (never the daemon) so scenarios don't leak into each other. */
+/** Kill leftover agent runners so scenarios don't leak into each other. */
 export async function cleanupAgentProcesses(): Promise<void> {
-    // Runners show up as `node …/happycc/dist/index.mjs acp …` (or `… claude --happy-starting-mode …` when the daemon
-    // spawned or resumed them), not as `happycc acp …`; the daemon is `… index.mjs daemon start-sync` and never matches.
+    // Runners show up as `node …/happycc/dist/index.mjs acp …` (or `… claude --happy-starting-mode …`), not as `happycc acp …`.
     // The `[x]` keeps each pattern from matching the `sh -lc` running pkill, which would otherwise kill itself.
     await exec('cli', 'pkill -f "[h]appycc(/dist/index\\.mjs)? (claude |acp|--happy-starting-mode)"; pkill -f "[o]pencode acp"; pkill -f "[p]i-acp"; true',
         { allowFail: true });

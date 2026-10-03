@@ -54,7 +54,6 @@ export default async function setup() {
     }
 
     await signIn('cli', 'happycc auth login', /\/activate\?code=/, 'happycc auth status');
-    await exec('cli', 'happycc daemon start', { allowFail: true });
     await signIn('app', 'happycc-agent auth login --no-browser', /\/v1\/auth\/oidc\/login\?/, 'happycc-agent auth status');
 
     // Versions are read after sign-in: an unauthenticated `happycc --version` falls into the login flow.

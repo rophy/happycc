@@ -98,7 +98,7 @@ services:
     # here and in the browser on the host.
     network_mode: "service:oidc-mock"
     # PID 1 must reap orphans: a killed runner left as a zombie still answers
-    # kill(pid, 0), so the daemon would treat it as alive and not respawn it on resume.
+    # kill(pid, 0), so the suite would treat it as alive.
     init: true
     depends_on:
       server: { condition: service_started }
