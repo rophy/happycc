@@ -25,7 +25,9 @@ vi.mock('@/utils/spawnHappyCLI', () => ({
 
 import { ensureDaemonRunning } from './ensureDaemonRunning'
 
-describe('ensureDaemonRunning', () => {
+// Covers the original (upstream) body, which is unreachable while DAEMON_ENABLED is false.
+// Behaviour of the disabled build is covered by daemonDisabled.test.ts.
+describe.skip('ensureDaemonRunning (daemon enabled)', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
   })

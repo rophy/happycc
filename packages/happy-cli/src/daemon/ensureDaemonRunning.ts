@@ -6,7 +6,17 @@ import { sanitizeSessionEnvironment } from './sessionEnvironment'
 const DAEMON_READY_TIMEOUT_MS = 5000
 const DAEMON_READY_POLL_INTERVAL_MS = 100
 
+// The workstation-only build never runs the background daemon: no remote
+// spawn/resume and no machine-wide RPCs. The original body is kept below so
+// upstream merges stay clean.
+export const DAEMON_ENABLED: boolean = false
+
 export async function ensureDaemonRunning(): Promise<void> {
+  if (!DAEMON_ENABLED) {
+    logger.debug('[daemon] not started: not available in this build')
+    return
+  }
+
   logger.debug('Ensuring Happy background service is running & matches our version...')
 
   if (await isDaemonRunningCurrentlyInstalledHappyVersion()) {

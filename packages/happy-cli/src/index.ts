@@ -30,7 +30,7 @@ import { claudeCliPath } from './claude/claudeLocal'
 import { execFileSync } from 'node:child_process'
 import { extractNoSandboxFlag } from './utils/sandboxFlags'
 import { handleResumeCommand } from '@/resume/handleResumeCommand'
-import { ensureDaemonRunning } from './daemon/ensureDaemonRunning'
+import { DAEMON_ENABLED, ensureDaemonRunning } from './daemon/ensureDaemonRunning'
 import { handleCodexCommand } from './commands/codexCommand'
 import { sanitizeSessionEnvironment } from './daemon/sessionEnvironment'
 import { configuration } from './configuration'
@@ -482,6 +482,13 @@ Conversation history is preserved on the server, but in-flight tool calls are in
     }
     return;
   } else if (subcommand === 'daemon') {
+    // The workstation-only build never runs the background daemon. The original
+    // handling below is kept (unreachable) to ease merging upstream.
+    if (!DAEMON_ENABLED) {
+      console.error('The background daemon is not available in this build.')
+      process.exit(1)
+    }
+
     // Show daemon management help
     const daemonSubcommand = args[1]
 
