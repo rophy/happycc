@@ -87,8 +87,8 @@ from workstations as before.
 
 - `packages/happy-agent/package.json`: `"private": true`; it is not part of any release workflow.
 - Command set unchanged. `spawn`, `resume`, `machines`, `create` remain as probes, so tests can assert the
-  removed features are refused (server: "RPC method not available"). Whether the server should also refuse
-  session creation from non-CLI clients (what `create` does) is open question 1.
+  removed features are refused (server: "RPC method not available"). Session creation by
+  non-CLI clients stays allowed (open question 1, resolved).
 
 ## Testing
 
@@ -104,9 +104,9 @@ from workstations as before.
 
 ## Open questions (resolved in the plan, with evidence from the code)
 
-1. Session creation from non-CLI clients (`POST` session create used by `happycc-agent create`): refuse on the
-   server unless the caller is a CLI device, or leave it (a session with no agent is inert)?
-2. Whether any app screen relies on `bash`/`readFile` for read-only display that users would miss (e.g. CLI
+1. ~~Session creation from non-CLI clients~~ — **resolved: leave as is.** A session created without an agent
+   (e.g. `happycc-agent create`) is inert: nothing runs it and no RPC reaches a workstation.
+2. **To be settled in the plan from the code:** whether any app screen relies on `bash`/`readFile` for read-only display that users would miss (e.g. CLI
    version detection uses `bash` with cwd `/`); if so, list it and confirm removal.
 
 ## Out of scope
