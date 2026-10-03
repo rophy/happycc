@@ -1,5 +1,6 @@
 /** Starting agent sessions on the cli device and talking to them from the app device. */
 import { AGENTS, type AgentId } from './agents';
+import { KnownBugSymptom } from './knownBug';
 import { agentJson, exec, execDetached, poll, shellQuote } from './stack';
 
 type Session = { id: string; active: boolean; createdAt: number; metadata?: { machineId?: string; host?: string } };
@@ -62,8 +63,38 @@ export async function cleanupAgentProcesses(): Promise<void> {
         { allowFail: true });
 }
 
-/** Wait until the history holds at least `count` turn-end events. */
-export async function waitForTurnEnd(sessionId: string, count = 1, timeoutS = 60): Promise<void> {
-    await poll(async () => ((await historyText(sessionId)).split('"t":"turn-end"').length - 1 >= count ? true : undefined),
-        { timeoutMs: timeoutS * 1000, what: `turn-end #${count} in the history of ${sessionId}` });
+const turnEnds = (history: string) => history.split('"t":"turn-end"').length - 1;
+
+export async function turnEndCount(sessionId: string): Promise<number> {
+    return turnEnds(await historyText(sessionId));
+}
+
+/**
+ * Wait until the history holds more than `after` turn-end events.
+ * With `symptom`, a timeout while `evidence` is already in the history (the agent answered but never closed the
+ * turn) is reported as that bug's `KnownBugSymptom`; without the evidence it is a plain timeout.
+ */
+export async function awaitTurnEnd(sessionId: string, after: number, timeoutS = 60, symptom?: { bug: number; evidence: string }): Promise<void> {
+    try {
+        await poll(async () => ((await turnEndCount(sessionId)) > after ? true : undefined),
+            { timeoutMs: timeoutS * 1000, what: `a turn-end after #${after} in the history of ${sessionId}` });
+    } catch (error) {
+        if (symptom && (await historyText(sessionId)).includes(symptom.evidence)) {
+            throw new KnownBugSymptom(symptom.bug, `"${symptom.evidence}" is in the history but no turn-end followed within ${timeoutS}s`);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Run one throw-away turn so that later turns are not "the first turn of the session" (CAPABILITIES.md bug 1).
+ * Waits for the reply, then gives the turn 15 s to end; a missing turn-end is tolerated here because the
+ * round-trip cell is where it is asserted. Returns the number of turn-end events to pass to `awaitTurnEnd`.
+ */
+export async function warmUp(sessionId: string): Promise<number> {
+    await exec('app', `happycc-agent send ${shellQuote(sessionId)} 'compat:hello'`);
+    await poll(async () => ((await historyText(sessionId)).includes('COMPAT-HELLO-OK') ? true : undefined),
+        { timeoutMs: 60_000, what: 'the warm-up reply' });
+    await awaitTurnEnd(sessionId, 0, 15).catch(() => {});
+    return turnEndCount(sessionId);
 }

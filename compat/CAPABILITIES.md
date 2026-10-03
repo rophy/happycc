@@ -34,12 +34,23 @@ SDK dependency, not the `Dockerfile.cli` build arg.
 | resume | ✓ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
 | spawn | ✓ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
 
-Scenarios 1-3 (`tests/conversation.test.ts`) run the Claude Code cells as known-bug cells (`AGENTS.claude.knownBugs`,
-vitest `it.fails`, title suffix `known bug #n`): roundtrip and tool-allow hit [bug 1](#bugs-found), tool-deny hits
-[bug 2](#bugs-found) (and bug 1). Each was reproduced: `send --wait` exits 124 / history has the reply but no
-`turn-end` for 60 s. The tests assert the correct behaviour, so vitest reports the cell once the bug is fixed.
-Tool-allow/deny wait for the `turn-end` in the history after `approve`/`deny` (`waitForTurnEnd`) because
-`happycc-agent wait` returns immediately (see Harness findings). No agent config was changed for these scenarios.
+Scenarios 1-3 (`tests/conversation.test.ts`). Known-bug cells (`AGENTS[...].knownBugs`) are normal tests titled
+`known bug #n`: the body asserts the correct behaviour and throws a `KnownBugSymptom` at the exact point the bug shows
+(`src/knownBug.ts`); the cell passes only on that symptom, fails on any other error, and fails with "no longer
+reproduces" if the body succeeds. Results on Claude Code (2 full runs of the claude cells, plus the earlier ones):
+
+- roundtrip: [bug 1](#bugs-found), the symptom was seen on every fresh session (reply `COMPAT-HELLO-OK` in history, no
+  `turn-end` after 60 s) in 4 test runs and 4 manual runs. One manual run showed a first-turn `turn-end`, but a stray
+  second runner was alive then; I could not reproduce that, so I treat bug 1 as deterministic with that caveat.
+- tool-allow and tool-deny first run a warm-up turn (`warmUp`: `compat:hello`, tolerating the missing turn-end of
+  bug 1) so that the write turn is not the first turn.
+- tool-allow on a non-first turn: **passes** (approve, then `turn-end`, file `COMPAT-FILE-CONTENT`, `COMPAT-WRITE-DONE`).
+  It is a normal cell, not a known-bug cell. Its earlier failure was only bug 1.
+- tool-deny on a non-first turn: reaches [bug 2](#bugs-found) on its own: the request is recorded as `denied`
+  (`status --json`), no file is written, and no `turn-end` follows within 30 s. The cell is a known-bug #2 cell.
+
+Tool-allow/deny wait for the `turn-end` in the history (`awaitTurnEnd`) because `happycc-agent wait` returns immediately
+(see Harness findings). No agent config was changed for these scenarios.
 
 Only N/A cells are agent limitations. The other non-✓ cells are bugs in happycc / happycc-agent and should fail
 in the suite until fixed.

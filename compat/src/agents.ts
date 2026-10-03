@@ -23,8 +23,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
         unsupported: {},
         knownBugs: {
             roundtrip: '#1: the first turn of a session never gets turn-end',
-            'tool-allow': '#1: the first turn of a session never gets turn-end',
-            'tool-deny': '#2: denying a permission leaves the turn open (also #1)',
+            'tool-deny': '#2: denying a permission leaves the turn open',
         },
     },
     opencode: {
