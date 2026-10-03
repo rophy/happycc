@@ -21,8 +21,8 @@ describe('fetchServerFeatures', () => {
     });
 
     it('reads /v1/features with a Bearer token', async () => {
-        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ voice: true, githubConnect: false, push: true }), { status: 200 }));
-        await expect(fetchServerFeatures()).resolves.toEqual({ voice: true, githubConnect: false, push: true });
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ githubConnect: false, push: true }), { status: 200 }));
+        await expect(fetchServerFeatures()).resolves.toEqual({ githubConnect: false, push: true });
         expect(fetchMock).toHaveBeenCalledWith(
             'https://api.test.com/v1/features',
             expect.objectContaining({
@@ -33,8 +33,8 @@ describe('fetchServerFeatures', () => {
 
     it('treats a server without the endpoint as having every integration off', async () => {
         fetchMock.mockResolvedValueOnce(new Response('not found', { status: 404 }));
-        await expect(fetchServerFeatures()).resolves.toEqual({ voice: false, githubConnect: false, push: false });
-        expect(serverFeaturesDefaults).toEqual({ voice: false, githubConnect: false, push: false });
+        await expect(fetchServerFeatures()).resolves.toEqual({ githubConnect: false, push: false });
+        expect(serverFeaturesDefaults).toEqual({ githubConnect: false, push: false });
     });
 
     it('throws on other failures so the sync retries', async () => {
@@ -43,7 +43,7 @@ describe('fetchServerFeatures', () => {
     });
 
     it('rejects a malformed response', async () => {
-        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ voice: 'yes' }), { status: 200 }));
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ githubConnect: 'yes' }), { status: 200 }));
         await expect(fetchServerFeatures()).rejects.toThrow();
     });
 });

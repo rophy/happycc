@@ -2,7 +2,6 @@ import { type Fastify } from "../types";
 import { type FeaturesConfig, publicFeatures } from "@/app/features/featuresConfig";
 import { featuresRoutes } from "./featuresRoutes";
 import { githubRoutes } from "./githubRoutes";
-import { voiceRoutes } from "./voiceRoutes";
 
 /**
  * Third-party integrations are off unless configured: their routes are not
@@ -12,8 +11,5 @@ export function integrationRoutes(app: Fastify, features: FeaturesConfig, opts: 
     featuresRoutes(app, publicFeatures(features));
     if (features.github) {
         githubRoutes(app, { github: features.github, webappUrl: opts.webappUrl });
-    }
-    if (features.voice) {
-        voiceRoutes(app, features.voice);
     }
 }

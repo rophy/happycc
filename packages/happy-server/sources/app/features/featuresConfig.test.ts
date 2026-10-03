@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { describeFeatures, loadFeaturesConfig, publicFeatures } from './featuresConfig';
 
-const voiceEnv = { ELEVENLABS_API_KEY: 'xi-key', ELEVENLABS_AGENT_ID: 'agent_corp' };
 const githubEnv = {
     GITHUB_CLIENT_ID: 'gh-client',
     GITHUB_CLIENT_SECRET: 'gh-secret',
@@ -11,25 +10,16 @@ const githubEnv = {
 describe('loadFeaturesConfig', () => {
     it('turns every integration off except push by default', () => {
         const cfg = loadFeaturesConfig({});
-        expect(cfg).toEqual({ voice: null, github: null, pushEnabled: true });
-        expect(publicFeatures(cfg)).toEqual({ voice: false, githubConnect: false, push: true });
-    });
-
-    it('enables voice only when both ElevenLabs settings are set', () => {
-        expect(loadFeaturesConfig(voiceEnv).voice).toEqual({ apiKey: 'xi-key', agentId: 'agent_corp', monthlyLimitSeconds: null });
-        expect(() => loadFeaturesConfig({ ELEVENLABS_API_KEY: 'xi-key' })).toThrow('ELEVENLABS_AGENT_ID');
-        expect(() => loadFeaturesConfig({ ELEVENLABS_AGENT_ID: 'agent_corp' })).toThrow('ELEVENLABS_API_KEY');
+        expect(cfg).toEqual({ github: null, pushEnabled: true });
+        expect(publicFeatures(cfg)).toEqual({ githubConnect: false, push: true });
     });
 
     it('treats blank values as unset', () => {
-        expect(loadFeaturesConfig({ ELEVENLABS_API_KEY: '  ', ELEVENLABS_AGENT_ID: '' }).voice).toBeNull();
+        expect(loadFeaturesConfig({ GITHUB_CLIENT_ID: '  ', GITHUB_CLIENT_SECRET: '', GITHUB_REDIRECT_URL: ' ' }).github).toBeNull();
     });
 
-    it('parses VOICE_MONTHLY_LIMIT_MINUTES as a positive whole number', () => {
-        expect(loadFeaturesConfig({ ...voiceEnv, VOICE_MONTHLY_LIMIT_MINUTES: '90' }).voice?.monthlyLimitSeconds).toBe(5400);
-        for (const bad of ['0', '-5', '1.5', 'lots']) {
-            expect(() => loadFeaturesConfig({ ...voiceEnv, VOICE_MONTHLY_LIMIT_MINUTES: bad })).toThrow('VOICE_MONTHLY_LIMIT_MINUTES');
-        }
+    it('ignores leftover voice settings now that voice is removed', () => {
+        expect(loadFeaturesConfig({ VOICE_MONTHLY_LIMIT_MINUTES: 'lots' })).toEqual({ github: null, pushEnabled: true });
     });
 
     it('enables GitHub connect only when all OAuth settings are set', () => {
@@ -53,10 +43,10 @@ describe('loadFeaturesConfig', () => {
     });
 
     it('never puts values into errors or the startup summary', () => {
-        expect(() => loadFeaturesConfig({ ELEVENLABS_API_KEY: 'xi-very-secret' })).toThrow(/^(?!.*xi-very-secret)/);
-        const text = describeFeatures(loadFeaturesConfig({ ...voiceEnv, ...githubEnv, VOICE_MONTHLY_LIMIT_MINUTES: '60', PUSH_ENABLED: 'false' }));
-        expect(text).toBe('voice=on (cap 60 min/30 days) githubConnect=on push=off');
+        expect(() => loadFeaturesConfig({ GITHUB_CLIENT_SECRET: 'gh-very-secret' })).toThrow(/^(?!.*gh-very-secret)/);
+        const text = describeFeatures(loadFeaturesConfig({ ...githubEnv, PUSH_ENABLED: 'false' }));
+        expect(text).toBe('githubConnect=on push=off');
         expect(text).not.toContain('secret');
-        expect(describeFeatures(loadFeaturesConfig({}))).toBe('voice=off githubConnect=off push=on');
+        expect(describeFeatures(loadFeaturesConfig({}))).toBe('githubConnect=off push=on');
     });
 });

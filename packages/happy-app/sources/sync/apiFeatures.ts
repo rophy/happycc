@@ -8,7 +8,6 @@ export type ServerFeatures = FeaturesResponse;
 
 /** Everything off until the server says otherwise. */
 export const serverFeaturesDefaults: ServerFeatures = Object.freeze({
-    voice: false,
     githubConnect: false,
     push: false,
 });

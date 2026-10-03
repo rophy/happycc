@@ -34,7 +34,7 @@ const savedMasterSecret = process.env.HANDY_MASTER_SECRET;
 
 beforeEach(() => {
     process.env.HANDY_MASTER_SECRET = 'x'.repeat(32);
-    // No test may reach ElevenLabs or GitHub.
+    // No test may reach GitHub.
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
 });
 
@@ -48,11 +48,11 @@ afterEach(() => {
 });
 
 describe('integrationRoutes', () => {
-    it('reports integrations off and registers no voice or GitHub routes by default', async () => {
+    it('reports integrations off and registers no GitHub routes by default', async () => {
         const app = await buildApp({});
         const features = await app.inject({ method: 'GET', url: '/v1/features', headers: AUTH });
         expect(features.statusCode).toBe(200);
-        expect(features.json()).toEqual({ voice: false, githubConnect: false, push: true });
+        expect(features.json()).toEqual({ githubConnect: false, push: true });
 
         const unregistered = [
             ['POST', '/v1/voice/conversations'],
@@ -76,20 +76,19 @@ describe('integrationRoutes', () => {
         await app.close();
     });
 
-    it('registers voice and GitHub routes when configured', async () => {
+    it('registers GitHub routes when configured, never voice routes', async () => {
         const app = await buildApp({
-            ELEVENLABS_API_KEY: 'xi-key',
-            ELEVENLABS_AGENT_ID: 'agent_corp',
+            VOICE_MONTHLY_LIMIT_MINUTES: '60',
             GITHUB_CLIENT_ID: 'gh-client',
             GITHUB_CLIENT_SECRET: 'gh-secret',
             GITHUB_REDIRECT_URL: 'https://happy.corp.example/v1/connect/github/callback',
             PUSH_ENABLED: 'false',
         });
         const features = await app.inject({ method: 'GET', url: '/v1/features', headers: AUTH });
-        expect(features.json()).toEqual({ voice: true, githubConnect: true, push: false });
+        expect(features.json()).toEqual({ githubConnect: true, push: false });
 
         const usage = await app.inject({ method: 'GET', url: '/v1/voice/usage', headers: AUTH });
-        expect(usage.statusCode).not.toBe(404);
+        expect(usage.statusCode).toBe(404);
         const params = await app.inject({ method: 'GET', url: '/v1/connect/github/params', headers: AUTH });
         expect(params.statusCode).toBe(200);
         await app.close();

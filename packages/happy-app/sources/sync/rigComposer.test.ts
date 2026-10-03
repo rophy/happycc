@@ -40,8 +40,7 @@ vi.mock('./sync', () => ({
     sync: { encryption: { getSessionEncryption: () => ({ encryptRaw: mocks.encryptRaw, decryptRaw: mocks.decryptRaw }) } },
 }));
 vi.mock('./apiSocket', () => ({ apiSocket: { emitWithAck: mocks.emitWithAck } }));
-vi.mock('./apiFeatures', () => ({ serverFeaturesDefaults: { voice: false, githubConnect: false, push: false } }));
-vi.mock('@/realtime/RealtimeSession', () => ({ getCurrentRealtimeSessionId: () => null, getVoiceSession: () => null }));
+vi.mock('./apiFeatures', () => ({ serverFeaturesDefaults: { githubConnect: false, push: false } }));
 vi.mock('@/components/tools/knownTools', () => ({ isMutableTool: () => true }));
 vi.mock('@/text', () => ({ t: (key: string) => key }));
 
