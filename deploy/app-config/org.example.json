@@ -11,7 +11,7 @@
     },
     "assetsDir": "../../packages/happy-app/sources/assets/images",
     "links": {
-        "github": "https://github.com/rophy/happy",
+        "github": "https://github.com/rophy/happycc",
         "issues": "https://example.com/happy/issues",
         "privacy": "https://example.com/privacy",
         "terms": "https://example.com/terms",

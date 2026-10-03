@@ -55,8 +55,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
-          if [[ "$GITHUB_REPOSITORY" != 'slopus/happy' || "$GITHUB_REF" != 'refs/heads/main' ]]; then
-            echo 'Happy CLI releases must be dispatched from slopus/happy main.' >&2
+          if [[ "$GITHUB_REPOSITORY" != 'rophy/happycc' || "$GITHUB_REF" != 'refs/heads/main' ]]; then
+            echo 'Happy CLI releases must be dispatched from rophy/happycc main.' >&2
             exit 1
           fi
           node --test scripts/cli-release.test.cjs

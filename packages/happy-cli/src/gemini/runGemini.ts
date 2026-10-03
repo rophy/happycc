@@ -84,7 +84,7 @@ export async function runGemini(opts: {
   const machineId = settings?.machineId;
   const sandboxConfig = settings?.sandboxConfig;
   if (!machineId) {
-    console.error(`[START] No machine ID found in settings, which is unexpected since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/slopus/happy-cli/issues`);
+    console.error(`[START] No machine ID found in settings, which is unexpected since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/rophy/happycc/issues`);
     process.exit(1);
   }
   logger.debug(`Using machineId: ${machineId}`);

@@ -22,7 +22,7 @@ test('rejects unsafe versions, wrong channels, and noncanonical semver', () => {
 
 const manifest = () => ({
   name: 'happycc', version: '1.2.4-beta.0',
-  repository: { url: 'git+https://github.com/slopus/happy.git' },
+  repository: { url: 'git+https://github.com/rophy/happycc.git' },
   dependencies: { zod: '^4.0.0' },
   devDependencies: { '@slopus/happy-wire': 'workspace:*' },
 });

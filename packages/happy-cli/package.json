@@ -5,11 +5,11 @@
   "author": "Kirill Dubovitskiy",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://happy.engineering",
-  "bugs": "https://github.com/slopus/happy/issues",
+  "homepage": "https://github.com/rophy/happycc",
+  "bugs": "https://github.com/rophy/happycc/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/slopus/happy"
+    "url": "https://github.com/rophy/happycc"
   },
   "bin": {
     "happycc": "./bin/happy.mjs",

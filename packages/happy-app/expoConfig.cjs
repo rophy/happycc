@@ -32,7 +32,7 @@ const LOGO_MAX_BYTES = 256 * 1024;
 const PRODUCTION_REQUIRED = ['bundleId', 'scheme', 'serverUrl'];
 
 /** The fork's source, shown in Settings unless the config sets `links.github` to null. */
-const DEFAULT_GITHUB_URL = 'https://github.com/rophy/happy';
+const DEFAULT_GITHUB_URL = 'https://github.com/rophy/happycc';
 
 /**
  * R8 keep rules for JNI-backed libraries that ship no consumer ProGuard rules

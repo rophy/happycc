@@ -36,7 +36,7 @@ each key. Relative paths inside the file resolve against the file's own director
 | `eas.owner` | no | none | EAS account that owns the project. |
 | `googleServicesFile` | no | none | Path to your Firebase `google-services.json` (Android push). The file in the repo is not used unless this points to it. |
 | `assetsDir` | no | `packages/happy-app/sources/assets/images` | Directory with your icons and splash images (same file names). |
-| `links.github` | no | `https://github.com/rophy/happy` | Settings › GitHub. `null` hides the row. |
+| `links.github` | no | `https://github.com/rophy/happycc` | Settings › GitHub. `null` hides the row. |
 | `links.issues` | no | none | Issue tracker, e.g. `https://example.com/issues`. Settings › Report an Issue and the onboarding Get help button. |
 | `links.privacy` | no | none | Settings › Privacy Policy. |
 | `links.terms` | no | none | Settings › Terms of Service. |
@@ -75,7 +75,7 @@ Example, also committed as `deploy/app-config/org.example.json` (a test keeps it
     },
     "assetsDir": "../../packages/happy-app/sources/assets/images",
     "links": {
-        "github": "https://github.com/rophy/happy",
+        "github": "https://github.com/rophy/happycc",
         "issues": "https://example.com/happy/issues",
         "privacy": "https://example.com/privacy",
         "terms": "https://example.com/terms",

@@ -33,8 +33,8 @@ describe('resolveAppLinks', () => {
 
 describe('linkDetail', () => {
     it('shows owner/repo for GitHub and host plus path elsewhere', () => {
-        expect(linkDetail('https://github.com/rophy/happy')).toBe('rophy/happy');
-        expect(linkDetail('https://github.com/rophy/happy/')).toBe('rophy/happy');
+        expect(linkDetail('https://github.com/rophy/happycc')).toBe('rophy/happycc');
+        expect(linkDetail('https://github.com/rophy/happycc/')).toBe('rophy/happycc');
         expect(linkDetail('https://git.example.com/team/happy')).toBe('git.example.com/team/happy');
     });
 });

@@ -19,7 +19,7 @@ function checkManifest(manifest, version) {
   const repository = typeof manifest.repository === 'string'
     ? manifest.repository : manifest.repository?.url;
   assert.equal(repository?.replace(/^git\+/, '').replace(/\.git$/, ''),
-    'https://github.com/slopus/happy', 'Provenance must identify slopus/happy');
+    'https://github.com/rophy/happycc', 'Provenance must identify rophy/happycc');
   for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
     assert(!manifest[field]?.['@slopus/happy-wire'], 'happy-wire must be bundled, not a runtime dependency');
     for (const spec of Object.values(manifest[field] || {})) {

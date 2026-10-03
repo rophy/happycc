@@ -182,7 +182,7 @@ describe('buildExpoConfig', () => {
 
     it('carries no links but the default GitHub link unless the config sets them', () => {
         const app = build(productionConfig).extra.app;
-        expect(app.githubUrl).toBe('https://github.com/rophy/happy');
+        expect(app.githubUrl).toBe('https://github.com/rophy/happycc');
         for (const key of ['issuesUrl', 'privacyUrl', 'termsUrl', 'helpUrl']) {
             expect(app[key]).toBeUndefined();
         }
