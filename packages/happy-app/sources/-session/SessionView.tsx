@@ -29,7 +29,6 @@ import { dismissPendingChat, getPendingChat, setPendingChatDraft, submitPendingC
 import { claimComposerFocus } from '@/utils/composerFocus';
 import { storage, useIsDataReady, useLocalSetting, useSessionGitStatus, useSessionMessages, useSessionPendingCommunications, useSessionAvatar, useSessionUsage, useSetting, useSideChatSessions } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
-import { getSessionForkSource } from '@/utils/sessionFork';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
 import { Session } from '@/sync/storageTypes';
@@ -75,7 +74,8 @@ import {
 import { RigActivityBar } from '@/components/RigActivityBar';
 import { AnimatedFade } from '@/components/AnimatedOverlay';
 import { workstationOnly } from '@/config';
-import { filterModesAtOrBelow, sessionStartingPermissionMode } from '@/utils/permissionModeRank';
+import { capComposerPermissionModes } from '@/utils/permissionModeRank';
+import { getSideChatForkSource, spawnSideChatFrom } from '@/utils/sideChat';
 
 export const SessionView = React.memo((props: { id: string }) => {
     const routeId = props.id;
@@ -242,7 +242,7 @@ export const SessionView = React.memo((props: { id: string }) => {
     // (not in the panel) so the picker can create-and-focus a new one in one go.
     const rawSideChats = useSideChatSessions(sessionId ?? '');
     // Workstation-only: a side chat is a new session spawned on the machine, so there is none.
-    const sideChatForkSource = session && !workstationOnly ? getSessionForkSource(session) : null;
+    const sideChatForkSource = getSideChatForkSource(session, workstationOnly);
     const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
     // Optimistically hide a side chat the instant it's closed. The server's
     // /archive only flips active=false (not lifecycleState), so if the CLI is
@@ -282,10 +282,7 @@ export const SessionView = React.memo((props: { id: string }) => {
     }, []);
 
     const [creatingSideChat, createSideChat] = useHappyAction(async () => {
-        if (!sideChatForkSource) {
-            throw new HappyError(t('sideChat.unavailable'), false);
-        }
-        const result = await spawnSideChat(sideChatForkSource);
+        const result = await spawnSideChatFrom(sideChatForkSource, spawnSideChat, t('sideChat.unavailable'));
         if (result.type === 'error') {
             throw new HappyError(result.errorMessage, true);
         }
@@ -855,18 +852,24 @@ export function SessionViewLoaded({
     const isRig = isRigMetadata(session?.metadata);
     const {
         availableModes: allModes,
-        permissionMode,
+        permissionMode: currentPermissionMode,
         availableModels,
         modelMode,
         availableEffortLevels,
         effortLevel,
     } = useComposerModes(composerSession);
     // happycc never lets the app raise a session above the mode it started in,
-    // so the picker (and Shift+Tab) only offers the modes at or below it.
-    const startingPermissionMode = sessionStartingPermissionMode(composerSession?.metadata);
-    const availableModes = React.useMemo(
-        () => filterModesAtOrBelow(allModes, startingPermissionMode),
-        [allModes, startingPermissionMode],
+    // so the picker (and Shift+Tab) only offers the modes at or below it, and
+    // the current mode shown is one of them.
+    const composerMetadata = composerSession?.metadata;
+    const { availableModes, permissionMode } = React.useMemo(
+        () => capComposerPermissionModes({
+            modes: allModes,
+            current: currentPermissionMode,
+            metadata: composerMetadata,
+            isRig: isRigMetadata(composerMetadata),
+        }),
+        [allModes, currentPermissionMode, composerMetadata],
     );
 
     const sessionStatus = useSessionStatus(sessionOrMissing);

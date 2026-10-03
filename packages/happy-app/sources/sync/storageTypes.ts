@@ -201,6 +201,7 @@ export const MetadataSchema = z.object({
     }).passthrough().optional(),
     sandbox: z.any().nullish(), // Sandbox config metadata from CLI (or null when disabled)
     dangerouslySkipPermissions: z.boolean().nullish(), // Claude --dangerously-skip-permissions mode (or null when unknown)
+    permissionModeCeiling: z.string().optional(), // The session's starting permission mode: happycc never accepts a higher one from the app
     lifecycleState: z.string().optional(),
     lifecycleStateSince: z.number().optional(),
     archivedBy: z.string().optional(),

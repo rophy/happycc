@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterModesAtOrBelow, permissionModeRank, sessionStartingPermissionMode } from './permissionModeRank';
+import { capComposerPermissionModes, filterModesAtOrBelow, isPermissionModeAllowed, permissionModeRank, resolveDisplayedPermissionMode, sessionStartingPermissionMode } from './permissionModeRank';
 
 describe('permissionModeRank', () => {
     it.each([
@@ -19,6 +19,12 @@ describe('permissionModeRank', () => {
 });
 
 describe('sessionStartingPermissionMode', () => {
+    it('uses the ceiling happycc publishes', () => {
+        expect(sessionStartingPermissionMode({ permissionModeCeiling: 'acceptEdits' })).toBe('acceptEdits');
+        expect(sessionStartingPermissionMode({ permissionModeCeiling: 'plan', dangerouslySkipPermissions: false })).toBe('plan');
+        expect(sessionStartingPermissionMode({ permissionModeCeiling: 'default', dangerouslySkipPermissions: true })).toBe('default');
+    });
+
     it('is bypass when the CLI says the session skips permissions', () => {
         expect(sessionStartingPermissionMode({ dangerouslySkipPermissions: true })).toBe('bypassPermissions');
     });
@@ -53,18 +59,69 @@ describe('filterModesAtOrBelow', () => {
         expect(filterModesAtOrBelow([{ key: 'default' }, { key: 'turbo' }], 'yolo').map((m) => m.key)).toEqual(['default']);
     });
 
-    it('ranks an opaque code by the semantic kind published beside it, whichever is more permissive', () => {
-        const rig = [
-            { key: 'ask', semanticKind: 'default' },
-            { key: 'auto', semanticKind: 'safe-yolo' },
-            { key: 'full', semanticKind: 'yolo' },
-            { key: 'custom', semanticKind: null },
-        ];
-        expect(filterModesAtOrBelow(rig, 'default').map((m) => m.key)).toEqual(['ask']);
-        expect(filterModesAtOrBelow(rig, 'acceptEdits').map((m) => m.key)).toEqual(['ask', 'auto']);
-    });
-
     it('treats an unranked starting mode as default', () => {
         expect(filterModesAtOrBelow(claude, 'turbo').map((m) => m.key)).toEqual(['default', 'plan']);
+    });
+});
+
+describe('the picker for a session with a published ceiling', () => {
+    const claude = [{ key: 'default' }, { key: 'acceptEdits' }, { key: 'plan' }, { key: 'bypassPermissions' }];
+    const offered = (ceiling: string) => filterModesAtOrBelow(claude, sessionStartingPermissionMode({ permissionModeCeiling: ceiling })).map((m) => m.key);
+
+    it('offers acceptEdits, default and plan for an acceptEdits start', () => {
+        expect(offered('acceptEdits')).toEqual(['default', 'acceptEdits', 'plan']);
+    });
+
+    it('offers only plan for a plan start', () => {
+        expect(offered('plan')).toEqual(['plan']);
+    });
+
+    it('falls back to the heuristic without one (older CLIs)', () => {
+        expect(filterModesAtOrBelow(claude, sessionStartingPermissionMode({})).map((m) => m.key)).toEqual(['default', 'plan']);
+        expect(filterModesAtOrBelow(claude, sessionStartingPermissionMode({ dangerouslySkipPermissions: true }))).toEqual(claude);
+    });
+});
+
+describe('isPermissionModeAllowed', () => {
+    it('allows ranked modes at or below the ceiling only', () => {
+        expect(isPermissionModeAllowed('plan', 'default')).toBe(true);
+        expect(isPermissionModeAllowed('acceptEdits', 'default')).toBe(false);
+        expect(isPermissionModeAllowed('yolo', 'yolo')).toBe(true);
+        expect(isPermissionModeAllowed('turbo', 'yolo')).toBe(false);
+    });
+});
+
+describe('resolveDisplayedPermissionMode', () => {
+    const modes = [{ key: 'default' }, { key: 'plan' }];
+    it('shows the current mode when it is on offer', () => {
+        expect(resolveDisplayedPermissionMode({ key: 'plan' }, modes, 'default')).toEqual({ key: 'plan' });
+    });
+    it('shows the ceiling for a pick above it', () => {
+        expect(resolveDisplayedPermissionMode({ key: 'bypassPermissions' }, modes, 'default')).toEqual({ key: 'default' });
+        expect(resolveDisplayedPermissionMode(null, modes, 'default')).toEqual({ key: 'default' });
+    });
+    it('shows nothing when the ceiling itself is not on offer', () => {
+        expect(resolveDisplayedPermissionMode({ key: 'yolo' }, [{ key: 'read-only' }], 'plan')).toBeNull();
+    });
+});
+
+describe('capComposerPermissionModes', () => {
+    const claude = [{ key: 'default' }, { key: 'acceptEdits' }, { key: 'plan' }, { key: 'bypassPermissions' }];
+
+    it('offers modes up to the ceiling and shows a stale higher pick as the ceiling', () => {
+        const result = capComposerPermissionModes({
+            modes: claude,
+            current: { key: 'bypassPermissions' },
+            metadata: { permissionModeCeiling: 'acceptEdits' },
+            isRig: false,
+        });
+        expect(result.availableModes.map((m) => m.key)).toEqual(['default', 'acceptEdits', 'plan']);
+        expect(result.permissionMode).toEqual({ key: 'acceptEdits' });
+    });
+
+    it('leaves a Rig session catalog alone', () => {
+        const rig = [{ key: 'ask' }, { key: 'full' }];
+        expect(capComposerPermissionModes({ modes: rig, current: rig[1], metadata: {}, isRig: true }))
+            .toEqual({ availableModes: rig, permissionMode: rig[1] });
     });
 });

@@ -15,6 +15,7 @@ import {
     isRigMetadataV1,
     rigSendsMessageReceipts,
 } from './rig';
+import { isPermissionModeAllowed, sessionStartingPermissionMode } from '@/utils/permissionModeRank';
 
 export function resolveMessageDeliveryMeta(
     session: Pick<Session, 'metadata' | 'thinking' | 'agentState'>,
@@ -138,7 +139,7 @@ export function resolveMessageModeMeta(
         meta.model = modelMode === 'default' ? null : modelMode;
 
         meta.effort = session.effortLevel ?? defaults.effortLevel;
-        return meta;
+        return capOutgoingPermissionMode(meta, session.metadata);
     }
 
     if (session.permissionMode !== null && session.permissionMode !== undefined) {
@@ -159,5 +160,17 @@ export function resolveMessageModeMeta(
         meta.effort = effort;
     }
 
+    return capOutgoingPermissionMode(meta, session.metadata);
+}
+
+/**
+ * happycc never lets the app raise a session above its starting mode and
+ * ignores unranked modes, telling the user each time. A mode it would refuse
+ * is not sent at all, so the session simply keeps its current mode.
+ */
+function capOutgoingPermissionMode(meta: MessageModeMeta, metadata: Session['metadata']): MessageModeMeta {
+    if (meta.permissionMode && !isPermissionModeAllowed(meta.permissionMode, sessionStartingPermissionMode(metadata))) {
+        delete meta.permissionMode;
+    }
     return meta;
 }

@@ -129,7 +129,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.0' },
+            metadata: { flavor: 'codex', version: '1.2.0', permissionModeCeiling: 'yolo' },
         } as any, {
             agentDefaultOverrides: { codex: { permissionMode: 'yolo' } },
         } as any);
@@ -145,7 +145,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: 'dontAsk',
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude' },
+            metadata: { flavor: 'claude', permissionModeCeiling: 'acceptEdits' },
         } as any);
 
         expect(meta.permissionMode).toBe('acceptEdits');
@@ -156,7 +156,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude' },
+            metadata: { flavor: 'claude', permissionModeCeiling: 'acceptEdits' },
         } as any, {
             agentDefaultOverrides: { claude: { permissionMode: 'dontAsk' } },
         } as any);
@@ -258,7 +258,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude' },
+            metadata: { flavor: 'claude', permissionModeCeiling: 'bypassPermissions' },
         } as any, {
             agentDefaultOverrides: {
                 claude: {
@@ -393,5 +393,62 @@ describe('resolveMessageModeMeta', () => {
         } as any);
 
         expect(meta.effort).toBe('high');
+    });
+
+    describe('never sends a mode happycc would refuse', () => {
+        it('drops a session pick above the published ceiling', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: 'bypassPermissions',
+                modelMode: null,
+                effortLevel: null,
+                metadata: { flavor: 'claude', permissionModeCeiling: 'acceptEdits' },
+            } as any);
+            expect(meta).not.toHaveProperty('permissionMode');
+        });
+
+        it('keeps a pick at or below the ceiling', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: 'plan',
+                modelMode: null,
+                effortLevel: null,
+                metadata: { flavor: 'claude', permissionModeCeiling: 'acceptEdits' },
+            } as any);
+            expect(meta.permissionMode).toBe('plan');
+        });
+
+        it('drops a settings default above the ceiling', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: null,
+                modelMode: null,
+                effortLevel: null,
+                metadata: { flavor: 'claude', permissionModeCeiling: 'default' },
+            } as any, {
+                agentDefaultOverrides: { claude: { permissionMode: 'bypassPermissions' } },
+            } as any);
+            expect(meta).not.toHaveProperty('permissionMode');
+        });
+
+        it('drops a Codex default above a read-only start', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: null,
+                modelMode: null,
+                effortLevel: null,
+                metadata: { flavor: 'codex', permissionModeCeiling: 'read-only' },
+            } as any);
+            expect(meta).not.toHaveProperty('permissionMode');
+            expect(meta.effort).toBe('medium');
+        });
+
+        it('caps by the heuristic for a CLI that publishes no ceiling', () => {
+            const plain = resolveMessageModeMeta({
+                permissionMode: 'acceptEdits', modelMode: null, effortLevel: null, metadata: { flavor: 'claude' },
+            } as any);
+            expect(plain).not.toHaveProperty('permissionMode');
+            const bypass = resolveMessageModeMeta({
+                permissionMode: 'acceptEdits', modelMode: null, effortLevel: null,
+                metadata: { flavor: 'claude', dangerouslySkipPermissions: true },
+            } as any);
+            expect(bypass.permissionMode).toBe('acceptEdits');
+        });
     });
 });
