@@ -30,7 +30,7 @@ SDK dependency, not the `Dockerfile.cli` build arg.
 | tool-deny | ✓ (turn not closed, [bug 2](#bugs-found)) | ✓ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | abort | ✓ | runner crashes ([bug 4](#bugs-found)) | runner crashes ([bug 4](#bugs-found)) |
 | kill | `stop` leaves the process running ([bug 3](#bugs-found)) | same | same |
-| offline-start | not re-verified here (manual test + fix c5bb1440) | same | same |
+| offline-start | fails ([bug 6](#bugs-found)) | ✓ | ✓ |
 | resume | ✓ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
 | spawn | ✓ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
 
@@ -156,6 +156,18 @@ Claude Code: `send 'compat:slow'`, `abort S` after 6 s → `turn-end` `cancelled
 
 OpenCode and Pi: see bug 4.
 
+## Scenarios 4-6 (`tests/lifecycle.test.ts`)
+
+- abort: Claude passes (`turn-end` after the abort, no `COMPAT-SLOW-END`, a following `compat:hello` is answered).
+  OpenCode and Pi are known-bug #4 cells: after `abort`, no `turn-end` within 30 s, the runner pid
+  (`metadata.hostPid`) is gone and the session is still `active`. The "started" signal is a 5 s delay after the
+  message reaches the session, not the reply text: Pi delivers the whole reply as one text event only when it is
+  complete (seen at ~20 s), and Claude's first turn emits no new `turn-start` (bug 1).
+- kill: known-bug #3 on all three agents. `stop` returns 0 and the session reports `active: false`, but the runner
+  pid from `metadata.hostPid` is still alive 30 s later.
+- offline-start: OpenCode and Pi pass (CLI logs `offline mode`, then `Reconnected`, a session appears and answers
+  `compat:hello`). Claude fails, see bug 6.
+
 ## Stack fixes
 
 Made during this investigation (config of our stack, not product code):
@@ -207,3 +219,11 @@ Harness findings (in `src/session.ts`):
    the turn also archives the session (seen with the old 1500 ms fixture).
 5. **ACP turn end is a 500 ms silence heuristic** (`DEFAULT_IDLE_TIMEOUT_MS`), not the ACP prompt response. A reply
    that pauses for over 500 ms is split into two turns. Worked around in the fixture (stack fix 2), not fixed.
+6. **Claude: `happycc --happy-starting-mode remote` started while the server is down does not become a remote session.**
+   `runClaude.ts` (~line 182) handles an unreachable server by running Claude locally (`claudeLocal`, interactive) and
+   only mirroring its transcript after reconnect. Without a TTY (the suite's detached start) Claude runs in `--print`
+   mode and exits: CLI log `Error: Input must be provided either through stdin or as a prompt argument when using --print`,
+   `Error: Process exited with code: 1`, and no `Reconnected`. With a TTY (`script -qec`) it reconnects and a session
+   appears, but `send --wait compat:hello` times out (exit 124) and history holds only the user message: the offline
+   path never wires incoming app messages to Claude. (Claude's first-run theme prompt was also on screen in that
+   experiment, so the second symptom is not isolated from it.) The cell stays a plain failure, not a known-bug cell.

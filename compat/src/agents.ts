@@ -16,6 +16,9 @@ export type AgentDef = {
 const NO_ACP_SPAWN = 'The daemon cannot spawn ACP agents yet.';
 const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
 
+const BUG_STOP = '#3: `happycc-agent stop` leaves the runner process running';
+const BUG_ACP_ABORT = '#4: aborting mid-reply crashes the ACP runner';
+
 export const AGENTS: Record<AgentId, AgentDef> = {
     claude: {
         label: 'Claude Code',
@@ -24,6 +27,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
         knownBugs: {
             roundtrip: '#1: the first turn of a session never gets turn-end',
             'tool-deny': '#2: denying a permission leaves the turn open',
+            kill: BUG_STOP,
         },
     },
     opencode: {
@@ -33,6 +37,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
             spawn: NO_ACP_SPAWN,
             resume: `The daemon cannot resume ACP sessions (resume fails: uses unsupported flavor "opencode").`,
         },
+        knownBugs: { abort: BUG_ACP_ABORT, kill: BUG_STOP },
     },
     pi: {
         label: 'Pi',
@@ -43,5 +48,6 @@ export const AGENTS: Record<AgentId, AgentDef> = {
             'tool-allow': NO_PI_PROMPTS,
             'tool-deny': NO_PI_PROMPTS,
         },
+        knownBugs: { abort: BUG_ACP_ABORT, kill: BUG_STOP },
     },
 };

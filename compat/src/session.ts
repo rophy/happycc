@@ -98,3 +98,22 @@ export async function warmUp(sessionId: string): Promise<number> {
     await awaitTurnEnd(sessionId, 0, 15).catch(() => {});
     return turnEndCount(sessionId);
 }
+
+/** The pid of the runner process behind a session (`metadata.hostPid`), read while the session is still listed. */
+export async function runnerPid(sessionId: string): Promise<number> {
+    const sessions = await agentJson<Array<{ id: string; metadata?: { hostPid?: number } }>>('list');
+    const pid = sessions.find((s) => s.id === sessionId)?.metadata?.hostPid;
+    if (!pid) throw new Error(`Session ${sessionId} has no metadata.hostPid`);
+    return pid;
+}
+
+/** True while the pid exists on the cli device and is not a zombie. */
+export async function pidAlive(pid: number): Promise<boolean> {
+    const { stdout } = await exec('cli', `ps -o stat= -p ${pid}`, { allowFail: true });
+    const stat = stdout.trim();
+    return stat !== '' && !stat.startsWith('Z');
+}
+
+export async function sessionActive(sessionId: string): Promise<boolean> {
+    return (await agentJson<{ active: boolean }>(`status ${shellQuote(sessionId)}`)).active;
+}
