@@ -77,6 +77,8 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
     flavor: 'agy',
     machineId: settings.machineId,
     startedBy: opts.startedBy,
+    // Same as STARTING_PERMISSION_MODE below: the app may never raise the session above it.
+    permissionModeCeiling: 'default',
   });
   const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
   if (response) {

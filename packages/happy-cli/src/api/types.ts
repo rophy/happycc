@@ -335,6 +335,12 @@ export type Metadata = {
   flavor?: string
   sandbox?: SandboxConfig | null
   dangerouslySkipPermissions?: boolean | null
+  /**
+   * The session's starting permission mode: the most permissive mode the app
+   * may switch it to (see utils/permissionModeCeiling). The app offers only
+   * modes at or below it.
+   */
+  permissionModeCeiling?: string
   /** Lineage for sessions created via the fork / duplicate flow. */
   parentSessionId?: string
   forkedFromMessageId?: string

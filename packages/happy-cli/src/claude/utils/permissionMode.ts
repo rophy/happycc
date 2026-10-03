@@ -131,6 +131,34 @@ export function applySandboxPermissionPolicy(
     return 'bypassPermissions';
 }
 
+/**
+ * The mode a Claude session starts in and what the session publishes about it:
+ * the sandbox forces bypass, and the starting mode (unset = `default`) is the
+ * ceiling the app may never raise the session above.
+ */
+export function resolveClaudeStartingPermissions(
+    permissionMode: PermissionMode | undefined,
+    claudeArgs: string[] | undefined,
+    sandboxEnabled: boolean,
+): {
+    initialPermissionMode: PermissionMode | undefined;
+    dangerouslySkipPermissions: boolean;
+    permissionModeCeiling: PermissionMode;
+} {
+    const initialPermissionMode = applySandboxPermissionPolicy(
+        resolveInitialClaudePermissionMode(permissionMode, claudeArgs),
+        sandboxEnabled,
+    );
+    return {
+        initialPermissionMode,
+        dangerouslySkipPermissions: initialPermissionMode === 'bypassPermissions'
+            || initialPermissionMode === 'yolo'
+            || sandboxEnabled
+            || Boolean(claudeArgs?.includes('--dangerously-skip-permissions')),
+        permissionModeCeiling: initialPermissionMode ?? 'default',
+    };
+}
+
 export function isClaudeBypassEquivalent(mode: PermissionMode | undefined): boolean {
     return mode === 'bypassPermissions' || mode === 'yolo';
 }

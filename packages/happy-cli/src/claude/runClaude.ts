@@ -34,7 +34,7 @@ import {
 } from '@/claude/claudeGoalStatus';
 import { Session } from './session';
 import { capPermissionMode, permissionModeCapNotice } from '@/utils/permissionModeCeiling';
-import { applySandboxPermissionPolicy, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './utils/permissionMode';
+import { normalizeRemotePermissionMode, resolveClaudeStartingPermissions, resolveRemoteClaudePermissionMode } from './utils/permissionMode';
 import { decodeBase64, encodeBase64 } from '@/api/encryption';
 import type { Session as ApiSession } from '@/api/types';
 import { getProjectPath } from './utils/path';
@@ -105,15 +105,11 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let machineId = settings?.machineId
     const sandboxConfig = options.noSandbox ? undefined : settings?.sandboxConfig;
     const sandboxEnabled = Boolean(sandboxConfig?.enabled);
-    const initialPermissionMode = applySandboxPermissionPolicy(
-        resolveInitialClaudePermissionMode(options.permissionMode, options.claudeArgs),
-        sandboxEnabled,
-    );
-    const dangerouslySkipPermissions =
-        initialPermissionMode === 'bypassPermissions' ||
-        initialPermissionMode === 'yolo' ||
-        sandboxEnabled ||
-        Boolean(options.claudeArgs?.includes('--dangerously-skip-permissions'));
+    const {
+        initialPermissionMode,
+        dangerouslySkipPermissions,
+        permissionModeCeiling,
+    } = resolveClaudeStartingPermissions(options.permissionMode, options.claudeArgs, sandboxEnabled);
     if (!machineId) {
         console.error(`[START] No machine ID found in settings, which is unexpected since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/slopus/happy-cli/issues`);
         process.exit(1);
@@ -150,6 +146,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         flavor: 'claude',
         sandbox: sandboxConfig?.enabled ? sandboxConfig : null,
         dangerouslySkipPermissions,
+        permissionModeCeiling,
         ...(forkedFromSessionId ? { parentSessionId: forkedFromSessionId } : {}),
         ...(forkedFromMessageId ? { forkedFromMessageId } : {}),
         ...(isSideChat ? { isSideChat: true } : {}),

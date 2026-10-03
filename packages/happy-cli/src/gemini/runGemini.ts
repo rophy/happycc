@@ -134,6 +134,8 @@ export async function runGemini(opts: {
     machineId,
     startedBy: opts.startedBy,
     sandbox: sandboxConfig,
+    // Same as startingPermissionMode below: the app may never raise the session above it.
+    permissionModeCeiling: 'default',
   });
   const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
 

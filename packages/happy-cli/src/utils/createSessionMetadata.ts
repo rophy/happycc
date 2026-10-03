@@ -36,6 +36,8 @@ export interface CreateSessionMetadataOptions {
     sandbox?: SandboxConfig;
     /** Whether the backend runs with "dangerously skip permissions" behavior */
     dangerouslySkipPermissions?: boolean;
+    /** Starting permission mode, published so the app offers only modes at or below it. */
+    permissionModeCeiling?: string;
     /** Happy session id this session was forked from. */
     parentSessionId?: string;
     /** Happy message id used as the fork rewind point. */
@@ -113,6 +115,7 @@ export function createSessionMetadata(opts: CreateSessionMetadataOptions): Sessi
         flavor: opts.flavor,
         sandbox: opts.sandbox?.enabled ? opts.sandbox : null,
         dangerouslySkipPermissions: opts.dangerouslySkipPermissions ?? null,
+        ...(opts.permissionModeCeiling ? { permissionModeCeiling: opts.permissionModeCeiling } : {}),
         ...(gitBranch ? { gitBranch } : {}),
         ...(opts.parentSessionId ? { parentSessionId: opts.parentSessionId } : {}),
         ...(opts.forkedFromMessageId ? { forkedFromMessageId: opts.forkedFromMessageId } : {}),

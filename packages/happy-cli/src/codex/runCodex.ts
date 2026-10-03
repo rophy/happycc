@@ -56,6 +56,7 @@ import {
     parseCodexGoalCommand,
     type CodexGoalCommand,
 } from './codexGoalStatus';
+import { codexStartingPermissionMetadata } from './codexStartingPermission';
 
 /**
  * Extracts a human-readable error from a codex task_complete/turn_aborted event.
@@ -170,7 +171,7 @@ export async function runCodex(opts: {
         machineId,
         startedBy: opts.startedBy,
         sandbox: sandboxConfig,
-        dangerouslySkipPermissions: initialPermissionMode === 'yolo' || initialPermissionMode === 'bypassPermissions',
+        ...codexStartingPermissionMetadata(initialPermissionMode),
         ...(forkedFromSessionId ? { parentSessionId: forkedFromSessionId } : {}),
         ...(forkedFromMessageId ? { forkedFromMessageId } : {}),
         ...(isSideChat ? { isSideChat: true } : {}),

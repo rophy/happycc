@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applySandboxPermissionPolicy, extractPermissionModeFromClaudeArgs, mapToClaudeMode, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './permissionMode';
+import { applySandboxPermissionPolicy, resolveClaudeStartingPermissions, extractPermissionModeFromClaudeArgs, mapToClaudeMode, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './permissionMode';
 import { MessageMetaSchema, type PermissionMode } from '@/api/types';
 
 describe('mapToClaudeMode', () => {
@@ -168,5 +168,30 @@ describe('MessageMetaSchema permission mode', () => {
     it('accepts a mode this CLI does not know without failing the message', () => {
         const parsed = MessageMetaSchema.safeParse({ permissionMode: 'mode-from-the-future' });
         expect(parsed.success).toBe(true);
+    });
+});
+
+describe('resolveClaudeStartingPermissions', () => {
+    it('publishes the starting mode as the ceiling', () => {
+        expect(resolveClaudeStartingPermissions('acceptEdits', undefined, false)).toEqual({
+            initialPermissionMode: 'acceptEdits', dangerouslySkipPermissions: false, permissionModeCeiling: 'acceptEdits',
+        });
+        expect(resolveClaudeStartingPermissions('plan', undefined, false).permissionModeCeiling).toBe('plan');
+    });
+
+    it('uses default as the ceiling when no mode is set', () => {
+        expect(resolveClaudeStartingPermissions(undefined, undefined, false)).toEqual({
+            initialPermissionMode: undefined, dangerouslySkipPermissions: false, permissionModeCeiling: 'default',
+        });
+    });
+
+    it('takes the mode from the claude arguments', () => {
+        expect(resolveClaudeStartingPermissions(undefined, ['--permission-mode', 'acceptEdits'], false).permissionModeCeiling).toBe('acceptEdits');
+    });
+
+    it('is bypass when the sandbox forces it', () => {
+        expect(resolveClaudeStartingPermissions('default', undefined, true)).toEqual({
+            initialPermissionMode: 'bypassPermissions', dangerouslySkipPermissions: true, permissionModeCeiling: 'bypassPermissions',
+        });
     });
 });

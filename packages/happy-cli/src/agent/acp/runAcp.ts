@@ -479,6 +479,8 @@ export async function runAcp(opts: {
     machineId: settings.machineId,
     startedBy: opts.startedBy,
     sandbox: settings.sandboxConfig,
+    // Same as STARTING_ACP_PERMISSION_MODE below: the app may never raise the session above it.
+    permissionModeCeiling: 'default',
   });
   const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
   if (response) {

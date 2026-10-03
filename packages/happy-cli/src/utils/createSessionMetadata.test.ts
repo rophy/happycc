@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SandboxConfig } from '@/persistence';
 import { createSessionMetadata } from './createSessionMetadata';
+import { codexStartingPermissionMetadata } from '@/codex/codexStartingPermission';
 
 vi.mock('node:child_process', () => ({
     execSync: vi.fn(),
@@ -151,5 +152,21 @@ describe('createSessionMetadata', () => {
         });
 
         expect(unavailable.metadata.gitBranch).toBeUndefined();
+    });
+
+    it('publishes the starting permission mode as the ceiling when given, and omits it otherwise', () => {
+        const codex = createSessionMetadata({
+            flavor: 'codex',
+            machineId: 'machine-1',
+            ...codexStartingPermissionMetadata('safe-yolo'),
+        });
+        expect(codex.metadata.permissionModeCeiling).toBe('safe-yolo');
+        expect(codex.metadata.dangerouslySkipPermissions).toBe(false);
+
+        const gemini = createSessionMetadata({ flavor: 'gemini', machineId: 'machine-1', permissionModeCeiling: 'default' });
+        expect(gemini.metadata.permissionModeCeiling).toBe('default');
+
+        const openclaw = createSessionMetadata({ flavor: 'openclaw', machineId: 'machine-1' });
+        expect(openclaw.metadata).not.toHaveProperty('permissionModeCeiling');
     });
 });
