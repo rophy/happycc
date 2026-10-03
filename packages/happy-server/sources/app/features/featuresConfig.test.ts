@@ -19,7 +19,7 @@ describe('loadFeaturesConfig', () => {
     });
 
     it('ignores leftover voice settings now that voice is removed', () => {
-        expect(loadFeaturesConfig({ VOICE_MONTHLY_LIMIT_MINUTES: 'lots' })).toEqual({ github: null, pushEnabled: true });
+        expect(loadFeaturesConfig({ ELEVENLABS_API_KEY: 'xi-key', ELEVENLABS_AGENT_ID: 'agent_corp', VOICE_MONTHLY_LIMIT_MINUTES: 'lots' })).toEqual({ github: null, pushEnabled: true });
     });
 
     it('enables GitHub connect only when all OAuth settings are set', () => {

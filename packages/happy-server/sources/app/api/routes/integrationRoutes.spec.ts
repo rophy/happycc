@@ -78,6 +78,9 @@ describe('integrationRoutes', () => {
 
     it('registers GitHub routes when configured, never voice routes', async () => {
         const app = await buildApp({
+            // The settings that used to turn voice on must no longer register it.
+            ELEVENLABS_API_KEY: 'xi-key',
+            ELEVENLABS_AGENT_ID: 'agent_corp',
             VOICE_MONTHLY_LIMIT_MINUTES: '60',
             GITHUB_CLIENT_ID: 'gh-client',
             GITHUB_CLIENT_SECRET: 'gh-secret',
@@ -87,8 +90,10 @@ describe('integrationRoutes', () => {
         const features = await app.inject({ method: 'GET', url: '/v1/features', headers: AUTH });
         expect(features.json()).toEqual({ githubConnect: true, push: false });
 
-        const usage = await app.inject({ method: 'GET', url: '/v1/voice/usage', headers: AUTH });
-        expect(usage.statusCode).toBe(404);
+        for (const [method, url] of [['POST', '/v1/voice/conversations'], ['GET', '/v1/voice/usage']] as const) {
+            const res = await app.inject({ method, url, headers: AUTH });
+            expect(res.statusCode, `${method} ${url}`).toBe(404);
+        }
         const params = await app.inject({ method: 'GET', url: '/v1/connect/github/params', headers: AUTH });
         expect(params.statusCode).toBe(200);
         await app.close();
