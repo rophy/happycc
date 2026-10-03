@@ -2,7 +2,7 @@ import { afterEach, describe, expect } from 'vitest';
 import { forEachAgent } from '../src/matrix';
 import { KnownBugSymptom } from '../src/knownBug';
 import {
-    startSession, startDetached, newestSessionSince, sendAndWait, historyText, stopSession, cleanupAgentProcesses,
+    startSession, startDetached, newestSessionSince, sendAndWait, historyText, stopSession, killSession, cleanupAgentProcesses,
     awaitTurnEnd, warmUp, turnEndCount, runnerPid, pidAlive, sessionActive,
 } from '../src/session';
 import { compose, exec, poll, shellQuote } from '../src/stack';
@@ -12,8 +12,11 @@ let sessionId: string | undefined;
 afterEach(async () => {
     if (sessionId) await stopSession(sessionId).catch(() => {});
     sessionId = undefined;
-    await compose('start server');
-    await cleanupAgentProcesses();
+    try {
+        await compose('start server');
+    } finally {
+        await cleanupAgentProcesses();
+    }
 });
 
 describe('lifecycle', () => {
@@ -45,20 +48,18 @@ describe('lifecycle', () => {
         expect(await historyText(id)).toContain('COMPAT-HELLO-OK');
     });
 
-    // Kill: the runner exits and the session ends (all agents: bug 3, `stop` only sends session-end).
+    // Kill, as the app does it (the killSession session RPC): the runner exits and the session ends.
     forEachAgent('kill', async (agent) => {
         sessionId = await startSession(agent, `/tmp/compat-${agent}-kill.log`);
         const id = sessionId;
         const pid = await runnerPid(id);
         await warmUp(id);
         expect(await pidAlive(pid)).toBe(true);
-        await stopSession(id);
-        const exited = await poll(async () => ((await pidAlive(pid)) ? undefined : true),
-            { timeoutMs: 30_000, what: `runner ${pid} to exit` }).catch(() => false);
-        if (!exited) {
-            throw new KnownBugSymptom(3, `stop succeeded (session active=${await sessionActive(id)}) but runner process ${pid} is still alive after 30s`);
-        }
-        expect(await sessionActive(id)).toBe(false);
+        await killSession(id);
+        await poll(async () => ((await pidAlive(pid)) ? undefined : true),
+            { timeoutMs: 30_000, what: `runner ${pid} to exit` });
+        await poll(async () => ((await sessionActive(id)) ? undefined : true),
+            { timeoutMs: 30_000, what: `session ${id} to report inactive` });
         sessionId = undefined;
     });
 

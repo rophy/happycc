@@ -54,6 +54,11 @@ export async function stopSession(sessionId: string): Promise<void> {
     await exec('app', `happycc-agent stop ${shellQuote(sessionId)}`);
 }
 
+/** Kill the session process the way the app does (the `killSession` session RPC). */
+export async function killSession(sessionId: string): Promise<void> {
+    await exec('app', `happycc-agent kill ${shellQuote(sessionId)}`);
+}
+
 /** Kill leftover agent runners (never the daemon) so scenarios don't leak into each other. */
 export async function cleanupAgentProcesses(): Promise<void> {
     // Runners show up as `node …/happycc/dist/index.mjs acp …` (or `… claude --happy-starting-mode …` when the daemon
@@ -102,13 +107,19 @@ export async function warmUp(sessionId: string): Promise<number> {
 /** The pid of the runner process behind a session (`metadata.hostPid`), read while the session is still listed. */
 export async function runnerPid(sessionId: string): Promise<number> {
     const sessions = await agentJson<Array<{ id: string; metadata?: { hostPid?: number } }>>('list');
-    const pid = sessions.find((s) => s.id === sessionId)?.metadata?.hostPid;
-    if (!pid) throw new Error(`Session ${sessionId} has no metadata.hostPid`);
+    const pid: unknown = sessions.find((s) => s.id === sessionId)?.metadata?.hostPid;
+    if (!isPid(pid)) throw new Error(`Session ${sessionId} has no valid metadata.hostPid (got ${JSON.stringify(pid)})`);
     return pid;
+}
+
+/** A positive integer, safe to interpolate into a shell command. */
+export function isPid(value: unknown): value is number {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 /** True while the pid exists on the cli device and is not a zombie. */
 export async function pidAlive(pid: number): Promise<boolean> {
+    if (!isPid(pid)) throw new Error(`Not a pid: ${String(pid)}`);
     const { stdout } = await exec('cli', `ps -o stat= -p ${pid}`, { allowFail: true });
     const stat = stdout.trim();
     return stat !== '' && !stat.startsWith('Z');

@@ -19,20 +19,24 @@ Established by hand on 2026-10-03 against the compose stack, using the commands 
 Note: `happycc --happy-starting-mode remote` does **not** run the globally installed `claude`. It runs the SDK's
 bundled binary, `/usr/local/lib/node_modules/happycc/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude`
 (visible in `ps`). That binary reports `2.1.288 (Claude Code)`, the same as the pin, but it follows happycc's
-SDK dependency, not the `Dockerfile.cli` build arg.
+SDK dependency, not the `Dockerfile.cli` build arg. Global setup records it as `claudeSdk` in `.versions.json`, and
+the report prints a warning line when it differs from `claude`.
 
 ## Matrix
 
+Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #n` known product bug n
+([Bugs found](#bugs-found)), N/A not applicable (evidence linked).
+
 | Scenario | Claude Code | OpenCode | Pi |
 |---|---|---|---|
-| roundtrip | ✓ | ✓ | ✓ |
-| tool-allow | ✓ | ✓ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
-| tool-deny | ✓ (turn not closed, [bug 2](#bugs-found)) | ✓ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
-| abort | ✓ | runner crashes ([bug 4](#bugs-found)) | runner crashes ([bug 4](#bugs-found)) |
-| kill | `stop` leaves the process running ([bug 3](#bugs-found)) | same | same |
-| offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✓ | ✓ |
-| resume | ✓ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
-| spawn | ✓ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
+| roundtrip | ❌ #1 | ✅ | ✅ |
+| tool-allow | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
+| tool-deny | ❌ #2 | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
+| abort | ✅ | ❌ #4 | ❌ #4 |
+| kill | ✅ | ✅ | ✅ |
+| offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✅ | ✅ |
+| resume | ✅ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
+| spawn | ✅ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
 
 Scenarios 1-3 (`tests/conversation.test.ts`). Known-bug cells (`AGENTS[...].knownBugs`) are normal tests titled
 `known bug #n`: the body asserts the correct behaviour and throws a `KnownBugSymptom` at the exact point the bug shows
@@ -49,11 +53,17 @@ reproduces" if the body succeeds. Results on Claude Code (2 full runs of the cla
 - tool-deny on a non-first turn: reaches [bug 2](#bugs-found) on its own: the request is recorded as `denied`
   (`status --json`), no file is written, and no `turn-end` follows within 30 s. The cell is a known-bug #2 cell.
 
+`happycc-agent approve`/`deny` send the app's `permission` params for the session's flavor (Claude Code, OpenCode
+and Pi: `{ id, approved: true }` / `{ id, approved: false }`, as the app's PermissionFooter Yes / No buttons; see the
+happy-agent README). Re-run with these params on 2026-10-03: tool-allow passes on Claude Code and OpenCode, Claude
+tool-deny still shows bug 2, OpenCode tool-deny passes. (The first runs sent `decision: 'approved'` / `'denied'`
+as well; results were the same.)
+
 Tool-allow/deny wait for the `turn-end` in the history (`awaitTurnEnd`) because `happycc-agent wait` returns immediately
 (see Harness findings). No agent config was changed for these scenarios.
 
-Only N/A cells are agent limitations. The other non-✓ cells are bugs in happycc / happycc-agent and should fail
-in the suite until fixed.
+Only N/A cells are agent limitations. The `❌ #n` cells are bugs in happycc; they pass as known-bug cells while the
+bug reproduces and turn into failures once it is fixed.
 
 Conventions below: `S` is the session id, commands run with `docker compose exec -T <service> sh -lc '…'`.
 
@@ -163,8 +173,11 @@ OpenCode and Pi: see bug 4.
   (`metadata.hostPid`) is gone and the session is still `active`. The "started" signal is a 5 s delay after the
   message reaches the session, not the reply text: Pi delivers the whole reply as one text event only when it is
   complete (seen at ~20 s), and Claude's first turn emits no new `turn-start` (bug 1).
-- kill: known-bug #3 on all three agents. `stop` returns 0 and the session reports `active: false`, but the runner
-  pid from `metadata.hostPid` is still alive 30 s later.
+- kill: passes on all three agents. `happycc-agent kill S` calls the `killSession` session RPC with `{}`, as the
+  app's `sessionKill` does; the runner logs `Kill session request received`, its pid (`metadata.hostPid`) is gone
+  and `status` reports inactive within a few seconds (cells take 20-25 s including start and warm-up).
+  Earlier runs of this scenario used `happycc-agent stop`, which only sends `session-end` (see note 3 under
+  Bugs found).
 - offline-start: OpenCode and Pi pass (CLI logs `offline mode`, then `Reconnected`, a session appears and answers
   `compat:hello`). Claude is N/A by design, see [below](#claude-offline-start-is-a-local-terminal-session).
 
@@ -219,10 +232,12 @@ Harness findings (in `src/session.ts`):
    `[claudeRemote] Tool aborted, exiting claudeRemote`; `claudeRemoteLauncher` only closes the turn when
    `abortController.signal.aborted`, so no `turn-end` is sent and `send --wait` never returns. The stale turn is
    closed (as `cancelled`) by the next abort.
-3. **`happycc-agent stop` does not stop the session process.** It emits `session-end` (marks the session inactive)
-   instead of the `killSession` session RPC the app uses (`sessionKill` in `happy-app/sources/sync/ops.ts`). After
-   `stop` + 15 s: `active: false`, `lifecycleState: running`, the runner is still in `ps`, and a following
-   `compat:hello` is still answered. Same for OpenCode (Pi not tried; same code path).
+3. **Withdrawn as an agent bug: `happycc-agent stop` only sends session-end** (driver behaviour, not an agent
+   incompatibility). `stop` emits `session-end` (the server marks the session inactive) instead of the
+   `killSession` session RPC the app uses (`sessionKill` in `happy-app/sources/sync/ops.ts`); after `stop` + 15 s the
+   runner was still in `ps` and a following `compat:hello` was still answered. The kill scenario now uses
+   `happycc-agent kill` (the `killSession` RPC), which stops the runner on all three agents, so the matrix has no
+   bug-3 cells. `stop` is unchanged; the happy-agent README documents the difference.
 4. **ACP abort mid-reply crashes the runner (OpenCode, Pi).** `abort S` during `compat:slow` →
    `Status: stopped: Cancelled by user`, then an unhandled rejection
    `Error: opencode backend stopped: Cancelled by user at stopRunnerFromBackendStatus`; the process exits, no
