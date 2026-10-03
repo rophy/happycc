@@ -11,7 +11,7 @@ import { Session } from "../session";
 import { EnhancedMode, PermissionMode } from "../loop";
 import { getToolDescriptor } from "./getToolDescriptor";
 import { isClaudeBypassEquivalent, mapToClaudeMode } from "./permissionMode";
-import { capPermissionMode, permissionModeCapNotice } from "@/utils/permissionModeCeiling";
+import { capPermissionMode, permissionModeCapNotice, permissionModeRank } from "@/utils/permissionModeCeiling";
 
 export interface PermissionResponse {
     id: string;
@@ -103,7 +103,7 @@ export class PermissionHandler {
      * Drop the mode carried by an app permission response when it would raise
      * the session above its starting mode. The approve/deny itself is kept.
      */
-    private capResponseMode(response: PermissionResponse): PermissionResponse {
+    private capResponseMode(response: PermissionResponse, silent = false): PermissionResponse {
         if (!response.mode) {
             return response;
         }
@@ -111,9 +111,15 @@ export class PermissionHandler {
         if (!result.capped) {
             return response;
         }
-        this.notify(permissionModeCapNotice(response.mode, result));
+        if (!silent) {
+            this.notify(permissionModeCapNotice(response.mode, result));
+        }
         const { mode: _dropped, ...rest } = response;
         return rest;
+    }
+
+    private startsInPlan(): boolean {
+        return permissionModeRank(this.startingMode ?? 'default') === 0;
     }
 
     private handlePermissionResponse(
@@ -146,7 +152,11 @@ export class PermissionHandler {
                     ? response.mode
                     : 'default';
                 // Never leave plan mode above the session's starting mode
-                const newMode = capPermissionMode(requestedNewMode, this.startingMode).mode as PermissionMode;
+                const exitCap = capPermissionMode(requestedNewMode, this.startingMode);
+                const newMode = exitCap.mode as PermissionMode;
+                if (exitCap.capped && this.startsInPlan()) {
+                    this.notify("This session started in plan mode, so it can't leave plan mode from the app. Switch modes on the workstation.");
+                }
 
                 logger.debug(`Plan approved - switching to ${newMode} mode and allowing ExitPlanMode`);
 
@@ -402,7 +412,9 @@ export class PermissionHandler {
             }
 
             // The app's mode may only lower the session's starting mode
-            const message = this.capResponseMode(rawMessage);
+            // (ExitPlanMode from a plan-start session gets its own notice below)
+            const isExitPlan = pending.toolName === 'exit_plan_mode' || pending.toolName === 'ExitPlanMode';
+            const message = this.capResponseMode(rawMessage, isExitPlan && this.startsInPlan());
 
             // Store the response with timestamp
             this.responses.set(id, { ...message, receivedAt: Date.now() });

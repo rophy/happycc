@@ -270,5 +270,34 @@ describe('PermissionHandler', () => {
             await pending;
             expect((handler as any).permissionMode).toBe('default');
         });
+
+        const PLAN_NOTICE = "This session started in plan mode, so it can't leave plan mode from the app. Switch modes on the workstation.";
+
+        it('keeps a plan-start session in plan on ExitPlanMode approval and says so', async () => {
+            const { session, handlers, notifyUser } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'plan');
+            const setMode = vi.fn(async () => {});
+            handler.setPermissionModeUpdater(setMode);
+            const pending = ask(handler, 'ExitPlanMode', 't6');
+            await getPermissionResponseHandler(handlers)({ id: 't6', approved: true });
+            await expect(pending).resolves.toMatchObject({ behavior: 'allow' });
+            expect(setMode).toHaveBeenCalledWith('plan');
+            expect(notifyUser).toHaveBeenCalledTimes(1);
+            expect(notifyUser).toHaveBeenCalledWith(PLAN_NOTICE);
+        });
+
+        it('notifies once when a plan-start ExitPlanMode asks for bypassPermissions', async () => {
+            const { session, handlers, notifyUser } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'plan');
+            const setMode = vi.fn(async () => {});
+            handler.setPermissionModeUpdater(setMode);
+            const pending = ask(handler, 'ExitPlanMode', 't7');
+            await getPermissionResponseHandler(handlers)({ id: 't7', approved: true, mode: 'bypassPermissions' });
+            await pending;
+            expect(setMode).toHaveBeenCalledWith('plan');
+            expect(setMode).not.toHaveBeenCalledWith('bypassPermissions');
+            expect(notifyUser).toHaveBeenCalledTimes(1);
+            expect(notifyUser).toHaveBeenCalledWith(PLAN_NOTICE);
+        });
     });
 });
