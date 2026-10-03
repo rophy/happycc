@@ -36,8 +36,11 @@ remote clients act only on sessions started on the workstation.
 - **Permission-mode ceiling:** the mode a session starts with (default, or a CLI flag) is its ceiling. When a
   message from the app requests a more permissive mode, the session keeps its current mode and prints
   "Ignored a request from the app to raise the permission mode to <mode>." Lowering is honored. Ranking
-  (lower = safer): `plan`, `read-only` < `default`, `auto` < `acceptEdits`, `safe-yolo` < `bypassPermissions`, `yolo`;
-  unranked (agent-specific) modes requested by the app are ignored.
+  (lower = safer): `plan`, `read-only` < `default` < `auto` < `acceptEdits`, `safe-yolo` < `bypassPermissions`, `yolo`
+  (`auto` runs tools without prompting, so it ranks above `default`; final-review ruling). For Claude the comparison
+  uses the modes as applied (`read-only` and `safe-yolo` run as `default`, `yolo` as `bypassPermissions`).
+  Unranked (agent-specific) modes requested by the app are ignored, and so are tool lists the app pre-approves
+  (`allowedTools` in message metadata).
 - Session-scoped RPCs, local terminal mode, offline reconnection, and every runner otherwise unchanged.
 
 ## Server

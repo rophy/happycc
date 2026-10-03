@@ -16,7 +16,7 @@
 - Remove only session creation from the app and the daemon (machine-level RPCs).
 - Disable at the boundary with small targeted edits; do not delete disabled code. Every removed path is unreachable and covered by a test.
 - All agent runners stay (Claude, Codex, Gemini, Agy, OpenClaw, ACP).
-- The app may lower but never raise a session's permission mode above its starting mode. Ranking (lower = safer): `plan`=0, `read-only`=0, `default`=1, `auto`=1, `acceptEdits`=2, `safe-yolo`=2, `bypassPermissions`=3, `yolo`=3; unranked modes requested by the app are ignored.
+- The app may lower but never raise a session's permission mode above its starting mode. Ranking (lower = safer): `plan`=0, `read-only`=0, `default`=1, `auto`=2, `acceptEdits`=3, `safe-yolo`=3, `bypassPermissions`=4, `yolo`=4 (`auto` above `default`: final-review ruling); for Claude, modes are compared after `mapToClaudeMode`; unranked modes and app-supplied `allowedTools` are ignored.
 - Server: only `clientType === 'session-scoped'` sockets may `rpc-register`, and only `<socket.data.sessionId>:<method>`; refused with `rpc-error {type:'register', error:'RPC method not allowed'}`.
 - `happycc-agent` is internal: `"private": true`; commands unchanged.
 - Commit messages: `<type>: <description>` (feat/fix/refactor/chore/docs/build/test), 1–5 lines, no mention of "Claude" or "Happy" in any case (lowercase `happycc` ok), no co-author lines. GPG signing automatic; never disable.

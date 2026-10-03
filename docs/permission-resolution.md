@@ -8,8 +8,8 @@ This document explains how permission mode is resolved for session messages, dep
 - Final mode sent to Claude SDK
 
 ## Permission Modes
-- Shared mode type: `default | acceptEdits | bypassPermissions | plan | read-only | safe-yolo | yolo`
-- Claude SDK supports: `default | acceptEdits | bypassPermissions | plan`
+- Shared mode type: `auto | default | acceptEdits | bypassPermissions | plan | read-only | safe-yolo | yolo`
+- Claude SDK supports: `auto | default | acceptEdits | bypassPermissions | plan`
 - Mapping to Claude happens in `packages/happy-cli/src/claude/utils/permissionMode.ts`:
   - `yolo -> bypassPermissions`
   - `safe-yolo -> default`
@@ -75,6 +75,7 @@ Then sandbox policy is applied:
 `packages/happy-cli/src/claude/runClaude.ts`
 
 When a user message includes `meta.permissionMode`:
+- A mode above the session's ceiling (see 4) is ignored; the current mode is kept
 - If sandbox enabled: forced to `bypassPermissions`
 - If sandbox disabled: use incoming mode
 
@@ -82,6 +83,29 @@ When a user message includes `meta.permissionMode`:
 `packages/happy-cli/src/claude/claudeLocal.ts`
 
 If sandbox is enabled, launcher appends `--dangerously-skip-permissions` before spawn.
+
+### 4) Permission ceiling (workstation-only build)
+`packages/happy-cli/src/utils/permissionModeCeiling.ts`
+`packages/happy-cli/src/claude/utils/permissionMode.ts` (`capClaudePermissionMode`, `resolveAppClaudePermissionMode`)
+`packages/happy-app/sources/utils/permissionModeRank.ts`
+
+The mode a session starts with (unset = `default`; a sandbox-forced bypass counts) is its ceiling. The app may lower
+the mode, never raise it:
+- Ranking (lower = safer): `plan`, `read-only` = 0; `default` = 1; `auto` = 2 (runs tools without prompting);
+  `acceptEdits`, `safe-yolo` = 3; `bypassPermissions`, `yolo` = 4.
+- Every runner publishes its ceiling as `permissionModeCeiling` in session metadata. The app reads it (falling back to
+  `bypassPermissions` when `dangerouslySkipPermissions` is set, else `default`, for CLIs that do not publish one),
+  offers only modes at or below it, and does not send a mode above it.
+- For Claude sessions (flavor `claude` or none), both sides compare the modes as applied, after the mapping above:
+  `read-only` runs as `default`, so it cannot leave a `plan` start.
+- A request above the ceiling keeps the current mode and the session shows
+  "Ignored a request from the app to raise the permission mode to <mode>."
+- Unranked, agent-specific modes (e.g. ACP agents' own modes) cannot be changed from the app; the session shows
+  "... this agent's modes cannot be changed from the app."
+- `meta.allowedTools` from the app is ignored (it would pre-approve tools outside the ceiling); the session says so
+  once. Tools allowed at startup by the CLI are unchanged, and approving a single permission request from the app
+  still works.
+- Plan approval from the app never switches the session above its starting mode.
 
 ## Effective Result Matrix
 
