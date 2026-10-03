@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "postinstall": "patch-package && setup-skia-web public",
     "generate-theme": "tsx sources/theme.gen.ts",
+    "changelog": "tsx sources/scripts/parseChangelog.ts",
     "// ==== Development/Preview/Production Variants ====": "echo comment",
     "ios:dev": "cross-env APP_ENV=development expo run:ios",
     "ios:preview": "cross-env APP_ENV=preview expo run:ios",
