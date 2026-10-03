@@ -839,14 +839,6 @@ export const zhHant: TranslationStructure = {
         loginWithMobileApp: '使用行動應用程式登入',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: '喜歡這個應用程式嗎？',
-        feedbackPrompt: "我們很希望聽到您的回饋！",
-        yesILoveIt: '是的，我喜歡！',
-        notReally: '不太喜歡'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} 已複製到剪貼簿`

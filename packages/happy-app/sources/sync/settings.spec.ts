@@ -204,8 +204,6 @@ describe('settings', () => {
                 fileDiffsSidebar: false,
                 groupToolCalls: false,
                 compactToolCalls: false,
-                reviewPromptAnswered: false,
-                reviewPromptLikedApp: null,
                 preferredLanguage: null,
                 recentMachinePaths: [],
                 lastUsedAgent: null,
@@ -264,6 +262,13 @@ describe('settings', () => {
             const oldVersionSettings = {};
             const parsed = settingsParse(oldVersionSettings);
             expect(parsed).toEqual(settingsDefaults);
+        });
+
+        it('keeps the removed review prompt keys from older clients as unknown fields', () => {
+            const parsed = settingsParse({ reviewPromptAnswered: true, reviewPromptLikedApp: false, compactToolCalls: true });
+            expect(parsed.compactToolCalls).toBe(true);
+            expect((parsed as any).reviewPromptAnswered).toBe(true);
+            expect((parsed as any).reviewPromptLikedApp).toBe(false);
         });
 
         it('should handle settings from newer version (extra fields)', () => {

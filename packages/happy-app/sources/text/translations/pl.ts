@@ -855,14 +855,6 @@ export const pl: TranslationStructure = {
         loginWithMobileApp: 'Zaloguj się przez aplikację mobilną',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'Podoba Ci się aplikacja?',
-        feedbackPrompt: 'Chcielibyśmy usłyszeć Twoją opinię!',
-        yesILoveIt: 'Tak, uwielbiam ją!',
-        notReally: 'Nie bardzo'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} skopiowano do schowka`

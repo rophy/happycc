@@ -71,25 +71,6 @@ type OtaEventProperties = {
 };
 
 /**
- * Review request events
- */
-export function trackReviewPromptShown() {
-    tracking?.capture('review_prompt_shown');
-}
-
-export function trackReviewPromptResponse(likesApp: boolean) {
-    tracking?.capture('review_prompt_response', { likes_app: likesApp });
-}
-
-export function trackReviewStoreShown() {
-    tracking?.capture('review_store_shown');
-}
-
-export function trackReviewRetryScheduled(daysUntilRetry: number) {
-    tracking?.capture('review_retry_scheduled', { days_until_retry: daysUntilRetry });
-}
-
-/**
  * OTA update events
  */
 export function trackOtaUpdateAvailable(properties?: OtaEventProperties) {

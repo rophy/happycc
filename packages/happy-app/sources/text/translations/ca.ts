@@ -839,14 +839,6 @@ export const ca: TranslationStructure = {
         loginWithMobileApp: 'Inicia sessió amb l\'aplicació mòbil',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'T\'està agradant l\'aplicació?',
-        feedbackPrompt: 'Ens encantaria conèixer la teva opinió!',
-        yesILoveIt: 'Sí, m\'encanta!',
-        notReally: 'No gaire'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiat al porta-retalls`

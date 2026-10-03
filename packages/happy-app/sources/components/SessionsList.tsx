@@ -17,7 +17,6 @@ import { StatusDot } from './StatusDot';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useIsTablet } from '@/utils/responsive';
 import { getHarnessName } from '@/utils/harnessCatalog';
-import { requestReview } from '@/utils/requestReview';
 import { HomeListHeader } from './HomeListHeader';
 import { layout } from './layout';
 import { useSessionPressHandlers } from '@/hooks/useNavigateToSession';
@@ -343,13 +342,6 @@ export function SessionsList({
         if (!pathname.startsWith('/session/')) return undefined;
         return pathname.split('/')[2];
     }, [isTablet, pathname]);
-
-    // Request review
-    React.useEffect(() => {
-        if (sourceData && sourceData.length > 0) {
-            requestReview();
-        }
-    }, [sourceData && sourceData.length > 0]);
 
     const data = React.useMemo<SessionListDisplayItem[] | null>(() => {
         if (!sourceData) return sourceData;

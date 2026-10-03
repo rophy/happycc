@@ -54,8 +54,6 @@ export const SettingsSchema = z.object({
     fileDiffsSidebar: z.boolean().describe('Show the file diffs sidebar next to the chat on desktop'),
     groupToolCalls: z.boolean().describe('Collapse consecutive tool calls into grouped containers in chat'),
     compactToolCalls: z.boolean().describe('Render non-interactive tool calls as compact one-line rows'),
-    reviewPromptAnswered: z.boolean().describe('Whether the review prompt has been answered'),
-    reviewPromptLikedApp: z.boolean().nullish().describe('Whether user liked the app when asked'),
     preferredLanguage: z.string().nullable().describe('Preferred UI language (null for auto-detect from device locale)'),
     recentMachinePaths: z.array(z.object({
         machineId: z.string(),
@@ -129,8 +127,6 @@ export const settingsDefaults: Settings = {
     groupToolCalls: false,
     // Full tool views by default: edit diffs render inline in the chat.
     compactToolCalls: false,
-    reviewPromptAnswered: false,
-    reviewPromptLikedApp: null,
     preferredLanguage: null,
     recentMachinePaths: [],
     lastUsedAgent: null,

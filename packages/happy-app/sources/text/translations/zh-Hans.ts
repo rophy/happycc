@@ -840,14 +840,6 @@ export const zhHans: TranslationStructure = {
         loginWithMobileApp: '使用移动应用登录',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: '喜欢这个应用吗？',
-        feedbackPrompt: "我们很希望听到您的反馈！",
-        yesILoveIt: '是的，我喜欢！',
-        notReally: '不太喜欢'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} 已复制到剪贴板`

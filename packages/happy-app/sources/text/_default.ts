@@ -952,14 +952,6 @@ export const en = {
         copyFailed: 'Could not copy the AI prompt.',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'Enjoying the app?',
-        feedbackPrompt: "We'd love to hear your feedback!",
-        yesILoveIt: 'Yes, I love it!',
-        notReally: 'Not really'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copied to clipboard`

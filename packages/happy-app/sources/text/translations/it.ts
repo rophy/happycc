@@ -837,14 +837,6 @@ export const it: TranslationStructure = {
         loginWithMobileApp: 'Accedi con l\'app mobile',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'Ti piace l\'app?',
-        feedbackPrompt: 'Ci piacerebbe ricevere il tuo feedback!',
-        yesILoveIt: 'Sì, mi piace!',
-        notReally: 'Non proprio'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiato negli appunti`

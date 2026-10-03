@@ -840,14 +840,6 @@ export const ja: TranslationStructure = {
         loginWithMobileApp: 'モバイルアプリでログイン',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'アプリを気に入っていただけましたか？',
-        feedbackPrompt: "ご意見をお聞かせください！",
-        yesILoveIt: 'はい、気に入りました！',
-        notReally: 'あまり...'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label}がクリップボードにコピーされました`

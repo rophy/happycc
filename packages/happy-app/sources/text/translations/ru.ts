@@ -845,14 +845,6 @@ export const ru: TranslationStructure = {
         loginWithMobileApp: 'Войти через мобильное приложение',
     },
 
-    review: {
-        // Used by utils/requestReview.ts
-        enjoyingApp: 'Нравится приложение?',
-        feedbackPrompt: 'Мы будем рады вашему отзыву!',
-        yesILoveIt: 'Да, мне нравится!',
-        notReally: 'Не совсем'
-    },
-
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} скопировано в буфер обмена`
