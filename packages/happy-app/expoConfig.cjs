@@ -126,7 +126,7 @@ function buildExpoConfig(env, buildMetadata = {}) {
                 android: {
                     // Release APK size: R8 shrinks code, resources drop what it
                     // leaves unreferenced, and native libs are stored compressed.
-                    enableProguardInReleaseBuilds: true,
+                    enableMinifyInReleaseBuilds: true,
                     enableShrinkResourcesInReleaseBuilds: true,
                     useLegacyPackaging: true,
                     extraProguardRules: ANDROID_EXTRA_PROGUARD_RULES,

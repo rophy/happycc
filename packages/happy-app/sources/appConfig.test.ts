@@ -100,7 +100,7 @@ describe('buildExpoConfig', () => {
         const entry = expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties');
         expect(entry).toBeDefined();
         expect(entry[1].android).toMatchObject({
-            enableProguardInReleaseBuilds: true,
+            enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
             useLegacyPackaging: true,
         });
