@@ -128,7 +128,7 @@ export const LinkComputerChecklist = React.memo(function LinkComputerChecklist({
                     <Text style={styles.title}>{title}</Text>
                     <ChecklistRow checked title={linked} />
                     <ChecklistRow checked={false} title={t('onboarding.offlineOpenStep')}>
-                        <Text style={styles.body}>{t('onboarding.offlineOpenBody')}</Text>
+                        {/* onboarding.offlineOpenBody is not shown: it points at the upstream desktop app. */}
                         <TerminalBlock
                             style={styles.terminal}
                             lines={[{ kind: 'command', text: t('onboarding.terminalRun') }]}
