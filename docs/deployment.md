@@ -42,13 +42,10 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
 - `APP_STORE_URL`, `PLAY_STORE_URL`: optional. `/v1/version` returns one of these as `updateUrl` when the reporting client is below the minimum version; unset means no update URL (no upstream store link).
 
 **Optional integrations** (all off unless configured; setting only part of a group is a startup error)
-- Clients read `GET /v1/features` (authenticated) → `{ voice, githubConnect, push }` and hide what is off.
+- Clients read `GET /v1/features` (authenticated) → `{ githubConnect, push }` and hide what is off.
 - GitHub connect: set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_REDIRECT_URL` together to register the `/v1/connect/github/*` routes. The OAuth callback returns to `WEBAPP_URL`.
   - The GitHub App settings `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` and `GITHUB_REDIRECT_URI` only initialize webhook handling. The webhook route itself is part of the GitHub route group, so it is only registered when the three OAuth settings above are also set — setting only the App settings leaves `/v1/connect/github/webhook` returning 404.
-- Voice: set `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` together to register `/v1/voice/*`.
-  - The agent id is server configuration; apps do not carry one.
-  - Voice is available to every signed-in user. There are no subscriptions.
-  - Optional `VOICE_MONTHLY_LIMIT_MINUTES` caps each user over the rolling 30 days ElevenLabs reports. Unset means no cap.
+- Voice is removed (no ElevenLabs/LiveKit code in the server or apps). There are no `/v1/voice/*` routes, and `ELEVENLABS_*` / `VOICE_*` variables are ignored. The `VoiceConversation` table is dropped by migration `20261003000000_drop_voice_conversation`.
 - Push notifications: Expo push, on by default; `PUSH_ENABLED=false` turns it off. Pushes are content-free: a fixed title per event (`It's ready!`, `Permission request`, `Clarification needed`), the body `Open the session to continue.`, and data `{ sessionId, kind, url }`. Client-supplied text is ignored. Delivery to your own app builds needs your EAS project, APNs key and FCM credentials.
   - CLI releases before this fork (e.g. `happy notify`) could send pushes directly to Expo using tokens from `GET /v1/push-tokens`; deploy only this fork's clients.
 - Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).

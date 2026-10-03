@@ -39,13 +39,12 @@ All of these run `sources/scripts/releasePreflight.mjs` first and refuse off `ma
 - **Expo Router v6** for file-based routing
 - **Socket.io** for real-time WebSocket communication
 - **libsodium** (via `@more-tech/react-native-libsodium`) for end-to-end encryption
-- **LiveKit** for real-time voice communication
 
 ### Project Structure
 ```
 sources/
 ├── app/              # Expo Router screens
-├── auth/             # Authentication logic (QR code based)
+├── auth/             # Authentication logic (OIDC sign-in)
 ├── components/       # Reusable UI components
 ├── sync/             # Real-time sync engine with encryption
 └── utils/            # Utility functions
@@ -53,12 +52,11 @@ sources/
 
 ### Key Architectural Patterns
 
-1. **Authentication Flow**: QR code-based authentication using expo-camera with challenge-response mechanism
+1. **Authentication Flow**: OIDC sign-in (see `docs/deploy-app.md`)
 2. **Data Synchronization**: WebSocket-based real-time sync with automatic reconnection and state management
 3. **Encryption**: End-to-end encryption using libsodium for all sensitive data
 4. **State Management**: React Context for auth state, custom reducer for sync state
-5. **Real-time Voice**: LiveKit integration for voice communication sessions
-6. **Platform-Specific Code**: Separate implementations for web vs native when needed
+5. **Platform-Specific Code**: Separate implementations for web vs native when needed
 
 ### Development Guidelines
 

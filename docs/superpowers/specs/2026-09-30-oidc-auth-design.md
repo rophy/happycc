@@ -19,7 +19,7 @@ provider. QR-code / secret-key pairing is removed.
 | Clients in v1 | CLI (+ daemon), web app, corporate private iOS/Android builds |
 | CLI login | Server-brokered device flow (URL + user code, RFC 8628 semantics). Only the server is an OIDC client. |
 | Authorization | Any user the IdP authenticates is allowed. Access control is done via IdP app assignment. No admin UI in v1. |
-| Third-party SaaS | Analytics, subscriptions, voice, GitHub connect disabled by default. Push notifications kept, with content-free payloads. |
+| Third-party SaaS | Analytics and GitHub connect disabled by default; subscriptions and voice removed. Push notifications kept, with content-free payloads. |
 | Deployment | Greenfield. No migration of existing keypair-based accounts. |
 
 ## Background: current auth (upstream)
@@ -314,11 +314,10 @@ Third-party services are off unless explicitly configured.
 
 - **RevenueCat** subscriptions and paywall are removed entirely (app SDKs,
   paywall UI, purchases state, server subscription checks).
-- **Voice** (ElevenLabs / LiveKit): server `voiceRoutes` are registered only
-  when `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` are set (the agent id is
-  server configuration, not baked into the app). When enabled, voice is
-  available to every user; optional `VOICE_MONTHLY_LIMIT_MINUTES` caps usage
-  per user.
+- **Voice** (ElevenLabs / LiveKit) is removed entirely: app SDKs and UI,
+  microphone permissions, server voice routes and configuration, the
+  `voice` features flag, and the `VoiceConversation` table (dropped by a
+  migration). It is not configurable.
 - **GitHub connect**: the GitHub routes are registered only when the GitHub
   OAuth settings are present; the OAuth callback returns to `WEBAPP_URL`.
 - **PostHog** analytics (app): only when the build sets
@@ -327,8 +326,8 @@ Third-party services are off unless explicitly configured.
 - **Claude.ai account connect** (app talks to claude.ai directly): hidden
   unless the build sets `EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT=1`.
 
-`GET /v1/features` (authenticated) returns `{ voice, githubConnect, push }`;
-the app reads it after sign-in and hides the corresponding UI (mic, GitHub
+`GET /v1/features` (authenticated) returns `{ githubConnect, push }`;
+the app reads it after sign-in and hides the corresponding UI (GitHub
 connect, push registration) when a feature is off.
 
 Push notifications (Expo push via `pushSend.ts`) are kept but content-free.

@@ -49,8 +49,9 @@ eas build --platform all
   `https://happy.example.com`. Web sign-in returns to `${WEBAPP_URL}/auth/callback`.
 - `AUTH_ACCESS_TOKEN_TTL` must stay well above the clients' 2-minute refresh margin
   (5m or more; default 15m). At 2 minutes or less, clients refresh on every request.
-- Voice, GitHub connect and push are server decisions. The app reads `GET /v1/features` after sign-in and hides the mic and voice settings, the GitHub connect rows, and push registration for anything the server has off.
-  - Turn them on with `ELEVENLABS_API_KEY` + `ELEVENLABS_AGENT_ID` (optional `VOICE_MONTHLY_LIMIT_MINUTES`), `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` + `GITHUB_REDIRECT_URL`, and `PUSH_ENABLED` (default `true`). See `docs/deployment.md`.
+- GitHub connect and push are server decisions. The app reads `GET /v1/features` after sign-in and hides the GitHub connect rows and push registration for anything the server has off.
+  - Turn them on with `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` + `GITHUB_REDIRECT_URL`, and `PUSH_ENABLED` (default `true`). See `docs/deployment.md`.
+- Voice is removed from the app: no mic button, voice settings, ElevenLabs/LiveKit SDKs, or microphone/camera permissions. There is nothing to configure.
 - Push also needs your own EAS project (`EAS_PROJECT_ID`), APNs key and FCM credentials (`GOOGLE_SERVICES_FILE`). Notifications carry only a fixed title per event, a generic body, and the session id.
 
 ## Web app
