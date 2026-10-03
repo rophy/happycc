@@ -1,0 +1,37 @@
+/** The agents under test, how each one is started on the cli device, and which scenarios do not apply to it. */
+
+export type AgentId = 'claude' | 'opencode' | 'pi';
+export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'offline-start' | 'resume' | 'spawn';
+
+export type AgentDef = {
+    label: string;
+    /** Shell command run detached in /workspace on the cli device. */
+    start: string;
+    /** Scenario → reason it is not applicable. Every entry is backed by evidence in CAPABILITIES.md. */
+    unsupported: Partial<Record<Scenario, string>>;
+};
+
+const NO_ACP_SPAWN = 'The daemon cannot spawn ACP agents yet.';
+const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
+
+export const AGENTS: Record<AgentId, AgentDef> = {
+    claude: { label: 'Claude Code', start: 'happycc --happy-starting-mode remote', unsupported: {} },
+    opencode: {
+        label: 'OpenCode',
+        start: 'happycc acp opencode',
+        unsupported: {
+            spawn: NO_ACP_SPAWN,
+            resume: `The daemon cannot resume ACP sessions (resume fails: uses unsupported flavor "opencode").`,
+        },
+    },
+    pi: {
+        label: 'Pi',
+        start: 'happycc acp -- pi-acp',
+        unsupported: {
+            spawn: NO_ACP_SPAWN,
+            resume: `The daemon cannot resume ACP sessions (resume fails: uses unsupported flavor "acp").`,
+            'tool-allow': NO_PI_PROMPTS,
+            'tool-deny': NO_PI_PROMPTS,
+        },
+    },
+};
