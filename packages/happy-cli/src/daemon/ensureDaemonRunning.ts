@@ -16,7 +16,10 @@ export async function ensureDaemonRunning(): Promise<void> {
     logger.debug('[daemon] not started: not available in this build')
     return
   }
+  return ensureDaemonRunningImpl()
+}
 
+export async function ensureDaemonRunningImpl(): Promise<void> {
   logger.debug('Ensuring Happy background service is running & matches our version...')
 
   if (await isDaemonRunningCurrentlyInstalledHappyVersion()) {

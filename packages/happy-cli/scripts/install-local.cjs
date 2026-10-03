@@ -5,10 +5,9 @@
  *
  * Steps:
  *   1. build
- *   2. stop any running daemon (ignores failure)
+ *   2. stop a daemon left by a previous install (ignores failure; this build has no daemon)
  *   3. npm link (replaces the globally-installed `happycc` with a symlink to this workspace)
- *   4. start the daemon again
- *   5. verify by running `happycc --version`
+ *   4. verify by running `happycc --version`
  *
  * Reuses ~/.happycc/ — no separate dev home dir. Auth and sessions carry over.
  * To undo: `npm unlink -g happycc && npm i -g happycc@latest`.
@@ -18,7 +17,6 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 const PACKAGE_DIR = path.resolve(__dirname, '..');
-const WORKSPACE_ROOT = path.resolve(PACKAGE_DIR, '..', '..');
 const IS_WINDOWS = process.platform === 'win32';
 
 function run(cmd, args, { allowFailure = false, env = process.env } = {}) {
@@ -44,29 +42,11 @@ function run(cmd, args, { allowFailure = false, env = process.env } = {}) {
     return status;
 }
 
-function withoutWorkspaceBinPaths() {
-    const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
-    const inheritedPath = process.env[pathKey] ?? '';
-    const cleanPath = inheritedPath
-        .split(path.delimiter)
-        .filter((entry) => !(
-            entry.startsWith(`${WORKSPACE_ROOT}${path.sep}`)
-            && entry.endsWith(`${path.sep}node_modules${path.sep}.bin`)
-        ))
-        .join(path.delimiter);
-    return { ...process.env, [pathKey]: cleanPath };
-}
-
 run('pnpm', ['run', 'build']);
+// Clean up a daemon left over from a previous (daemon-enabled) install.
 run('happycc', ['daemon', 'stop'], { allowFailure: true });
 run('npm', ['link']);
-// pnpm prepends workspace node_modules/.bin to PATH for lifecycle scripts.
-// A missing optional native agent package can leave a discoverable but broken
-// local shim there, shadowing the user's working global Codex/Claude binary in
-// every daemon-spawned session. The daemon should inherit the normal shell PATH.
-const daemonEnvironment = withoutWorkspaceBinPaths();
-run('happycc', ['daemon', 'start'], { env: daemonEnvironment });
-run('happycc', ['--version'], { env: daemonEnvironment });
+run('happycc', ['--version']);
 
 console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
 console.log('  To undo: npm unlink -g happycc && npm i -g happycc@latest');
