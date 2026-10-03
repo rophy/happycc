@@ -2,6 +2,6 @@
   "name": "happycc-compat",
   "private": true,
   "type": "module",
-  "scripts": { "test": "vitest run" },
+  "scripts": { "test": "vitest run", "report": "node --experimental-strip-types src/report.ts" },
   "devDependencies": { "typescript": "^5.9.2", "vitest": "^3.2.4", "@types/node": "^22.0.0" }
 }

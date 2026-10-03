@@ -1,0 +1,43 @@
+name: Agent compatibility
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: compat/package-lock.json
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Install suite
+        working-directory: compat
+        run: npm ci
+      - name: Run suite
+        working-directory: compat
+        run: npm test
+      - name: Report
+        if: always()
+        working-directory: compat
+        run: npm run report && cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Collect logs
+        if: failure()
+        run: |
+          mkdir -p compat/logs
+          docker compose logs > compat/logs/compose.log 2>&1 || true
+          docker compose exec -T cli sh -c 'tar czf - /tmp/compat-*.log ~/.happycc/logs 2>/dev/null' > compat/logs/cli.tgz || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compat-logs
+          path: compat/logs
+          retention-days: 7
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v || true

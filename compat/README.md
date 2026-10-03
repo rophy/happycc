@@ -25,6 +25,23 @@ Outputs land in `compat/`: `results.json` (vitest JSON), `report.md`, `logs/`, `
 
 `COMPAT_UNIT_ONLY=1 npx vitest run src/stack.test.ts` skips global setup, so no stack is needed.
 
+## Reading the matrix
+
+`npm run report` turns `results.json` and `.versions.json` into `compat/report.md`: scenarios as rows, agents as
+columns, plus the pinned versions. The CI job (`.github/workflows/compat.yml`, manual `workflow_dispatch`) appends
+the same report to the job summary.
+
+| Cell | Meaning |
+| --- | --- |
+| `✅` | The scenario passed. |
+| `N/A` | Not applicable to that agent; the reason is footnoted. Each one is backed by evidence in `CAPABILITIES.md`. |
+| `❌ #n` | A known product bug (`CAPABILITIES.md` "Bugs found"). Expected while the bug exists; the suite still exits 0. |
+| `⚠️ FAILED` | A real failure, including a known bug that no longer reproduces. The run fails. |
+| `—` | No result for that cell. |
+
 ## Bumping a pinned version
 
-Edit the matching `ARG` in `Dockerfile.cli`, rebuild (`docker compose up -d --build cli`), then run `npm test`.
+1. Edit the matching `ARG` in `Dockerfile.cli`.
+2. Rebuild: `docker compose up -d --build`.
+3. Run `npm test`, then `npm run report`.
+4. If a cell changes, update `CAPABILITIES.md` (and `src/agents.ts` for N/A or known-bug entries).
