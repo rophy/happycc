@@ -6,7 +6,7 @@ import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Modal } from '@/modal';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { useSettingMutable, useProfile, useServerFeature } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { useUnistyles } from 'react-native-unistyles';
@@ -218,7 +218,7 @@ export default React.memo(() => {
             await loadPushSettings();
 
             if (result.openedSettings) {
-                Modal.alert('Open Settings', 'The system will not show the permission prompt again, so Happy opened Settings instead.');
+                Modal.alert('Open Settings', brandText('The system will not show the permission prompt again, so Happy opened Settings instead.'));
                 return;
             }
 

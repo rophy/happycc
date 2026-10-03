@@ -28,7 +28,7 @@ import { BOT_NAME_MAX_LENGTH, isValidBotName, sanitizeBotName } from '@/utils/bo
 import { AgentInputAttachmentStrip } from './AgentInputAttachmentStrip';
 import { Typography } from '@/constants/Typography';
 import { layout } from './layout';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useAllMachines, useProjects, useSessions, useSetting } from '@/sync/storage';
 import { getCodeAgentDefaults, resolveAgentDefaultConfig } from '@/sync/agentDefaults';
@@ -1001,7 +1001,7 @@ export const HomeDock = React.memo(({
             return [{
                 key: '__none__',
                 name: 'No worktree',
-                description: `Not supported by ${getHarnessName(agentType)}`,
+                description: brandText(`Not supported by ${getHarnessName(agentType)}`),
             }];
         }
         const options: ModeOption[] = [
@@ -1025,7 +1025,7 @@ export const HomeDock = React.memo(({
     const availableAgents = React.useMemo<ModeOption[]>(() => (
         listMachineChoiceAvailableAgents(selectedChoice).map((key) => ({
             key,
-            name: getHarnessName(key),
+            name: brandText(getHarnessName(key)),
         }))
     ), [selectedChoice]);
     const hasAvailableHarness = availableAgents.length > 0;
@@ -1074,7 +1074,7 @@ export const HomeDock = React.memo(({
     const currentEffort = resolveOption(effortOptions, [effortLevel, currentEffortDefault]);
     const currentAgent = availableAgents.find((agent) => agent.key === agentType)
         ?? availableAgents[0]
-        ?? { key: agentType, name: getHarnessName(agentType) };
+        ?? { key: agentType, name: brandText(getHarnessName(agentType)) };
     const permissionLabel = getPermissionModeShortLabel(currentPermission);
     const modelChipLabel = truncateModelLabel(currentModel?.name ?? currentAgent.name);
     const focusedPromptPlaceholder = createsBot

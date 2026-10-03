@@ -7,6 +7,7 @@ import { useAllMachines } from '@/sync/storage';
 import { useRouter } from 'expo-router';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { useOfflineMachineTroubleshooting } from '@/hooks/useOfflineMachineTroubleshooting';
+import { brandText } from '@/text';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -123,7 +124,7 @@ export function EmptySessionsTablet() {
                 </>
             ) : (
                 <Text style={styles.descriptionText}>
-                    Install and run Happy on your computer to connect it.
+                    {brandText('Install and run Happy on your computer to connect it.')}
                 </Text>
             )}
         </View>

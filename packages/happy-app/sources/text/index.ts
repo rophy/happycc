@@ -16,6 +16,11 @@ import { config } from '@/config';
 
 const brand = config.brand ?? DEFAULT_BRAND;
 
+/** Applies the brand names to user-visible text that does not go through t(). */
+export function brandText(text: string): string {
+    return applyBrand(text, brand);
+}
+
 /**
  * Extract all possible dot-notation keys from the nested translation object
  * E.g., 'common.cancel', 'settings.title', 'time.minutesAgo'

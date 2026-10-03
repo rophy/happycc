@@ -32,7 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import Constants from 'expo-constants';
 import { useHeaderHeight } from '@/utils/responsive';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { useAllMachines, useLocalSetting, useProjects, useSessions, useSetting, storage } from '@/sync/storage';
 import type { NewSessionAgentType } from '@/sync/persistence';
 import { sync } from '@/sync/sync';
@@ -1252,7 +1252,7 @@ function NewSessionScreen() {
 
     const isOffline = selectedMachine ? !isMachineOnline(selectedMachine) : false;
     const offlineHelp = selectedAgent === 'rig'
-        ? 'Happy Agent is offline on this computer'
+        ? brandText('Happy Agent is offline on this computer')
         : t('machine.offlineHelp');
     const agent = availableAgents.find(a => a.key === selectedAgent)
         ?? ALL_AGENTS.find((candidate) => candidate.key === selectedAgent)
@@ -1488,8 +1488,8 @@ function NewSessionScreen() {
             Modal.alert(
                 t('common.error'),
                 agentType === 'rig'
-                    ? 'Happy Agent is not running on this computer'
-                    : 'Happy CLI is not available on your computer. Run `happycc daemon start` on your computer, then try again.',
+                    ? brandText('Happy Agent is not running on this computer')
+                    : brandText('Happy CLI is not available on your computer. Run `happycc daemon start` on your computer, then try again.'),
             );
             return;
         }
@@ -1498,7 +1498,7 @@ function NewSessionScreen() {
                 t('common.error'),
                 agentType === 'rig'
                     ? 'Machine is offline'
-                    : 'Happy CLI is offline on your computer. Run `happycc daemon start` on your computer, then try again.',
+                    : brandText('Happy CLI is offline on your computer. Run `happycc daemon start` on your computer, then try again.'),
             );
             return;
         }
@@ -1506,7 +1506,7 @@ function NewSessionScreen() {
             ? getRigMachineSessionCreation(machine.metadata)
             : null;
         if (agentType === 'rig' && !spawnRigCreation) {
-            Modal.alert(t('common.error'), 'This machine cannot start Happy agent sessions');
+            Modal.alert(t('common.error'), brandText('This machine cannot start Happy agent sessions'));
             return;
         }
         if (draftProjectId && !spawnRigCreation) {
@@ -1514,7 +1514,7 @@ function NewSessionScreen() {
             // into a directory. Starting anyway would open a session somewhere else entirely.
             Modal.alert(
                 t('common.error'),
-                'Only Happy Agent knows where this project is, so no other harness can open it. Switch the harness back to Happy Agent, or pick the project’s folder.',
+                brandText('Only Happy Agent knows where this project is, so no other harness can open it. Switch the harness back to Happy Agent, or pick the project’s folder.'),
             );
             return;
         }
@@ -1722,7 +1722,7 @@ function NewSessionScreen() {
                 case 'pending':
                     Modal.alert(
                         t('common.error'),
-                        'Rig created the session, but it is still syncing with Happy. It should appear shortly.',
+                        brandText('Rig created the session, but it is still syncing with Happy. It should appear shortly.'),
                     );
                     break;
             }

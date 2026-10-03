@@ -11,7 +11,7 @@ import { OnboardingHeader } from './OnboardingHeader';
 import { useAllMachines, useLocalSettingMutable } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { Modal } from '@/modal';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { getServerLabel } from '@/sync/serverConfig';
 import { openExternalUrl } from '@/utils/openExternalUrl';
 import { appLinks } from '@/config';
@@ -29,7 +29,7 @@ const HELP_LINKS: readonly { label: () => string; url: string }[] = appLinks.iss
 const SIGN_IN_STEP_TITLE = 'Sign in on your computer';
 const SIGN_IN_STEP_BODY = 'Run this in a terminal and approve the sign-in in your browser.';
 const SIGN_IN_COMMAND = 'happycc auth login';
-const START_STEP_TITLE = 'Start Happy';
+const START_STEP_TITLE = brandText('Start Happy');
 const START_STEP_BODY = 'This screen updates as soon as your computer connects.';
 
 /** Room kept under the checklist so the corner button never covers its last row. */

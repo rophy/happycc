@@ -23,7 +23,7 @@ import {
     type AgentKey,
 } from '@/sync/agentDefaults';
 import { getHarnessName, isRetiredHarness } from '@/utils/harnessCatalog';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { Modal } from '@/modal';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { isMachineOnline } from '@/utils/machineUtils';
@@ -181,7 +181,7 @@ export default function AgentsSettingsScreen() {
                 {machineChoices.length === 0 ? (
                     <Item
                         title="No connected machines"
-                        subtitle="Run Happy on a computer to connect it"
+                        subtitle={brandText('Run Happy on a computer to connect it')}
                         icon={<Ionicons name="desktop-outline" size={29} color={theme.colors.textSecondary} />}
                         disabled
                         showChevron={false}

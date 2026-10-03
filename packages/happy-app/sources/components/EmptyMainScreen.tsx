@@ -3,7 +3,7 @@ import { View, Text, Platform, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { RoundButton } from '@/components/RoundButton';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useAllMachines } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
@@ -133,8 +133,8 @@ export function EmptyMainScreen({
         <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1, flex: undefined, paddingVertical: 24 }]}>
             <Text style={styles.title}>{t('components.emptyMainScreen.connectComputer')}</Text>
             <Text style={styles.stateDescription}>
-                Install the Happy CLI on your computer, sign in with your organization account, and start it.
-                Your computer shows up here as soon as it connects.
+                {brandText('Install the Happy CLI on your computer, sign in with your organization account, and start it. '
+                    + 'Your computer shows up here as soon as it connects.')}
             </Text>
             <View style={styles.terminalBlock}>
                 {linkCommands.map((line, index) => (

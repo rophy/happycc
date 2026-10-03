@@ -22,7 +22,7 @@ import { layout } from './layout';
 import { useSessionPressHandlers } from '@/hooks/useNavigateToSession';
 import { SessionActionsAnchor, SessionActionsPopover } from './SessionActionsPopover';
 import { useSessionActionAlert } from '@/hooks/useSessionQuickActions';
-import { t } from '@/text';
+import { t, brandText } from '@/text';
 import { SessionShortcutHintBadge } from './ShortcutHints';
 import { ProviderIcon } from './ProviderIcon';
 import { buildSessionProjectDisplayGroups } from '@/utils/sessionDisplayOrder';
@@ -511,7 +511,7 @@ export function SessionsList({
                 return (
                     <View style={styles.headerSection}>
                         <Text style={styles.headerText}>
-                            {item.source === 'rig' ? getHarnessName('rig') : t('sidebar.sessionsTitle')}
+                            {item.source === 'rig' ? brandText(getHarnessName('rig')) : t('sidebar.sessionsTitle')}
                         </Text>
                     </View>
                 );
