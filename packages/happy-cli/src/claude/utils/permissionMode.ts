@@ -1,6 +1,7 @@
 import type { QueryOptions } from '@/claude/sdk';
 import type { PermissionMode } from '@/api/types';
 import { logger } from '@/ui/logger';
+import { capPermissionMode, permissionModeCapNotice, type PermissionModeCapResult } from '@/utils/permissionModeCeiling';
 
 /** Derived from SDK's QueryOptions - the modes Claude actually supports */
 export type ClaudeSdkPermissionMode = NonNullable<QueryOptions['permissionMode']>;
@@ -188,3 +189,48 @@ export function resolveRemoteClaudePermissionMode(
 
     return nextMode;
 }
+
+/**
+ * Cap a mode the app asks a Claude session for at the session's starting mode,
+ * comparing the Claude modes actually applied: `read-only` becomes `default`
+ * at the SDK boundary, so it is no lower than `default` and cannot leave a
+ * plan start. A capped result carries the (mapped) ceiling.
+ */
+export function capClaudePermissionMode(requested: string, ceiling: string | undefined): PermissionModeCapResult {
+    const mapped = isPermissionMode(requested) ? mapToClaudeMode(requested) : requested;
+    const mappedCeiling = isPermissionMode(ceiling) ? mapToClaudeMode(ceiling) : ceiling;
+    const result = capPermissionMode(mapped, mappedCeiling);
+    return result.capped ? result : { mode: requested, capped: false };
+}
+
+/**
+ * The mode a Claude session runs the next turn in after a user message from
+ * the app asks for `requested` (raw, from `meta.permissionMode`). The app may
+ * lower the starting mode (a sandbox-forced bypass counts as the starting
+ * mode), never raise it; a refused request keeps the current mode and yields
+ * the notice to show the user. Unknown modes are dropped silently (logged).
+ */
+export function resolveAppClaudePermissionMode(
+    currentMode: PermissionMode | undefined,
+    requested: string | undefined,
+    startingMode: PermissionMode | undefined,
+    sandboxEnabled: boolean,
+): { mode: PermissionMode | undefined; notice?: string } {
+    const requestedMode = normalizeRemotePermissionMode(requested);
+    if (requestedMode === undefined) {
+        return { mode: currentMode };
+    }
+    const cap = capClaudePermissionMode(requestedMode, startingMode);
+    if (cap.capped) {
+        const applied = mapToClaudeMode(requestedMode);
+        const notice = applied === requestedMode
+            ? permissionModeCapNotice(requestedMode, cap)
+            : permissionModeCapNotice(requestedMode, cap).replace(/\.$/, ` (it runs as ${applied} here).`);
+        return { mode: currentMode, notice };
+    }
+    return { mode: resolveRemoteClaudePermissionMode(currentMode, requestedMode, sandboxEnabled) };
+}
+
+/** Shown once when the app sends its own `allowedTools`, which happycc ignores. */
+export const APP_ALLOWED_TOOLS_IGNORED_NOTICE =
+    'Ignored a list of pre-approved tools sent by the app: tools are approved on the workstation or one request at a time.';

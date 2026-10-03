@@ -113,6 +113,7 @@ async function startRemoteRunClaudeHarness(opts: {
     metadata?: Record<string, unknown>;
     updateAgentState?: ReturnType<typeof vi.fn>;
     registerHandler?: ReturnType<typeof vi.fn>;
+    runOptions?: Record<string, unknown>;
 } = {}) {
     let metadata = opts.metadata ?? {
         claudeSessionId: 'claude-session-1',
@@ -170,6 +171,7 @@ async function startRemoteRunClaudeHarness(opts: {
     } as any, {
         startingMode: 'remote',
         shouldStartDaemon: false,
+        ...opts.runOptions,
     });
 
     await vi.waitFor(() => {
@@ -182,7 +184,7 @@ async function startRemoteRunClaudeHarness(opts: {
     if (!scannerOptions || !loopOptions) {
         throw new Error('runClaude harness did not start');
     }
-    const runtimeSession = { thinking: false, cleanup: vi.fn() };
+    const runtimeSession = { thinking: false, cleanup: vi.fn(), notifyUser: vi.fn() };
     loopOptions.onSessionReady(runtimeSession);
     const goalActionHandler = registerHandler.mock.calls.find(([method]) => method === 'goal-action')?.[1];
 
@@ -840,6 +842,35 @@ describe('runClaude remote JSONL scanner', () => {
             model: 'claude-fable-5-20260115',
             effort: 'high',
         });
+
+        await harness.finish();
+    });
+
+    it('ignores tools the app pre-approves and tells the user once', async () => {
+        const harness = await startRemoteRunClaudeHarness();
+        const userMessageHandler = harness.sessionClient.onUserMessage.mock.calls[0][0];
+
+        await userMessageHandler({ content: { text: 'one' }, meta: { allowedTools: ['Bash', 'Write'] } });
+        await userMessageHandler({ content: { text: 'two' }, meta: { allowedTools: ['Bash'] } });
+
+        expect(harness.loopOptions.messageQueue.queue.map((item: { mode: { allowedTools?: string[] } }) => item.mode.allowedTools))
+            .toEqual([undefined, undefined]);
+        expect(harness.runtimeSession.notifyUser).toHaveBeenCalledTimes(1);
+        expect(harness.runtimeSession.notifyUser).toHaveBeenCalledWith(expect.stringContaining('pre-approved tools'));
+
+        await harness.finish();
+    });
+
+    it('keeps a plan start in plan when the app asks for read-only', async () => {
+        const harness = await startRemoteRunClaudeHarness({ runOptions: { permissionMode: 'plan' } });
+        const userMessageHandler = harness.sessionClient.onUserMessage.mock.calls[0][0];
+
+        await userMessageHandler({ content: { text: 'one' }, meta: { permissionMode: 'read-only' } });
+
+        expect(harness.loopOptions.messageQueue.queue[0].mode.permissionMode).toBe('plan');
+        expect(harness.runtimeSession.notifyUser).toHaveBeenCalledWith(
+            'Ignored a request from the app to raise the permission mode to read-only (it runs as default here).',
+        );
 
         await harness.finish();
     });

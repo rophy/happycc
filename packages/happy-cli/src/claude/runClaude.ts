@@ -33,8 +33,7 @@ import {
     type ClaudeGoalStatusTranscriptEvent,
 } from '@/claude/claudeGoalStatus';
 import { Session } from './session';
-import { capPermissionMode, permissionModeCapNotice } from '@/utils/permissionModeCeiling';
-import { normalizeRemotePermissionMode, resolveClaudeStartingPermissions, resolveRemoteClaudePermissionMode } from './utils/permissionMode';
+import { APP_ALLOWED_TOOLS_IGNORED_NOTICE, resolveAppClaudePermissionMode, resolveClaudeStartingPermissions } from './utils/permissionMode';
 import { decodeBase64, encodeBase64 } from '@/api/encryption';
 import type { Session as ApiSession } from '@/api/types';
 import { getProjectPath } from './utils/path';
@@ -652,6 +651,17 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         session.trackAttachmentDownload(downloadPromise);
     });
 
+    // Requests from the app that happycc refuses are told to the user in the
+    // session; before the Claude session exists they are only logged.
+    const notifyUserOfApp = (notice: string) => {
+        if (currentSession) {
+            currentSession.notifyUser(notice);
+        } else {
+            logger.info(notice);
+        }
+    };
+    let appAllowedToolsNoticeShown = false;
+
     session.onUserMessage(async (message) => {
 
         // Stamp the prompt so the remote-mode JSONL scanner can dedupe
@@ -669,26 +679,16 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         let messagePermissionMode: PermissionMode | undefined = currentPermissionMode;
         if (message.meta?.permissionMode) {
             const previousPermissionMode = currentPermissionMode;
-            // The app may lower the starting mode (sandbox-forced bypass counts as
-            // the starting mode), never raise it; a capped request is ignored.
-            const requestedPermissionMode = normalizeRemotePermissionMode(message.meta.permissionMode);
-            const capResult = requestedPermissionMode !== undefined
-                ? capPermissionMode(requestedPermissionMode, initialPermissionMode)
-                : undefined;
-            const capped = capResult?.capped === true;
-            if (requestedPermissionMode !== undefined && capResult?.capped) {
-                const notice = permissionModeCapNotice(requestedPermissionMode, capResult);
-                if (currentSession) {
-                    currentSession.notifyUser(notice);
-                } else {
-                    logger.info(notice);
-                }
-            }
-            messagePermissionMode = resolveRemoteClaudePermissionMode(
+            const resolved = resolveAppClaudePermissionMode(
                 currentPermissionMode,
-                capped ? undefined : requestedPermissionMode,
+                message.meta.permissionMode,
+                initialPermissionMode,
                 sandboxEnabled,
             );
+            if (resolved.notice) {
+                notifyUserOfApp(resolved.notice);
+            }
+            messagePermissionMode = resolved.mode;
             currentPermissionMode = messagePermissionMode;
             const ignoredDefaultDowngrade =
                 (previousPermissionMode === 'bypassPermissions' || previousPermissionMode === 'yolo')
@@ -743,14 +743,12 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             logger.debug(`[loop] User message received with no append system prompt override, using current: ${currentAppendSystemPrompt ? 'set' : 'none'}`);
         }
 
-        // Resolve allowed tools - use message.meta.allowedTools if provided, otherwise use current
-        let messageAllowedTools = currentAllowedTools;
-        if (message.meta?.hasOwnProperty('allowedTools')) {
-            messageAllowedTools = message.meta.allowedTools || undefined; // null becomes undefined
-            currentAllowedTools = messageAllowedTools;
-            logger.debug(`[loop] Allowed tools updated from user message: ${messageAllowedTools ? messageAllowedTools.join(', ') : 'reset to none'}`);
-        } else {
-            logger.debug(`[loop] User message received with no allowed tools override, using current: ${currentAllowedTools ? currentAllowedTools.join(', ') : 'none'}`);
+        // Tools pre-approved by the app would run without prompting, outside the
+        // permission ceiling, so the app's list is ignored (told to the user once).
+        const messageAllowedTools = currentAllowedTools;
+        if (message.meta?.allowedTools && message.meta.allowedTools.length > 0 && !appAllowedToolsNoticeShown) {
+            appAllowedToolsNoticeShown = true;
+            notifyUserOfApp(APP_ALLOWED_TOOLS_IGNORED_NOTICE);
         }
 
         // Resolve disallowed tools - use message.meta.disallowedTools if provided, otherwise use current

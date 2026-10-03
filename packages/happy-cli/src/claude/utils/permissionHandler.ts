@@ -10,8 +10,8 @@ import type { CanCallToolOptions, PermissionResult } from "../sdk/types";
 import { Session } from "../session";
 import { EnhancedMode, PermissionMode } from "../loop";
 import { getToolDescriptor } from "./getToolDescriptor";
-import { isClaudeBypassEquivalent, mapToClaudeMode } from "./permissionMode";
-import { capPermissionMode, permissionModeCapNotice, permissionModeRank } from "@/utils/permissionModeCeiling";
+import { permissionModeCapNotice, permissionModeRank } from "@/utils/permissionModeCeiling";
+import { capClaudePermissionMode, isClaudeBypassEquivalent, isPermissionMode, mapToClaudeMode } from "./permissionMode";
 
 export interface PermissionResponse {
     id: string;
@@ -107,7 +107,7 @@ export class PermissionHandler {
         if (!response.mode) {
             return response;
         }
-        const result = capPermissionMode(response.mode, this.startingMode);
+        const result = capClaudePermissionMode(response.mode, this.startingMode);
         if (!result.capped) {
             return response;
         }
@@ -119,7 +119,8 @@ export class PermissionHandler {
     }
 
     private startsInPlan(): boolean {
-        return permissionModeRank(this.startingMode ?? 'default') === 0;
+        const starting = this.startingMode ?? 'default';
+        return permissionModeRank(isPermissionMode(starting) ? mapToClaudeMode(starting) : starting) === 0;
     }
 
     private handlePermissionResponse(
@@ -152,7 +153,7 @@ export class PermissionHandler {
                     ? response.mode
                     : 'default';
                 // Never leave plan mode above the session's starting mode
-                const exitCap = capPermissionMode(requestedNewMode, this.startingMode);
+                const exitCap = capClaudePermissionMode(requestedNewMode, this.startingMode);
                 const newMode = exitCap.mode as PermissionMode;
                 if (exitCap.capped && this.startsInPlan()) {
                     this.notify("This session started in plan mode, so it can't leave plan mode from the app. Switch modes on the workstation.");

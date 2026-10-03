@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applySandboxPermissionPolicy, resolveClaudeStartingPermissions, extractPermissionModeFromClaudeArgs, mapToClaudeMode, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './permissionMode';
+import { applySandboxPermissionPolicy, capClaudePermissionMode, resolveAppClaudePermissionMode, resolveClaudeStartingPermissions, extractPermissionModeFromClaudeArgs, mapToClaudeMode, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './permissionMode';
 import { MessageMetaSchema, type PermissionMode } from '@/api/types';
 
 describe('mapToClaudeMode', () => {
@@ -193,5 +193,57 @@ describe('resolveClaudeStartingPermissions', () => {
         expect(resolveClaudeStartingPermissions('default', undefined, true)).toEqual({
             initialPermissionMode: 'bypassPermissions', dangerouslySkipPermissions: true, permissionModeCeiling: 'bypassPermissions',
         });
+    });
+});
+
+describe('capClaudePermissionMode', () => {
+    it('compares the Claude modes actually applied', () => {
+        // read-only runs as default, so it cannot leave a plan start
+        expect(capClaudePermissionMode('read-only', 'plan')).toMatchObject({ capped: true, reason: 'above-ceiling' });
+        // safe-yolo runs as default: allowed under a default start
+        expect(capClaudePermissionMode('safe-yolo', 'default')).toEqual({ mode: 'safe-yolo', capped: false });
+        // a yolo start is a bypass start
+        expect(capClaudePermissionMode('bypassPermissions', 'yolo')).toEqual({ mode: 'bypassPermissions', capped: false });
+        expect(capClaudePermissionMode('Code', 'yolo')).toMatchObject({ capped: true, reason: 'unranked' });
+    });
+});
+
+describe('resolveAppClaudePermissionMode', () => {
+    it('ignores a raise and says so', () => {
+        expect(resolveAppClaudePermissionMode('default', 'bypassPermissions', 'default', false)).toEqual({
+            mode: 'default',
+            notice: 'Ignored a request from the app to raise the permission mode to bypassPermissions.',
+        });
+        expect(resolveAppClaudePermissionMode('default', 'auto', 'default', false))
+            .toMatchObject({ mode: 'default', notice: expect.any(String) });
+    });
+
+    it('honors a lower mode', () => {
+        expect(resolveAppClaudePermissionMode('acceptEdits', 'plan', 'acceptEdits', false)).toEqual({ mode: 'plan' });
+        expect(resolveAppClaudePermissionMode('auto', 'default', 'auto', false)).toEqual({ mode: 'default' });
+        // back up to the starting mode after lowering
+        expect(resolveAppClaudePermissionMode('plan', 'acceptEdits', 'acceptEdits', false)).toEqual({ mode: 'acceptEdits' });
+    });
+
+    it('ignores an unknown mode and keeps the current one', () => {
+        expect(resolveAppClaudePermissionMode('plan', 'mode-from-the-future', 'default', false)).toEqual({ mode: 'plan' });
+        expect(resolveAppClaudePermissionMode('plan', undefined, 'default', false)).toEqual({ mode: 'plan' });
+    });
+
+    it('refuses read-only on a plan start: it would run as default', () => {
+        expect(resolveAppClaudePermissionMode('plan', 'read-only', 'plan', false)).toMatchObject({
+            mode: 'plan',
+            notice: expect.stringContaining('read-only'),
+        });
+    });
+
+    it('lets a sandbox-forced bypass start keep bypass', () => {
+        const { initialPermissionMode } = resolveClaudeStartingPermissions(undefined, [], true);
+        expect(initialPermissionMode).toBe('bypassPermissions');
+        expect(resolveAppClaudePermissionMode(initialPermissionMode, 'bypassPermissions', initialPermissionMode, true))
+            .toEqual({ mode: 'bypassPermissions' });
+        // the sandbox forces bypass for any mode the app picks
+        expect(resolveAppClaudePermissionMode(initialPermissionMode, 'plan', initialPermissionMode, true))
+            .toEqual({ mode: 'bypassPermissions' });
     });
 });
