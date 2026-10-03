@@ -45,7 +45,7 @@ export function trackSessionSwitched(session: Pick<Session, 'id' | 'createdAt' |
     });
 }
 
-export type MessageSentSource = 'chat' | 'new_session' | 'option' | 'question' | 'voice';
+export type MessageSentSource = 'chat' | 'new_session' | 'option' | 'question';
 
 export function trackMessageSent(source: MessageSentSource, metadata?: Metadata | null) {
     tracking?.capture('message_sent', {
@@ -69,10 +69,6 @@ type OtaEventProperties = {
     ota_version?: string;
     ota_runtime_version?: string;
 };
-
-export function trackVoicePermissionResponse(allowed: boolean) {
-    tracking?.capture('voice_permission_response', { allowed });
-}
 
 /**
  * Review request events

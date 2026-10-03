@@ -9,9 +9,6 @@ const mocks = vi.hoisted(() => ({
     applyOlderMessagesPagination: vi.fn(),
     setModes: vi.fn(),
     gitInvalidate: vi.fn(),
-    voiceFocus: vi.fn(),
-    voiceMessages: vi.fn(),
-    voiceReady: vi.fn(),
     loadAvatar: vi.fn(async () => null),
 }));
 
@@ -66,9 +63,6 @@ vi.mock('@/text', () => ({ t: (key: string) => key }));
 vi.mock('@/encryption/blob', () => ({}));
 vi.mock('@/utils/readFileBytes', () => ({}));
 vi.mock('@/sync/gitStatusSync', () => ({ gitStatusSync: { getSync: () => ({ invalidate: mocks.gitInvalidate }), clearForSession: vi.fn() } }));
-vi.mock('@/realtime/hooks/voiceHooks', () => ({ voiceHooks: {
-    onSessionFocus: mocks.voiceFocus, onMessages: mocks.voiceMessages, onReady: mocks.voiceReady,
-} }));
 
 import { sync } from './sync';
 import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
@@ -272,7 +266,7 @@ describe('session avatar sync integration', () => {
 });
 
 describe('chat preload sync integration', () => {
-    it('hydrates one latest page without read, voice, git, or history side effects', async () => {
+    it('hydrates one latest page without read, git, or history side effects', async () => {
         mocks.request.mockResolvedValue(response([message()], true));
         const older = vi.spyOn(engine, 'loadOlderMessages');
         engine.preloadSession('a');
@@ -281,9 +275,6 @@ describe('chat preload sync integration', () => {
         expect(mocks.request.mock.calls[0][0]).toBe('/v3/sessions/a/messages?before_seq=2147483647&limit=100');
         expect(mocks.applyMessages.mock.calls[0][2]).toBe('preload');
         expect(mocks.state.currentViewingSessionId).toBeNull();
-        expect(mocks.voiceFocus).not.toHaveBeenCalled();
-        expect(mocks.voiceMessages).not.toHaveBeenCalled();
-        expect(mocks.voiceReady).not.toHaveBeenCalled();
         expect(mocks.gitInvalidate).not.toHaveBeenCalled();
         expect(older).not.toHaveBeenCalled();
         engine.preloadSession('a');
@@ -303,8 +294,6 @@ describe('chat preload sync integration', () => {
         expect(mocks.request).toHaveBeenCalledOnce();
         expect(encryption.decryptMessages).toHaveBeenCalledOnce();
         expect(mocks.applyMessages.mock.calls[0][2]).toBe('sync');
-        expect(mocks.voiceMessages).toHaveBeenCalledOnce();
-        expect(mocks.voiceFocus).toHaveBeenCalledWith('a', {});
     });
 
     it('revalidates a completed preload and starts older history only after a visit', async () => {
@@ -371,12 +360,12 @@ describe('chat preload sync integration', () => {
         expect(engine.sessionLastSeq.has('a')).toBe(false);
     });
 
-    it('server events preserve voice-follow without claiming a visit or fetching all history', async () => {
+    it('server events refresh without claiming a visit or fetching all history', async () => {
         mocks.request.mockResolvedValue(response([message()], true));
         const older = vi.spyOn(engine, 'loadOlderMessages');
         engine.onSessionDataUpdated('a');
         await engine.getMessagesSync('a').awaitQueue();
-        expect(mocks.voiceFocus).toHaveBeenCalledWith('a', {});
+        expect(mocks.request).toHaveBeenCalledOnce();
         expect(mocks.state.currentViewingSessionId).toBeNull();
         expect(older).not.toHaveBeenCalled();
     });

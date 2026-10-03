@@ -26,13 +26,6 @@ function plural({ count, one, few, many }: { count: number; one: string; few: st
  * Must match the exact structure of the English translations
  */
 export const ru: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'нажмите, чтобы завершить',
-        connecting: 'Подключение…',
-        error: 'Ошибка соединения',
-        active: 'Голосовой ассистент активен',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: 'Входящие',
@@ -109,8 +102,6 @@ export const ru: TranslationStructure = {
         accountSubtitle: 'Управление учётной записью',
         appearance: 'Внешний вид',
         appearanceSubtitle: 'Настройка внешнего вида приложения',
-        voiceAssistant: 'Голосовой ассистент',
-        voiceAssistantSubtitle: 'Настройка предпочтений голосового взаимодействия',
         featuresTitle: 'Возможности',
         featuresSubtitle: 'Включить или отключить функции приложения',
         developer: 'Разработчик',
@@ -239,12 +230,6 @@ export const ru: TranslationStructure = {
         tryAgain: 'Пожалуйста, попробуйте снова',
         contactSupport: 'Если проблема сохранится, обратитесь в поддержку',
         sessionNotFound: 'Сессия не найдена',
-        voiceSessionFailed: 'Не удалось запустить голосовую сессию',
-        voiceServiceUnavailable: 'Голосовой сервис временно недоступен',
-        voiceLimitReachedTitle: 'Лимит голоса достигнут',
-        voiceMonthlyLimitReached: "Вы достигли месячного лимита голосового режима, установленного администратором.",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `Вы использовали ${hours}+ часов голосового общения в этом месяце. Это максимально допустимый лимит. Вы можете настроить собственного агента ElevenLabs в настройках голоса, чтобы использовать свою квоту.`,
-        voiceConversationLimitReached: 'Вы достигли максимального количества голосовых разговоров в этом месяце. Возможно, в будущем мы добавим голосовое использование по запросу — пожалуйста, создайте заявку на github.com/nicepkg/happy/issues, если вы столкнулись с этим ограничением.',
         oauthInitializationFailed: 'Не удалось инициализировать процесс OAuth',
         tokenStorageFailed: 'Не удалось сохранить токены аутентификации',
         oauthStateMismatch: 'Ошибка проверки безопасности. Попробуйте снова',
@@ -313,10 +298,6 @@ export const ru: TranslationStructure = {
         customServerUrlLabel: 'URL пользовательского сервера',
         advancedFeatureFooter: 'Это расширенная функция. Изменяйте сервер только если знаете, что делаете. Вам нужно будет выйти и войти снова после изменения серверов.',
         services: 'Сервисы',
-        useCustomServerForVoice: 'Использовать пользовательский сервер для голоса',
-        customServerVoiceEnabled: 'Голосовые учетные данные и данные об использовании обрабатываются вашим сервером',
-        customServerVoiceDisabled: 'Голос использует Happy Cloud и вашу подписку Happy',
-        customServerVoiceFooter: 'Если выключено, при запуске голосового режима используются Happy Cloud и ElevenLabs. Включайте только если на вашем сервере настроена голосовая связь.',
     },
 
     sessionInfo: {
@@ -732,38 +713,6 @@ export const ru: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `Боковой чат ${index}`,
         newChat: 'Новый боковой чат',
         close: 'Закрыть боковой чат',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: 'Язык',
-        languageDescription: 'Выберите предпочтительный язык для взаимодействия с голосовым помощником. Эта настройка синхронизируется на всех ваших устройствах.',
-        preferredLanguage: 'Предпочтительный язык',
-        preferredLanguageSubtitle: 'Язык, используемый для ответов голосового помощника',
-        language: {
-            searchPlaceholder: 'Поиск языков...',
-            title: 'Языки',
-            footer: ({ count }: { count: number }) => `Доступно ${count} ${plural({ count, one: 'язык', few: 'языка', many: 'языков' })}`,
-            autoDetect: 'Автоопределение',
-        },
-        // Bring your own agent
-        byoTitle: 'Используйте своего агента',
-        byoDescription: 'Используйте собственного агента ElevenLabs вместо стандартного Happy. Подписка не требуется — подключайтесь напрямую через свой аккаунт ElevenLabs. Ваш агент должен определить два клиентских инструмента: messageClaudeCode (отправляет текст агенту кодирования) и processPermissionRequest (разрешает или запрещает использование инструментов). Контекст сессии передаётся через динамическую переменную {{initialConversationContext}}.',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: 'Не настроено',
-        customAgentIdDescription: 'Введите ваш ElevenLabs Agent ID. Оставьте пустым, чтобы использовать стандартный Happy.',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: 'Прямое подключение',
-        bypassTokenSubtitle: 'Пропустить сервер Happy, подключиться напрямую к ElevenLabs',
-        promptGuideTitle: 'Руководство по промптам агента',
-        promptGuideDescription: 'Вашему агенту ElevenLabs необходимы:\n\n• Инструмент: messageClaudeCode — параметр: message (string). Отправляет сообщение в активную сессию кодирования.\n• Инструмент: processPermissionRequest — параметр: decision ("allow" или "deny"). Одобряет или отклоняет ожидающее разрешение на использование инструмента.\n• Динамическая переменная: {{initialConversationContext}} — получает историю и контекст сессии при запуске.\n\nАгент выступает голосовым мостом между пользователем и агентами кодирования. Он должен быть кратким, отвечать только при обращении и сообщать, когда агент кодирования завершает работу.',
-        usageTitle: 'Использование (последние 30 дней)',
-        usageFooter: 'Время голосового общения за последние 30 дней. Бесплатный тариф: 20 мин. С подпиской: 5 часов. Макс. 100 разговоров в месяц.',
-        usageLabel: 'Голосовое время',
-        conversationsLabel: 'Разговоры',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${used} использовано из ${limit}`,
-        supportTitle: 'Улучшить голос',
-        supportSubtitle: 'Больше голосового времени и поддержка разработки',
     },
 
     settingsAccount: {

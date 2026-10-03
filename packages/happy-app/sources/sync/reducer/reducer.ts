@@ -285,8 +285,8 @@ export type ReducerResult = {
     /**
      * Ids of already-visible messages that only settled this call (receipt
      * position applied, pending cleared). They appear in `messages` so the
-     * store re-renders them, but they are not new content — voice and other
-     * new-message consumers must not announce them a second time.
+     * store re-renders them, but they are not new content — new-message
+     * consumers must not announce them a second time.
      */
     settledMessageIds?: string[];
 };

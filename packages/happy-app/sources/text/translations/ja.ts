@@ -18,13 +18,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const ja: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'タップして終了',
-        connecting: '接続中…',
-        error: '接続エラー',
-        active: '音声アシスタント作動中',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: '受信トレイ',
@@ -125,8 +118,6 @@ export const ja: TranslationStructure = {
         accountSubtitle: 'アカウントの詳細を管理',
         appearance: '外観',
         appearanceSubtitle: 'アプリの見た目をカスタマイズ',
-        voiceAssistant: '音声アシスタント',
-        voiceAssistantSubtitle: '音声操作の設定',
         featuresTitle: '機能',
         featuresSubtitle: 'アプリ機能の有効/無効を切り替え',
         developer: '開発者',
@@ -255,12 +246,6 @@ export const ja: TranslationStructure = {
         tryAgain: '再試行してください',
         contactSupport: '問題が続く場合はサポートにお問い合わせください',
         sessionNotFound: 'セッションが見つかりません',
-        voiceSessionFailed: '音声セッションの開始に失敗しました',
-        voiceServiceUnavailable: '音声サービスは一時的に利用できません',
-        voiceLimitReachedTitle: '音声の上限に達しました',
-        voiceMonthlyLimitReached: "管理者が設定した月間の音声利用上限に達しました。",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `今月${hours}時間以上の音声を使用しました。これは許可される最大量です。音声設定で独自の ElevenLabs エージェントを設定して、自分のクォータを使用できます。`,
-        voiceConversationLimitReached: '今月の音声会話の最大数に達しました。将来的にオンデマンドの音声利用を追加する可能性があります。この制限に達した場合は、github.com/nicepkg/happy/issues で issue を作成してください。',
         oauthInitializationFailed: 'OAuth フローの初期化に失敗しました',
         tokenStorageFailed: '認証トークンの保存に失敗しました',
         oauthStateMismatch: 'セキュリティ検証に失敗しました。再試行してください',
@@ -362,10 +347,6 @@ export const ja: TranslationStructure = {
         customServerUrlLabel: 'カスタムサーバーURL',
         advancedFeatureFooter: "これは高度な機能です。何をしているか理解している場合のみサーバーを変更してください。サーバー変更後は再度ログインが必要です。",
         services: 'サービス',
-        useCustomServerForVoice: '音声にカスタムサーバーを使用',
-        customServerVoiceEnabled: '音声認証情報と使用量はカスタムサーバーを使用します',
-        customServerVoiceDisabled: '音声は Happy Cloud と Happy サブスクリプションを使用します',
-        customServerVoiceFooter: 'オフの場合、音声の開始時に Happy Cloud と ElevenLabs へ接続します。カスタムサーバーで音声が設定済みの場合のみオンにしてください。',
     },
 
     sessionInfo: {
@@ -715,38 +696,6 @@ export const ja: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `サイドチャット ${index}`,
         newChat: '新しいサイドチャット',
         close: 'サイドチャットを閉じる',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: '言語',
-        languageDescription: '音声アシスタントの操作に使用する言語を選択します。この設定はすべてのデバイスで同期されます。',
-        preferredLanguage: '優先言語',
-        preferredLanguageSubtitle: '音声アシスタントの応答に使用する言語',
-        language: {
-            searchPlaceholder: '言語を検索...',
-            title: '言語',
-            footer: ({ count }: { count: number }) => `${count}言語が利用可能`,
-            autoDetect: '自動検出',
-        },
-        // Bring your own agent
-        byoTitle: '自分のエージェントを使う',
-        byoDescription: 'Happy のデフォルトの代わりに、独自の ElevenLabs エージェントを使用します。サブスクリプション不要 — 自分の ElevenLabs アカウントで直接接続できます。エージェントには2つのクライアントツールを定義する必要があります: messageClaudeCode（コーディングエージェントにテキストを送信）と processPermissionRequest（ツール使用を許可または拒否）。セッションコンテキストは {{initialConversationContext}} 動的変数を通じて受信されます。',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: '未設定',
-        customAgentIdDescription: 'ElevenLabs Agent ID を入力してください。空のままにすると Happy のデフォルトが使用されます。',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: '直接接続',
-        bypassTokenSubtitle: 'Happy サーバーをスキップし、ElevenLabs に直接接続',
-        promptGuideTitle: 'エージェントプロンプトガイド',
-        promptGuideDescription: 'ElevenLabs エージェントには以下が必要です:\n\n• ツール: messageClaudeCode — パラメータ: message (string)。アクティブなコーディングセッションにメッセージを送信します。\n• ツール: processPermissionRequest — パラメータ: decision ("allow" または "deny")。保留中のツール許可を承認または拒否します。\n• 動的変数: {{initialConversationContext}} — 開始時にセッション履歴とコンテキストを受信します。\n\nエージェントはユーザーとコーディングエージェント間の音声ブリッジとして機能します。簡潔に、話しかけられた時のみ応答し、コーディングエージェントが作業を完了したら報告する必要があります。',
-        usageTitle: '使用状況（過去30日間）',
-        usageFooter: '過去30日間に使用した音声時間。無料プラン: 20分。サブスクリプション: 5時間。月間最大100会話。',
-        usageLabel: '音声時間',
-        conversationsLabel: '会話',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${limit}中${used}使用済み`,
-        supportTitle: '音声をアップグレード',
-        supportSubtitle: '音声時間を増やして開発を支援',
     },
 
     settingsAccount: {

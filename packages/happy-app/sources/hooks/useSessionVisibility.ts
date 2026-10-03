@@ -9,7 +9,7 @@ import { sync } from '@/sync/sync';
  * the press, but there is nothing to tell the server anyone is reading until
  * the machine has answered with a session.
  */
-export function useSessionVisibility(sessionId: string | null, active: boolean, embedded: boolean, realtimeStatus: string) {
+export function useSessionVisibility(sessionId: string | null, active: boolean, embedded: boolean) {
     const claimedView = React.useRef(false);
     React.useLayoutEffect(() => {
         if (!active || !sessionId) return;
@@ -18,7 +18,7 @@ export function useSessionVisibility(sessionId: string | null, active: boolean, 
             storage.getState().setCurrentViewingSession(sessionId);
         }
         sync.onSessionVisible(sessionId);
-    }, [sessionId, active, embedded, realtimeStatus]);
+    }, [sessionId, active, embedded]);
 
     // Keep the existing ownership while a session's info/files/changes screen
     // sits above it. Only release on unmount, and only if this instance ever

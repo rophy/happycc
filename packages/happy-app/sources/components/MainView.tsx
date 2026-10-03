@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { useFriendRequests, useRealtimeStatus, useSettingMutable } from '@/sync/storage';
+import { useFriendRequests, useSettingMutable } from '@/sync/storage';
 import { SESSION_LIST_GROUPING_MODES, type SessionListGrouping } from '@/sync/settings';
 import { NativeSettingsMenu, type NativeSettingsMenuGroup } from './NativeSettingsMenu';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
@@ -22,7 +22,6 @@ import { SettingsViewWrapper } from './SettingsViewWrapper';
 import { SessionsListWrapper } from './SessionsListWrapper';
 import { Header } from './navigation/Header';
 import { HeaderLogo } from './HeaderLogo';
-import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
 import { trackFriendsSearch } from '@/track';
@@ -243,7 +242,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const isTablet = useIsTablet();
     const router = useRouter();
     const friendRequests = useFriendRequests();
-    const realtimeStatus = useRealtimeStatus();
     const safeArea = useSafeAreaInsets();
     const {
         isStarting: isStartingHomeSession,
@@ -260,8 +258,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const topChromeInset = Platform.OS === 'web'
         ? 0
         : safeArea.top
-            + MOBILE_GLASS_HEADER_HEIGHT
-            + (realtimeStatus !== 'disconnected' ? 32 : 0);
+            + MOBILE_GLASS_HEADER_HEIGHT;
     const topContentInset = topChromeInset + (Platform.OS === 'web' ? 0 : 12);
     const bottomContentInset = Platform.OS === 'web'
         ? 0
@@ -364,9 +361,6 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 mobileTitleSurface="plain"
                 mobileTitleAlignment="center"
             />
-            {realtimeStatus !== 'disconnected' && (
-                <VoiceAssistantStatusBar variant="full" />
-            )}
         </View>
     );
 

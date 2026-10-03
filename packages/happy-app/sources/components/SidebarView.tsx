@@ -3,8 +3,7 @@ import { Text, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useHeaderHeight } from '@/utils/responsive';
-import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
-import { useRealtimeStatus, useSettingMutable } from '@/sync/storage';
+import { useSettingMutable } from '@/sync/storage';
 import { MainView } from './MainView';
 import { StyleSheet } from 'react-native-unistyles';
 import { t } from '@/text';
@@ -91,7 +90,6 @@ export const SidebarView = React.memo(() => {
     const safeArea = useSafeAreaInsets();
     const router = useRouter();
     const headerHeight = useHeaderHeight();
-    const realtimeStatus = useRealtimeStatus();
     const hasArchivedSessions = useHasArchivedSessions();
     // Stored under its original `hideInactiveSessions` key — synced settings
     // have no rename migration — but it hides archived sessions only.
@@ -141,10 +139,6 @@ export const SidebarView = React.memo(() => {
                     </Pressable>
                 )}
             </View>
-
-            {realtimeStatus !== 'disconnected' && (
-                <VoiceAssistantStatusBar variant="sidebar" />
-            )}
 
             {/* Sessions list */}
             <MainView variant="sidebar" />

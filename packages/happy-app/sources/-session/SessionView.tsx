@@ -19,18 +19,15 @@ import { ChatList } from '@/components/ChatList';
 import { Deferred } from '@/components/Deferred';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { Avatar } from '@/components/Avatar';
-import { VoiceAssistantStatusBar, VOICE_PILL_TOTAL_HEIGHT } from '@/components/VoiceAssistantStatusBar';
 import { useComposerModes } from '@/hooks/useComposerModes';
 import { useDraft } from '@/hooks/useDraft';
 import { useSessionVisibility } from '@/hooks/useSessionVisibility';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { Modal } from '@/modal';
-import { voiceHooks } from '@/realtime/hooks/voiceHooks';
-import { getCurrentVoiceConversationId, getCurrentVoiceSessionDurationSeconds, startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, sessionCancelCommunication, sessionGoalAction, sessionSetAgentModes, spawnSideChat, sessionKill, sessionArchive } from '@/sync/ops';
 import { dismissPendingChat, getPendingChat, setPendingChatDraft, submitPendingChat, usePendingChat, type PendingChat } from '@/sync/pendingChats';
 import { claimComposerFocus } from '@/utils/composerFocus';
-import { storage, useIsDataReady, useLocalSetting, useRealtimeStatus, useServerFeature, useSessionGitStatus, useSessionMessages, useSessionPendingCommunications, useSessionAvatar, useSessionUsage, useSetting, useSideChatSessions } from '@/sync/storage';
+import { storage, useIsDataReady, useLocalSetting, useSessionGitStatus, useSessionMessages, useSessionPendingCommunications, useSessionAvatar, useSessionUsage, useSetting, useSideChatSessions } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { getSessionForkSource } from '@/utils/sessionFork';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -39,8 +36,6 @@ import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { supportsImageAttachmentsForFlavor } from '@/sync/attachmentSupport';
 import { t } from '@/text';
-import { tracking } from '@/track';
-import { getVoiceMessageCount } from '@/sync/persistence';
 import { isRunningOnMac } from '@/utils/platform';
 import { useHeaderHeight, useIsLandscape, useIsTablet, useLayoutDimensions } from '@/utils/responsive';
 import { resolveSessionGitPresentation } from '@/utils/sessionGitPresentation';
@@ -132,7 +127,6 @@ export const SessionView = React.memo((props: { id: string }) => {
     const contentRunsUnderHeader = !isTablet
         && Platform.OS !== 'web'
         && !isLandscape;
-    const realtimeStatus = useRealtimeStatus();
     const { width: windowWidth } = useLayoutDimensions();
     const fileDiffsSidebarEnabled = useSetting('fileDiffsSidebar');
     const zenMode = useLocalSetting('zenMode');
@@ -475,7 +469,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                     paddingTop: !hidesLandscapeHeader
                         ? contentRunsUnderHeader
                             ? 0
-                            : safeArea.top + mobileHeaderHeight + tabStripHeight + (!isTablet && realtimeStatus !== 'disconnected' ? VOICE_PILL_TOTAL_HEIGHT : 0)
+                            : safeArea.top + mobileHeaderHeight + tabStripHeight
                         : 0,
                 }}
             >
@@ -537,10 +531,6 @@ export const SessionView = React.memo((props: { id: string }) => {
                     {/* The strip goes by the route, which is where a chat that
                         does not exist yet still has a chip of its own. */}
                     {showTabStrip && <WorktreeTabStrip sessionId={routeId} />}
-                    {/* Voice status bar below header - not on tablet (shown in sidebar) */}
-                    {!isTablet && realtimeStatus !== 'disconnected' && (
-                        <VoiceAssistantStatusBar variant="full" />
-                    )}
                 </View>
             )}
         </>
@@ -825,7 +815,6 @@ export function SessionViewLoaded({
         setIsChatAtBottom(true);
     }, [sessionId, usesFloatingMobileDock]);
 
-    const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded } = useSessionMessages(sessionId ?? '');
     const pendingCommunications = useSessionPendingCommunications(sessionId ?? '');
     const acknowledgedCliVersions = useLocalSetting('acknowledgedCliVersions');
@@ -836,7 +825,6 @@ export function SessionViewLoaded({
         : !isTablet && Platform.OS !== 'web'
             ? safeArea.top
                 + MOBILE_GLASS_HEADER_HEIGHT
-                + (realtimeStatus !== 'disconnected' ? VOICE_PILL_TOTAL_HEIGHT : 0)
                 + headerAccessoryHeight
                 + 12
             : undefined;
@@ -1068,58 +1056,7 @@ export function SessionViewLoaded({
         });
     }, [sessionId, visibleAgentGoal?.text]);
 
-    // Handle microphone button press - memoized to prevent button flashing
-    const handleMicrophonePress = React.useCallback(async () => {
-        if (realtimeStatus === 'connecting' || !sessionId) {
-            return; // Prevent actions during transitions
-        }
-        if (realtimeStatus === 'disconnected' || realtimeStatus === 'error') {
-            try {
-                const initialPrompt = voiceHooks.onVoiceStarted(sessionId);
-                const conversationId = await startRealtimeSession(sessionId, initialPrompt);
-                if (conversationId) {
-                    tracking?.capture('voice_session_started', {
-                        session_id: sessionId,
-                        elevenlabs_conversation_id: conversationId,
-                        voice_message_count: getVoiceMessageCount(),
-                    });
-                }
-            } catch (error) {
-                console.error('Failed to start realtime session:', error);
-                Modal.alert(t('common.error'), t('errors.voiceSessionFailed'));
-                tracking?.capture('voice_session_error', {
-                    session_id: sessionId,
-                    elevenlabs_conversation_id: getCurrentVoiceConversationId(),
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                });
-            }
-        } else if (realtimeStatus === 'connected') {
-            const conversationId = getCurrentVoiceConversationId();
-            const durationSeconds = getCurrentVoiceSessionDurationSeconds();
-            await stopRealtimeSession();
-            tracking?.capture('voice_session_stopped', {
-                session_id: sessionId,
-                elevenlabs_conversation_id: conversationId,
-                ...(durationSeconds !== undefined ? { duration_seconds: durationSeconds } : {}),
-            });
-
-            // Notify voice assistant about voice session stop
-            voiceHooks.onVoiceStopped();
-        }
-    }, [realtimeStatus, sessionId]);
-
-    // Memoize mic button state to prevent flashing during chat transitions.
-    // While a call runs the pill under the header is the only stop control,
-    // so the composer mic disappears instead of doubling as a stop button.
-    // No voice on this server: no mic, so no voice entry point at all.
-    const voiceEnabled = useServerFeature('voice');
-    const voiceSessionActive = realtimeStatus === 'connected' || realtimeStatus === 'connecting';
-    const micButtonState = useMemo(() => ({
-        onMicPress: voiceSessionActive ? undefined : handleMicrophonePress,
-        isMicActive: false,
-    }), [handleMicrophonePress, voiceSessionActive]);
-
-    useSessionVisibility(sessionId, active, embedded, realtimeStatus);
+    useSessionVisibility(sessionId, active, embedded);
 
     let content = session ? (
         <>
@@ -1183,8 +1120,6 @@ export function SessionViewLoaded({
                 connectionStatus={session ? connectionStatus : undefined}
                 blockSend={isRig && session?.thinking && session.metadata?.capabilities?.steering !== true}
                 onSend={handleSend}
-                onMicPress={(embedded || isDisconnected || !voiceEnabled) ? undefined : micButtonState.onMicPress}
-                isMicActive={(embedded || isDisconnected || !voiceEnabled) ? false : micButtonState.isMicActive}
                 onAbort={!session || isDisconnected || !rigCanAbort(session.metadata) ? undefined : handleAbort}
                 showAbortButton={!!session && rigCanAbort(session.metadata) && (
                     sessionStatus.state === 'thinking'
@@ -1281,7 +1216,7 @@ export function SessionViewLoaded({
                         paddingVertical: 7,
                         flexDirection: 'row',
                         alignItems: 'center',
-                        zIndex: 998, // Below voice bar but above content
+                        zIndex: 998, // Above content
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.15,

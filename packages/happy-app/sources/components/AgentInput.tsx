@@ -2,7 +2,6 @@ import { Ionicons, Octicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import * as React from 'react';
 import { Keyboard, View, Platform, Text, ActivityIndicator, Pressable, TouchableWithoutFeedback, LayoutChangeEvent } from 'react-native';
-import { Image } from 'expo-image';
 import { AgentInputAttachmentStrip } from './AgentInputAttachmentStrip';
 import type { AttachmentPreview } from '@/sync/attachmentTypes';
 import { generateThumbhash } from '@/utils/thumbhash';
@@ -71,8 +70,6 @@ interface AgentInputProps {
     sessionId?: string;
     onSend: () => void;
     sendIcon?: React.ReactNode;
-    onMicPress?: () => void;
-    isMicActive?: boolean;
     permissionMode?: PermissionMode | null;
     availableModes?: PermissionMode[];
     onPermissionModeChange?: (mode: PermissionMode) => void;
@@ -931,20 +928,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         isSendDisabled: props.isSendDisabled ?? false,
         showAbortButton: props.showAbortButton ?? false,
         canAbort: !!props.onAbort && !stopRequested,
-        // Only the mobile composer folds the mic into the primary button; the
-        // desktop layout keeps its own send/mic resolution below. A live voice
-        // session stays in this state so the same button can end it.
-        canVoice: compactMobileComposer && !!props.onMicPress,
     });
     const shouldShowStopButton = primaryAction === 'stop';
-    const shouldShowVoiceButton = primaryAction === 'voice';
     const canSendMessage = primaryAction === 'send';
     const mobileCanPressSendButton = !isAborting && primaryAction !== 'idle';
     const desktopCanPressSendButton = !props.isSending
         && !props.isSendDisabled
-        && (isSendBlocked
-            ? hasComposerContent
-            : hasComposerContent || !!props.onMicPress);
+        && hasComposerContent;
     const canPressSendButton = compactMobileComposer
         ? mobileCanPressSendButton
         : desktopCanPressSendButton;
@@ -1279,39 +1269,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         if (liveHasText || hasImages) {
             setStopRequested(false);
             props.onSend();
-        } else if (!compactMobileComposer) {
-            props.onMicPress?.();
         }
-    }, [compactMobileComposer, handleBlockedSendAttempt, hasImages, isSendBlocked, props.isSendDisabled, props.isSending, props.onMicPress, props.onSend]);
+    }, [compactMobileComposer, handleBlockedSendAttempt, hasImages, isSendBlocked, props.isSendDisabled, props.isSending, props.onSend]);
 
-    const handleMicrophonePress = React.useCallback(() => {
-        if (!props.onMicPress || props.isSendDisabled) return;
-        hapticsLight();
-        props.onMicPress();
-    }, [props.isSendDisabled, props.onMicPress]);
-
-    // Stop, voice and send share one button, so which one fires is resolved from
+    // Stop and send share one button, so which one fires is resolved from
     // the live text rather than from `hasText`, which is set in a transition and
     // lags a fast type-then-tap. Without the live read that tap would abort the
-    // agent or open dictation instead of sending what was just typed.
+    // agent instead of sending what was just typed.
     const handleMobilePrimaryPress = React.useCallback(() => {
         const liveHasContent = (inputRef.current?.getText() ?? '').trim().length > 0 || hasImages;
         if (!liveHasContent && shouldShowStopButton) {
             handleAbortPress();
             return;
         }
-        if (!liveHasContent && shouldShowVoiceButton) {
-            handleMicrophonePress();
-            return;
-        }
         handleSendPress();
     }, [
         handleAbortPress,
-        handleMicrophonePress,
         handleSendPress,
         hasImages,
         shouldShowStopButton,
-        shouldShowVoiceButton,
     ]);
 
     const permissionSettingsGroups = React.useMemo<NativeSettingsMenuGroup[]>(() => {
@@ -1603,7 +1579,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             styles.sendButton,
                             isSendBlocked
                                 ? styles.sendButtonLocked
-                                : (hasText || props.isSending || (props.onMicPress && !props.isMicActive))
+                                : (hasText || props.isSending)
                                     ? styles.sendButtonActive
                                     : styles.sendButtonInactive,
                         ]}
@@ -1624,19 +1600,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 <ActivityIndicator size="small" color={theme.colors.button.primary.tint} />
                             ) : isSendBlocked ? (
                                 <Ionicons name="lock-closed" size={15} color={theme.colors.textSecondary} />
-                            ) : hasText ? (
-                                <Octicons
-                                    name="arrow-up"
-                                    size={16}
-                                    color={theme.colors.button.primary.tint}
-                                    style={[styles.sendButtonIcon, { marginTop: Platform.OS === 'web' ? 2 : 0 }]}
-                                />
-                            ) : props.onMicPress && !props.isMicActive ? (
-                                <Image
-                                    source={require('@/assets/images/icon-voice-white.png')}
-                                    style={{ width: 24, height: 24 }}
-                                    tintColor={theme.colors.button.primary.tint}
-                                />
                             ) : (
                                 <Octicons
                                     name="arrow-up"
@@ -2170,7 +2133,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
                     {compactMobileComposer ? (
                     /* The action order mirrors the expanded Home composer:
-                        photo, permissions, model/effort, voice, then send/stop. */
+                        photo, permissions, model/effort, then send/stop. */
                     <View style={[
                         styles.actionButtonsContainer,
                         styles.mobileActionButtonsContainer,
@@ -2337,7 +2300,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     // abortable, and it must not look locked.
                                     shouldShowStopButton ? styles.mobileStopButton
                                         : isSendBlocked ? styles.sendButtonLocked
-                                            : canSendMessage || shouldShowVoiceButton ? styles.mobilePrimaryButtonActive
+                                            : canSendMessage ? styles.mobilePrimaryButtonActive
                                                 : styles.mobilePrimaryButtonInactive,
                                 ]}
                             >
@@ -2353,9 +2316,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     onPress={handleMobilePrimaryPress}
                                     disabled={!canPressSendButton}
                                     accessibilityRole="button"
-                                    accessibilityLabel={shouldShowStopButton ? 'Stop'
-                                        : shouldShowVoiceButton ? 'Voice'
-                                            : 'Send'}
+                                    accessibilityLabel={shouldShowStopButton ? 'Stop' : 'Send'}
                                 >
                                     {isAborting ? (
                                         <ActivityIndicator
@@ -2374,16 +2335,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             size={14}
                                             color={theme.colors.textSecondary}
                                         />
-                                    ) : shouldShowVoiceButton ? (
-                                        props.isMicActive ? (
-                                            <Ionicons name="mic" size={20} color={activeSendIconColor} />
-                                        ) : (
-                                            <Image
-                                                source={require('@/assets/images/icon-voice-white.png')}
-                                                style={{ width: 22, height: 22 }}
-                                                tintColor={activeSendIconColor}
-                                            />
-                                        )
                                     ) : (
                                         <Octicons
                                             name="arrow-up"

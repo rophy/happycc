@@ -26,13 +26,6 @@ function plural({ count, one, few, many }: { count: number; one: string; few: st
  * Must match the exact structure of the English translations
  */
 export const pl: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'dotknij, aby zakończyć',
-        connecting: 'Łączenie…',
-        error: 'Błąd połączenia',
-        active: 'Asystent głosowy aktywny',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: 'Skrzynka',
@@ -140,8 +133,6 @@ export const pl: TranslationStructure = {
         accountSubtitle: 'Zarządzaj szczegółami konta',
         appearance: 'Wygląd',
         appearanceSubtitle: 'Dostosuj wygląd aplikacji',
-        voiceAssistant: 'Asystent głosowy',
-        voiceAssistantSubtitle: 'Konfiguruj preferencje interakcji głosowej',
         featuresTitle: 'Funkcje',
         featuresSubtitle: 'Włącz lub wyłącz funkcje aplikacji',
         developer: 'Deweloper',
@@ -271,12 +262,6 @@ export const pl: TranslationStructure = {
         tryAgain: 'Spróbuj ponownie',
         contactSupport: 'Skontaktuj się z pomocą techniczną, jeśli problem będzie się powtarzał',
         sessionNotFound: 'Sesja nie została znaleziona',
-        voiceSessionFailed: 'Nie udało się uruchomić sesji głosowej',
-        voiceServiceUnavailable: 'Usługa głosowa jest tymczasowo niedostępna',
-        voiceLimitReachedTitle: 'Osiągnięto limit głosu',
-        voiceMonthlyLimitReached: "Osiągnięto miesięczny limit głosu ustalony przez administratora.",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `Wykorzystałeś ${hours}+ godzin głosu w tym miesiącu. To jest maksymalny dozwolony limit. Możesz skonfigurować własnego agenta ElevenLabs w ustawieniach głosu, aby korzystać z własnego limitu.`,
-        voiceConversationLimitReached: 'Osiągnąłeś maksymalną liczbę rozmów głosowych w tym miesiącu. Możliwe, że w przyszłości dodamy głosowe korzystanie na żądanie — prosimy o zgłoszenie na github.com/nicepkg/happy/issues, jeśli napotkasz ten limit.',
         oauthInitializationFailed: 'Nie udało się zainicjować przepływu OAuth',
         tokenStorageFailed: 'Nie udało się zapisać tokenów uwierzytelniania',
         oauthStateMismatch: 'Weryfikacja bezpieczeństwa nie powiodła się. Spróbuj ponownie',
@@ -378,10 +363,6 @@ export const pl: TranslationStructure = {
         customServerUrlLabel: 'URL niestandardowego serwera',
         advancedFeatureFooter: 'To jest zaawansowana funkcja. Zmieniaj serwer tylko jeśli wiesz, co robisz. Po zmianie serwera będziesz musiał się wylogować i zalogować ponownie.',
         services: 'Usługi',
-        useCustomServerForVoice: 'Użyj niestandardowego serwera dla głosu',
-        customServerVoiceEnabled: 'Dane uwierzytelniające i użycie głosu korzystają z niestandardowego serwera',
-        customServerVoiceDisabled: 'Głos korzysta z Happy Cloud i subskrypcji Happy',
-        customServerVoiceFooter: 'Gdy ta opcja jest wyłączona, uruchomienie głosu łączy się z Happy Cloud i ElevenLabs. Włącz ją tylko wtedy, gdy niestandardowy serwer jest skonfigurowany do obsługi głosu.',
     },
 
     sessionInfo: {
@@ -730,38 +711,6 @@ export const pl: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `Czat boczny ${index}`,
         newChat: 'Nowy czat boczny',
         close: 'Zamknij czat boczny',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: 'Język',
-        languageDescription: 'Wybierz preferowany język dla interakcji z asystentem głosowym. To ustawienie synchronizuje się na wszystkich Twoich urządzeniach.',
-        preferredLanguage: 'Preferowany język',
-        preferredLanguageSubtitle: 'Język używany do odpowiedzi asystenta głosowego',
-        language: {
-            searchPlaceholder: 'Wyszukaj języki...',
-            title: 'Języki',
-            footer: ({ count }: { count: number }) => `Dostępnych ${count} ${plural({ count, one: 'język', few: 'języki', many: 'języków' })}`,
-            autoDetect: 'Automatyczne wykrywanie',
-        },
-        // Bring your own agent
-        byoTitle: 'Użyj własnego agenta',
-        byoDescription: 'Użyj własnego agenta ElevenLabs zamiast domyślnego Happy. Subskrypcja nie jest wymagana — połącz się bezpośrednio ze swoim kontem ElevenLabs. Twój agent musi definiować dwa narzędzia klienckie: messageClaudeCode (wysyła tekst do agenta kodującego) i processPermissionRequest (zezwala lub odmawia użycia narzędzi). Otrzymuje kontekst sesji przez zmienną dynamiczną {{initialConversationContext}}.',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: 'Nie skonfigurowano',
-        customAgentIdDescription: 'Wprowadź swój ElevenLabs Agent ID. Pozostaw puste, aby użyć domyślnego Happy.',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: 'Połączenie bezpośrednie',
-        bypassTokenSubtitle: 'Pomiń serwer Happy, połącz się bezpośrednio z ElevenLabs',
-        promptGuideTitle: 'Przewodnik po promptach agenta',
-        promptGuideDescription: 'Twój agent ElevenLabs potrzebuje:\n\n• Narzędzie: messageClaudeCode — parametr: message (string). Wysyła wiadomość do aktywnej sesji kodowania.\n• Narzędzie: processPermissionRequest — parametr: decision ("allow" lub "deny"). Zatwierdza lub odrzuca oczekujące uprawnienie narzędzia.\n• Zmienna dynamiczna: {{initialConversationContext}} — otrzymuje historię sesji i kontekst przy uruchomieniu.\n\nAgent działa jako most głosowy między użytkownikiem a agentami kodującymi. Powinien być zwięzły, odpowiadać tylko gdy jest adresowany i raportować, gdy agent kodujący zakończy pracę.',
-        usageTitle: 'Użycie (ostatnie 30 dni)',
-        usageFooter: 'Czas głosowy wykorzystany w ostatnich 30 dniach. Darmowy plan: 20 min. Z subskrypcją: 5 godzin. Maks. 100 rozmów miesięcznie.',
-        usageLabel: 'Czas głosowy',
-        conversationsLabel: 'Rozmowy',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${used} wykorzystano z ${limit}`,
-        supportTitle: 'Ulepsz głos',
-        supportSubtitle: 'Więcej czasu głosowego i wsparcie rozwoju',
     },
 
     settingsAccount: {

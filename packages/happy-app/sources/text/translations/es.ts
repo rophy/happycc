@@ -15,13 +15,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  * Must match the exact structure of the English translations
  */
 export const es: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'toca para finalizar',
-        connecting: 'Conectando…',
-        error: 'Error de conexión',
-        active: 'Asistente de voz activo',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: 'Bandeja',
@@ -123,8 +116,6 @@ export const es: TranslationStructure = {
         accountSubtitle: 'Gestiona los detalles de tu cuenta',
         appearance: 'Apariencia',
         appearanceSubtitle: 'Personaliza como se ve la app',
-        voiceAssistant: 'Asistente de voz',
-        voiceAssistantSubtitle: 'Configura las preferencias de voz',
         featuresTitle: 'Características',
         featuresSubtitle: 'Habilitar o deshabilitar funciones de la aplicación',
         developer: 'Desarrollador',
@@ -254,12 +245,6 @@ export const es: TranslationStructure = {
         tryAgain: 'Intenta de nuevo',
         contactSupport: 'Contacta soporte si el problema persiste',
         sessionNotFound: 'Sesión no encontrada',
-        voiceSessionFailed: 'Falló al iniciar sesión de voz',
-        voiceServiceUnavailable: 'El servicio de voz no está disponible temporalmente',
-        voiceLimitReachedTitle: 'Límite de voz alcanzado',
-        voiceMonthlyLimitReached: "Has alcanzado el límite mensual de voz establecido por tu administrador.",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `Has usado ${hours}+ horas de voz este mes. Este es el máximo permitido. Puedes configurar tu propio agente ElevenLabs en la configuración de voz para usar tu propia cuota.`,
-        voiceConversationLimitReached: 'Has alcanzado el número máximo de conversaciones de voz este mes. Es posible que en el futuro agreguemos uso de voz bajo demanda — por favor crea un issue en github.com/nicepkg/happy/issues si alcanzas este límite.',
         oauthInitializationFailed: 'Falló al inicializar el flujo OAuth',
         tokenStorageFailed: 'Falló al almacenar los tokens de autenticación',
         oauthStateMismatch: 'Falló la validación de seguridad. Inténtalo de nuevo',
@@ -361,10 +346,6 @@ export const es: TranslationStructure = {
         customServerUrlLabel: 'URL del servidor personalizado',
         advancedFeatureFooter: 'Esta es una característica avanzada. Solo cambia el servidor si sabes lo que haces. Necesitarás cerrar sesión e iniciarla nuevamente después de cambiar servidores.',
         services: 'Servicios',
-        useCustomServerForVoice: 'Usar servidor personalizado para voz',
-        customServerVoiceEnabled: 'Las credenciales y el uso de voz utilizan tu servidor personalizado',
-        customServerVoiceDisabled: 'La voz utiliza Happy Cloud y tu suscripción de Happy',
-        customServerVoiceFooter: 'Cuando está desactivado, iniciar la voz contacta con Happy Cloud y ElevenLabs. Actívalo solo si tu servidor personalizado está configurado para voz.',
     },
 
     sessionInfo: {
@@ -714,38 +695,6 @@ export const es: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `Chat lateral ${index}`,
         newChat: 'Nuevo chat lateral',
         close: 'Cerrar chat lateral',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: 'Idioma',
-        languageDescription: 'Elige tu idioma preferido para las interacciones con el asistente de voz. Esta configuración se sincroniza en todos tus dispositivos.',
-        preferredLanguage: 'Idioma preferido',
-        preferredLanguageSubtitle: 'Idioma usado para respuestas del asistente de voz',
-        language: {
-            searchPlaceholder: 'Buscar idiomas...',
-            title: 'Idiomas',
-            footer: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'idioma', plural: 'idiomas' })} disponibles`,
-            autoDetect: 'Detectar automáticamente',
-        },
-        // Bring your own agent
-        byoTitle: 'Trae tu propio agente',
-        byoDescription: 'Usa tu propio agente de ElevenLabs en lugar del predeterminado de Happy. No se requiere suscripción — conéctate directamente con tu propia cuenta de ElevenLabs. Tu agente debe definir dos herramientas de cliente: messageClaudeCode (envía texto al agente de código) y processPermissionRequest (permite o deniega el uso de herramientas). Recibe el contexto de la sesión a través de la variable dinámica {{initialConversationContext}}.',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: 'No configurado',
-        customAgentIdDescription: 'Ingresa tu ElevenLabs Agent ID. Déjalo vacío para usar el predeterminado de Happy.',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: 'Conexión directa',
-        bypassTokenSubtitle: 'Omite el servidor de Happy, conéctate directamente a ElevenLabs',
-        promptGuideTitle: 'Guía de prompt del agente',
-        promptGuideDescription: 'Tu agente de ElevenLabs necesita:\n\n• Herramienta: messageClaudeCode — parámetro: message (string). Envía un mensaje a la sesión de código activa.\n• Herramienta: processPermissionRequest — parámetro: decision ("allow" o "deny"). Aprueba o deniega un permiso de herramienta pendiente.\n• Variable dinámica: {{initialConversationContext}} — recibe el historial y contexto de la sesión al iniciar.\n\nEl agente actúa como puente de voz entre el usuario y los agentes de código. Debe ser conciso, responder solo cuando se le habla e informar cuando un agente de código termina su trabajo.',
-        usageTitle: 'Uso (últimos 30 días)',
-        usageFooter: 'Tiempo de voz utilizado en los últimos 30 días. Plan gratuito: 20 min. Suscrito: 5 horas. Máx. 100 conversaciones al mes.',
-        usageLabel: 'Tiempo de voz',
-        conversationsLabel: 'Conversaciones',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${used} usado de ${limit}`,
-        supportTitle: 'Mejorar voz',
-        supportSubtitle: 'Más tiempo de voz y apoya el desarrollo',
     },
 
     settingsAccount: {

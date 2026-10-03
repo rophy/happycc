@@ -17,13 +17,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const zhHans: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: '点按结束',
-        connecting: '连接中…',
-        error: '连接错误',
-        active: '语音助手运行中',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: '收件箱',
@@ -125,8 +118,6 @@ export const zhHans: TranslationStructure = {
         accountSubtitle: '管理您的账户详情',
         appearance: '外观',
         appearanceSubtitle: '自定义应用外观',
-        voiceAssistant: '语音助手',
-        voiceAssistantSubtitle: '配置语音交互偏好',
         featuresTitle: '功能',
         featuresSubtitle: '启用或禁用应用功能',
         developer: '开发者',
@@ -255,12 +246,6 @@ export const zhHans: TranslationStructure = {
         tryAgain: '请重试',
         contactSupport: '如果问题持续存在，请联系支持',
         sessionNotFound: '会话未找到',
-        voiceSessionFailed: '启动语音会话失败',
-        voiceServiceUnavailable: '语音服务暂时不可用',
-        voiceLimitReachedTitle: '已达语音上限',
-        voiceMonthlyLimitReached: "您已达到管理员设置的每月语音使用上限。",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `您本月已使用超过 ${hours} 小时的语音。这是允许的最大用量。您可以在语音设置中配置自己的 ElevenLabs 代理，以使用您自己的配额。`,
-        voiceConversationLimitReached: '您本月已达到语音对话的最大次数。我们未来可能会添加按需语音使用功能——如果您遇到此限制，请在 github.com/nicepkg/happy/issues 提交 issue。',
         oauthInitializationFailed: '初始化 OAuth 流程失败',
         tokenStorageFailed: '存储认证令牌失败',
         oauthStateMismatch: '安全验证失败。请重试',
@@ -362,10 +347,6 @@ export const zhHans: TranslationStructure = {
         customServerUrlLabel: '自定义服务器 URL',
         advancedFeatureFooter: "这是一个高级功能。只有在您知道自己在做什么时才更改服务器。更改服务器后您需要重新登录。",
         services: '服务',
-        useCustomServerForVoice: '使用自定义服务器处理语音',
-        customServerVoiceEnabled: '语音凭据和用量由您的自定义服务器处理',
-        customServerVoiceDisabled: '语音使用 Happy Cloud 和您的 Happy 订阅',
-        customServerVoiceFooter: '关闭时，启动语音会连接 Happy Cloud 和 ElevenLabs。仅当您的自定义服务器已配置语音功能时才启用。',
     },
 
     sessionInfo: {
@@ -715,38 +696,6 @@ export const zhHans: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `侧边聊天 ${index}`,
         newChat: '新建侧边聊天',
         close: '关闭侧边聊天',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: '语言',
-        languageDescription: '选择您希望语音助手交互使用的语言。此设置将在您的所有设备间同步。',
-        preferredLanguage: '首选语言',
-        preferredLanguageSubtitle: '语音助手响应使用的语言',
-        language: {
-            searchPlaceholder: '搜索语言...',
-            title: '语言',
-            footer: ({ count }: { count: number }) => `${count} 种可用语言`,
-            autoDetect: '自动检测',
-        },
-        // Bring your own agent
-        byoTitle: '使用自己的代理',
-        byoDescription: '使用您自己的 ElevenLabs 代理代替 Happy 默认代理。无需订阅 — 直接使用您自己的 ElevenLabs 账户连接。您的代理必须定义两个客户端工具：messageClaudeCode（向编码代理发送文本）和 processPermissionRequest（允许或拒绝工具使用）。通过 {{initialConversationContext}} 动态变量接收会话上下文。',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: '未配置',
-        customAgentIdDescription: '输入您的 ElevenLabs Agent ID。留空则使用 Happy 默认代理。',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: '直接连接',
-        bypassTokenSubtitle: '跳过 Happy 服务器，直接连接到 ElevenLabs',
-        promptGuideTitle: '代理提示词指南',
-        promptGuideDescription: '您的 ElevenLabs 代理需要：\n\n• 工具：messageClaudeCode — 参数：message (string)。向活跃的编码会话发送消息。\n• 工具：processPermissionRequest — 参数：decision ("allow" 或 "deny")。批准或拒绝待处理的工具权限。\n• 动态变量：{{initialConversationContext}} — 启动时接收会话历史和上下文。\n\n代理充当用户和编码代理之间的语音桥梁。它应该简洁，仅在被呼叫时回应，并在编码代理完成工作时进行报告。',
-        usageTitle: '使用量（过去 30 天）',
-        usageFooter: '过去 30 天使用的语音时间。免费方案: 20 分钟。订阅用户: 5 小时。每月最多 100 次对话。',
-        usageLabel: '语音时间',
-        conversationsLabel: '对话',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `已使用 ${used}，共 ${limit}`,
-        supportTitle: '升级语音',
-        supportSubtitle: '获取更多语音时间并支持开发',
     },
 
     settingsAccount: {

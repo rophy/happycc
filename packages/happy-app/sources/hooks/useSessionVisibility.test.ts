@@ -15,9 +15,9 @@ vi.mock('@/sync/sync', () => ({ sync: { onSessionVisible: mocks.onSessionVisible
 
 import { useSessionVisibility } from './useSessionVisibility';
 
-type Props = { id: string; active: boolean; embedded?: boolean; realtimeStatus?: string };
-function Harness({ id, active, embedded = false, realtimeStatus = 'disconnected' }: Props) {
-    useSessionVisibility(id, active, embedded, realtimeStatus);
+type Props = { id: string; active: boolean; embedded?: boolean };
+function Harness({ id, active, embedded = false }: Props) {
+    useSessionVisibility(id, active, embedded);
     return null;
 }
 let renderer: ReturnType<typeof create>;
@@ -51,13 +51,6 @@ describe('session visibility lifecycle', () => {
         expect(mocks.state.unread.has('a')).toBe(false);
         update({ id: 'a', active: false });
         expect(mocks.state.currentViewingSessionId).toBe('a');
-    });
-
-    it('does not activate an abandoned preload even when voice status changes', () => {
-        render({ id: 'a', active: false });
-        update({ id: 'a', active: false, realtimeStatus: 'connected' });
-        expect(mocks.onSessionVisible).not.toHaveBeenCalled();
-        expect(mocks.setCurrentViewingSession).not.toHaveBeenCalled();
     });
 
     it('cannot clear a newer screen ownership during cleanup', () => {

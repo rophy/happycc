@@ -15,13 +15,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  * Must match the exact structure of the English translations
  */
 export const it: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'tocca per terminare',
-        connecting: 'Connessione…',
-        error: 'Errore di connessione',
-        active: 'Assistente vocale attivo',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: 'Posta',
@@ -122,8 +115,6 @@ export const it: TranslationStructure = {
         accountSubtitle: 'Gestisci i dettagli del tuo account',
         appearance: 'Aspetto',
         appearanceSubtitle: 'Personalizza l\'aspetto dell\'app',
-        voiceAssistant: 'Assistente vocale',
-        voiceAssistantSubtitle: 'Configura le preferenze vocali',
         featuresTitle: 'Funzionalità',
         featuresSubtitle: 'Abilita o disabilita le funzionalità dell\'app',
         developer: 'Sviluppatore',
@@ -252,12 +243,6 @@ export const it: TranslationStructure = {
         tryAgain: 'Per favore riprova',
         contactSupport: 'Contatta l\'assistenza se il problema persiste',
         sessionNotFound: 'Sessione non trovata',
-        voiceSessionFailed: 'Avvio della sessione vocale non riuscito',
-        voiceServiceUnavailable: 'Il servizio vocale non è temporaneamente disponibile',
-        voiceLimitReachedTitle: 'Limite vocale raggiunto',
-        voiceMonthlyLimitReached: "Hai raggiunto il limite vocale mensile impostato dal tuo amministratore.",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `Hai utilizzato ${hours}+ ore di voce questo mese. Questo è il massimo consentito. Puoi configurare il tuo agente ElevenLabs nelle impostazioni vocali per utilizzare la tua quota.`,
-        voiceConversationLimitReached: 'Hai raggiunto il numero massimo di conversazioni vocali questo mese. Potremmo aggiungere l\'uso vocale su richiesta in futuro — per favore apri un issue su github.com/nicepkg/happy/issues se raggiungi questo limite.',
         oauthInitializationFailed: 'Impossibile inizializzare il flusso OAuth',
         tokenStorageFailed: 'Impossibile salvare i token di autenticazione',
         oauthStateMismatch: 'Convalida di sicurezza non riuscita. Riprova',
@@ -359,10 +344,6 @@ export const it: TranslationStructure = {
         customServerUrlLabel: 'URL server personalizzato',
         advancedFeatureFooter: 'Questa è una funzionalità avanzata. Cambia il server solo se sai cosa stai facendo. Dovrai disconnetterti e accedere di nuovo dopo aver cambiato server.',
         services: 'Servizi',
-        useCustomServerForVoice: 'Usa il server personalizzato per la voce',
-        customServerVoiceEnabled: 'Le credenziali e l’utilizzo vocale usano il server personalizzato',
-        customServerVoiceDisabled: 'La voce usa Happy Cloud e il tuo abbonamento Happy',
-        customServerVoiceFooter: 'Quando è disattivato, l’avvio della voce contatta Happy Cloud ed ElevenLabs. Attivalo solo se il server personalizzato è configurato per la voce.',
     },
 
     sessionInfo: {
@@ -712,38 +693,6 @@ export const it: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `Chat laterale ${index}`,
         newChat: 'Nuova chat laterale',
         close: 'Chiudi chat laterale',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: 'Lingua',
-        languageDescription: 'Scegli la tua lingua preferita per le interazioni dell\'assistente vocale. Questa impostazione si sincronizza su tutti i tuoi dispositivi.',
-        preferredLanguage: 'Lingua preferita',
-        preferredLanguageSubtitle: 'Lingua usata per le risposte dell\'assistente vocale',
-        language: {
-            searchPlaceholder: 'Cerca lingue...',
-            title: 'Lingue',
-            footer: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'lingua', plural: 'lingue' })} disponibili`,
-            autoDetect: 'Rilevamento automatico',
-        },
-        // Bring your own agent
-        byoTitle: 'Porta il tuo agente',
-        byoDescription: 'Usa il tuo agente ElevenLabs al posto di quello predefinito di Happy. Nessun abbonamento richiesto — connettiti direttamente con il tuo account ElevenLabs. Il tuo agente deve definire due strumenti client: messageClaudeCode (invia testo all\'agente di codice) e processPermissionRequest (consente o nega l\'uso degli strumenti). Riceve il contesto della sessione tramite la variabile dinamica {{initialConversationContext}}.',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: 'Non configurato',
-        customAgentIdDescription: 'Inserisci il tuo ElevenLabs Agent ID. Lascia vuoto per usare quello predefinito di Happy.',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: 'Connessione diretta',
-        bypassTokenSubtitle: 'Salta il server di Happy, connettiti direttamente a ElevenLabs',
-        promptGuideTitle: 'Guida al prompt dell\'agente',
-        promptGuideDescription: 'Il tuo agente ElevenLabs necessita:\n\n• Strumento: messageClaudeCode — parametro: message (string). Invia un messaggio alla sessione di codice attiva.\n• Strumento: processPermissionRequest — parametro: decision ("allow" o "deny"). Approva o nega un permesso di strumento in sospeso.\n• Variabile dinamica: {{initialConversationContext}} — riceve la cronologia e il contesto della sessione all\'avvio.\n\nL\'agente funge da ponte vocale tra l\'utente e gli agenti di codice. Deve essere conciso, rispondere solo quando interpellato e segnalare quando un agente di codice termina il lavoro.',
-        usageTitle: 'Utilizzo (ultimi 30 giorni)',
-        usageFooter: 'Tempo vocale utilizzato negli ultimi 30 giorni. Piano gratuito: 20 min. Abbonato: 5 ore. Max 100 conversazioni al mese.',
-        usageLabel: 'Tempo vocale',
-        conversationsLabel: 'Conversazioni',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${used} utilizzato su ${limit}`,
-        supportTitle: 'Migliora voce',
-        supportSubtitle: 'Più tempo vocale e supporta lo sviluppo',
     },
 
     settingsAccount: {

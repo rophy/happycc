@@ -10,7 +10,7 @@ import {
     Platform,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { useAcceptedFriends, useFriendRequests, useRequestedFriends, useFeedItems, useFeedLoaded, useFriendsLoaded, useRealtimeStatus } from '@/sync/storage';
+import { useAcceptedFriends, useFriendRequests, useRequestedFriends, useFeedItems, useFeedLoaded, useFriendsLoaded } from '@/sync/storage';
 import { UserCard } from '@/components/UserCard';
 import { t } from '@/text';
 import { trackFriendsSearch, trackFriendsProfileView } from '@/track';
@@ -24,7 +24,6 @@ import { Header } from './navigation/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { FeedItemCard } from './FeedItemCard';
-import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 
 const styles = StyleSheet.create((theme) => ({
     container: {
@@ -118,7 +117,6 @@ export const InboxView = React.memo(({ topContentInset = 0, bottomContentInset =
     const friendsLoaded = useFriendsLoaded();
     const { theme } = useUnistyles();
     const isTablet = useIsTablet();
-    const realtimeStatus = useRealtimeStatus();
 
     const isLoading = !feedLoaded || !friendsLoaded;
     const isEmpty = !isLoading && friendRequests.length === 0 && requestedFriends.length === 0 && friends.length === 0 && feedItems.length === 0;
@@ -135,9 +133,6 @@ export const InboxView = React.memo(({ topContentInset = 0, bottomContentInset =
                             headerShadowVisible={false}
                             headerTransparent={true}
                         />
-                        {realtimeStatus !== 'disconnected' && (
-                            <VoiceAssistantStatusBar variant="full" />
-                        )}
                     </View>
                 )}
                 {topContentInset > 0 && <View style={{ height: topContentInset }} />}
@@ -161,9 +156,6 @@ export const InboxView = React.memo(({ topContentInset = 0, bottomContentInset =
                             headerShadowVisible={false}
                             headerTransparent={true}
                         />
-                        {realtimeStatus !== 'disconnected' && (
-                            <VoiceAssistantStatusBar variant="full" />
-                        )}
                     </View>
                 )}
                 {topContentInset > 0 && <View style={{ height: topContentInset }} />}
@@ -193,9 +185,6 @@ export const InboxView = React.memo(({ topContentInset = 0, bottomContentInset =
                         headerShadowVisible={false}
                         headerTransparent={true}
                     />
-                    {realtimeStatus !== 'disconnected' && (
-                        <VoiceAssistantStatusBar variant="full" />
-                    )}
                 </View>
             )}
             <ScrollView

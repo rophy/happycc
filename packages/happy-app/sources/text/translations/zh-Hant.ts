@@ -17,13 +17,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const zhHant: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: '點按結束',
-        connecting: '連接中…',
-        error: '連接錯誤',
-        active: '語音助手運行中',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: '收件匣',
@@ -124,8 +117,6 @@ export const zhHant: TranslationStructure = {
         accountSubtitle: '管理您的帳戶詳情',
         appearance: '外觀',
         appearanceSubtitle: '自訂應用程式外觀',
-        voiceAssistant: '語音助理',
-        voiceAssistantSubtitle: '設定語音互動偏好',
         featuresTitle: '功能',
         featuresSubtitle: '啟用或停用應用程式功能',
         developer: '開發者',
@@ -254,12 +245,6 @@ export const zhHant: TranslationStructure = {
         tryAgain: '請重試',
         contactSupport: '如果問題持續存在，請聯絡支援',
         sessionNotFound: '工作階段未找到',
-        voiceSessionFailed: '啟動語音工作階段失敗',
-        voiceServiceUnavailable: '語音服務暫時無法使用',
-        voiceLimitReachedTitle: '已達語音上限',
-        voiceMonthlyLimitReached: "您已達到管理員設定的每月語音使用上限。",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `您本月已使用超過 ${hours} 小時的語音。這是允許的最大用量。您可以在語音設定中配置自己的 ElevenLabs 代理，以使用您自己的配額。`,
-        voiceConversationLimitReached: '您本月已達到語音對話的最大次數。我們未來可能會新增按需語音使用功能——如果您遇到此限制，請在 github.com/nicepkg/happy/issues 提交 issue。',
         oauthInitializationFailed: '初始化 OAuth 流程失敗',
         tokenStorageFailed: '儲存驗證權杖失敗',
         oauthStateMismatch: '安全驗證失敗。請重試',
@@ -361,10 +346,6 @@ export const zhHant: TranslationStructure = {
         customServerUrlLabel: '自訂伺服器 URL',
         advancedFeatureFooter: "這是一個進階功能。只有在您知道自己在做什麼時才更改伺服器。更改伺服器後您需要重新登入。",
         services: '服務',
-        useCustomServerForVoice: '使用自訂伺服器處理語音',
-        customServerVoiceEnabled: '語音憑證和用量由您的自訂伺服器處理',
-        customServerVoiceDisabled: '語音使用 Happy Cloud 和您的 Happy 訂閱',
-        customServerVoiceFooter: '關閉時，啟動語音會連線至 Happy Cloud 和 ElevenLabs。僅當您的自訂伺服器已設定語音功能時才啟用。',
     },
 
     sessionInfo: {
@@ -714,38 +695,6 @@ export const zhHant: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `側邊聊天 ${index}`,
         newChat: '新增側邊聊天',
         close: '關閉側邊聊天',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: '語言',
-        languageDescription: '選擇您希望語音助理互動使用的語言。此設定將在您的所有裝置間同步。',
-        preferredLanguage: '偏好語言',
-        preferredLanguageSubtitle: '語音助理回應使用的語言',
-        language: {
-            searchPlaceholder: '搜尋語言...',
-            title: '語言',
-            footer: ({ count }: { count: number }) => `${count} 種可用語言`,
-            autoDetect: '自動偵測',
-        },
-        // Bring your own agent
-        byoTitle: '使用自己的代理',
-        byoDescription: '使用您自己的 ElevenLabs 代理取代 Happy 預設代理。無需訂閱 — 直接使用您自己的 ElevenLabs 帳戶連線。您的代理必須定義兩個用戶端工具：messageClaudeCode（向編碼代理傳送文字）和 processPermissionRequest（允許或拒絕工具使用）。透過 {{initialConversationContext}} 動態變數接收工作階段上下文。',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: '未設定',
-        customAgentIdDescription: '輸入您的 ElevenLabs Agent ID。留空則使用 Happy 預設代理。',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: '直接連線',
-        bypassTokenSubtitle: '跳過 Happy 伺服器，直接連線到 ElevenLabs',
-        promptGuideTitle: '代理提示詞指南',
-        promptGuideDescription: '您的 ElevenLabs 代理需要：\n\n• 工具：messageClaudeCode — 參數：message (string)。向活躍的編碼工作階段傳送訊息。\n• 工具：processPermissionRequest — 參數：decision ("allow" 或 "deny")。核准或拒絕待處理的工具權限。\n• 動態變數：{{initialConversationContext}} — 啟動時接收工作階段歷史和上下文。\n\n代理充當使用者和編碼代理之間的語音橋梁。它應該簡潔，僅在被呼叫時回應，並在編碼代理完成工作時進行報告。',
-        usageTitle: '使用量（過去 30 天）',
-        usageFooter: '過去 30 天使用的語音時間。免費方案: 20 分鐘。訂閱用戶: 5 小時。每月最多 100 次對話。',
-        usageLabel: '語音時間',
-        conversationsLabel: '對話',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `已使用 ${used}，共 ${limit}`,
-        supportTitle: '升級語音',
-        supportSubtitle: '獲取更多語音時間並支持開發',
     },
 
     settingsAccount: {

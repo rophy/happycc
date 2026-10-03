@@ -44,8 +44,6 @@ import { getServerUrl } from './serverConfig';
 import { log } from '@/log';
 import { gitStatusSync } from './gitStatusSync';
 import { AsyncLock } from '@/utils/lock';
-import { voiceHooks } from '@/realtime/hooks/voiceHooks';
-import { Message } from './typesMessage';
 import { EncryptionCache } from './encryption/encryptionCache';
 import { systemPrompt } from './prompt/systemPrompt';
 import { fetchArtifact, fetchArtifacts, createArtifact, updateArtifact } from './apiArtifacts';
@@ -361,15 +359,6 @@ class Sync {
         // being decrypted. Revalidate first so a newer ExitPlanMode can cancel
         // the deferred transition before activation consumes it once.
         void this.getMessagesSync(sessionId).awaitQueue().then(() => this.activatePreloadedPlanMode(sessionId));
-
-        this.notifyVoiceSessionFocus(sessionId);
-    }
-
-    private notifyVoiceSessionFocus = (sessionId: string) => {
-        const session = storage.getState().sessions[sessionId];
-        if (session) {
-            voiceHooks.onSessionFocus(sessionId, session.metadata || undefined);
-        }
     }
 
     private refreshSessionData = (sessionId: string) => {
@@ -380,10 +369,8 @@ class Sync {
     }
 
     private onSessionDataUpdated = (sessionId: string) => {
+        // Unlike a user visit, server events must not opt a session into full history.
         this.refreshSessionData(sessionId);
-        // Preserve existing voice-follow behavior for actual server events.
-        // Unlike a user visit, these must not opt a session into full history.
-        this.notifyVoiceSessionFocus(sessionId);
     }
 
     preloadSession = (sessionId: string) => {
@@ -920,7 +907,7 @@ class Sync {
         // mode was captured above, before the clear. Text typed since (a newer
         // local edit) stays; the composer clears itself only when unchanged.
         const latestSession = storage.getState().sessions[sessionId];
-        if (isRigMetadataV1(latestSession?.metadata) && source !== 'voice'
+        if (isRigMetadataV1(latestSession?.metadata)
             && latestSession.draftUpdatedAt === session.draftUpdatedAt
             && (!latestSession.draft || latestSession.draft === text)) {
             rigComposerClear(sessionId);
@@ -2278,8 +2265,7 @@ class Sync {
             }
         }
         if (normalizedMessages.length > 0) {
-            // Once the destination has focus this is an ordinary first page,
-            // including voice updates if the call began before it arrived.
+            // Once the destination has focus this is an ordinary first page.
             const source = preloadSignal && storage.getState().currentViewingSessionId !== sessionId ? 'preload' : 'sync';
             this.applyMessages(sessionId, normalizedMessages, source);
         }
@@ -2403,10 +2389,9 @@ class Sync {
             // `update` to apply them, and `connect` fired with recovered=false so
             // socket.io did not replay them. sessionsSync above only refreshes the
             // session list/metadata, not the viewing session's messages. (This used
-            // to rely on SessionView calling onSessionVisible "when realtimeStatus
-            // changes", but realtimeStatus tracks the voice session, not this data
-            // socket — see useSocketStatus vs useRealtimeStatus — so that trigger
-            // never fired on reconnect.)
+            // to rely on SessionView calling onSessionVisible when a since-removed
+            // voice status changed, which never tracked this data socket, so that
+            // trigger never fired on reconnect.)
             const reconnectViewingSessionId = storage.getState().currentViewingSessionId;
             if (reconnectViewingSessionId) {
                 this.onSessionVisible(reconnectViewingSessionId);
@@ -2611,14 +2596,6 @@ class Sync {
                 // Invalidate git status when agent state changes (files may have been modified)
                 if (updateData.body.agentState) {
                     gitStatusSync.invalidate(updateData.body.id);
-
-                    // Check for new permission requests and notify voice assistant
-                    if (agentState?.requests && Object.keys(agentState.requests).length > 0) {
-                        const requestIds = Object.keys(agentState.requests);
-                        const firstRequest = agentState.requests[requestIds[0]];
-                        const toolName = firstRequest?.tool;
-                        voiceHooks.onPermissionRequested(updateData.body.id, requestIds[0], toolName, firstRequest?.arguments);
-                    }
 
                     // Re-fetch messages on control handoff so the newly active
                     // side catches up on messages exchanged while it was passive.
@@ -3058,31 +3035,12 @@ class Sync {
             console.log(`[perf] applyMessages ${sessionId} ${applyElapsed}ms batch=${messages.length} total=${total}`);
         }
         // History preparation is cache hydration, not a new agent event. It
-        // must not send voice prompts or change the agent's operating mode.
+        // must not change the agent's operating mode.
         if (source === 'preload') {
             if (result.enteredPlanMode) {
                 this.preloadedPlanModes.set(sessionId, storage.getState().sessions[sessionId]?.permissionMode);
             }
             return;
-        }
-        // Settle-only changes re-render an existing row; announcing one to
-        // voice would repeat "User sent message" when its receipt arrives.
-        const settledOnly = new Set(result.settledMessageIds);
-        let m: Message[] = [];
-        for (let messageId of result.changed) {
-            if (settledOnly.has(messageId)) {
-                continue;
-            }
-            const message = storage.getState().sessionMessages[sessionId].messagesMap[messageId];
-            if (message) {
-                m.push(message);
-            }
-        }
-        if (m.length > 0) {
-            voiceHooks.onMessages(sessionId, m);
-        }
-        if (result.hasReadyEvent) {
-            voiceHooks.onReady(sessionId);
         }
         if (result.enteredPlanMode) {
             // The EnterPlanMode auto-switch only wrote the local mirror; push
@@ -3095,26 +3053,8 @@ class Sync {
     private applySessions = (sessions: (Omit<Session, "presence"> & {
         presence?: "online" | number;
     })[]) => {
-        const active = storage.getState().getActiveSessions();
         storage.getState().applySessions(sessions);
         for (const session of sessions) this.sessionAvatars.refresh(session.id);
-        const newActive = storage.getState().getActiveSessions();
-        this.applySessionDiff(active, newActive);
-    }
-
-    private applySessionDiff = (active: Session[], newActive: Session[]) => {
-        let wasActive = new Set(active.map(s => s.id));
-        let isActive = new Set(newActive.map(s => s.id));
-        for (let s of active) {
-            if (!isActive.has(s.id)) {
-                voiceHooks.onSessionOffline(s.id, s.metadata ?? undefined);
-            }
-        }
-        for (let s of newActive) {
-            if (!wasActive.has(s.id)) {
-                voiceHooks.onSessionOnline(s.id, s.metadata ?? undefined);
-            }
-        }
     }
 
 }

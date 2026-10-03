@@ -28,7 +28,6 @@ vi.mock('@/sync/storage', async () => {
     const ReactModule = await import('react');
     return {
         useFriendRequests: () => [],
-        useRealtimeStatus: () => 'disconnected',
         useSettingMutable: () => ['flat', vi.fn()],
         useSocketStatus: () => ({ status: ReactModule.useSyncExternalStore(
             (listener) => { socketStatus.listeners.add(listener); return () => { socketStatus.listeners.delete(listener); }; },
@@ -58,7 +57,6 @@ vi.mock('./InboxView', () => ({ InboxView: () => null }));
 vi.mock('./SettingsViewWrapper', () => ({ SettingsViewWrapper: () => null }));
 vi.mock('./HomeDock', () => ({ HomeDock: () => null, MOBILE_HOME_DOCK_CONTENT_INSET: 150 }));
 vi.mock('./HeaderLogo', () => ({ HeaderLogo: () => null }));
-vi.mock('./VoiceAssistantStatusBar', () => ({ VoiceAssistantStatusBar: () => null }));
 vi.mock('./SessionsListWrapper', async () => {
     const ReactModule = await import('react');
     return { SessionsListWrapper: (props: any) => ReactModule.createElement('SessionsListWrapper', props) };

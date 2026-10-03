@@ -91,7 +91,6 @@ export const SettingsView = React.memo(function SettingsView({
     const auth = useAuth();
     const [devModeEnabled, setDevModeEnabled] = useLocalSettingMutable('devModeEnabled');
     const experiments = useSetting('experiments');
-    const voiceEnabled = useServerFeature('voice');
     const githubConnectEnabled = useServerFeature('githubConnect');
     const claudeConnectEnabled = config.enableClaudeConnect === true;
     const profile = useProfile();
@@ -283,14 +282,6 @@ export const SettingsView = React.memo(function SettingsView({
                     icon={<Ionicons name="color-palette-outline" size={29} color="#5856D6" />}
                     onPress={() => router.push('/settings/appearance')}
                 />
-                {voiceEnabled && (
-                    <Item
-                        title={t('settings.voiceAssistant')}
-                        subtitle={t('settings.voiceAssistantSubtitle')}
-                        icon={<Ionicons name="mic-outline" size={29} color="#34C759" />}
-                        onPress={() => router.push('/settings/voice')}
-                    />
-                )}
                 <Item
                     title="Agents"
                     subtitle="Connected machines and agent defaults"

@@ -15,13 +15,6 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  * Must match the exact structure of the English translations
  */
 export const pt: TranslationStructure = {
-    voiceStatusBar: {
-        tapToEnd: 'toque para encerrar',
-        connecting: 'Conectando…',
-        error: 'Erro de conexão',
-        active: 'Assistente de voz ativo',
-    },
-
     tabs: {
         // Tab navigation labels
         inbox: 'Caixa de entrada',
@@ -123,8 +116,6 @@ export const pt: TranslationStructure = {
         accountSubtitle: 'Gerencie os detalhes da sua conta',
         appearance: 'Aparência',
         appearanceSubtitle: 'Personalize a aparência do aplicativo',
-        voiceAssistant: 'Assistente de voz',
-        voiceAssistantSubtitle: 'Configure as preferências de interação por voz',
         featuresTitle: 'Recursos',
         featuresSubtitle: 'Ativar ou desativar recursos do aplicativo',
         developer: 'Desenvolvedor',
@@ -253,12 +244,6 @@ export const pt: TranslationStructure = {
         tryAgain: 'Por favor, tente novamente',
         contactSupport: 'Entre em contato com o suporte se o problema persistir',
         sessionNotFound: 'Sessão não encontrada',
-        voiceSessionFailed: 'Falha ao iniciar sessão de voz',
-        voiceServiceUnavailable: 'Serviço de voz temporariamente indisponível',
-        voiceLimitReachedTitle: 'Limite de voz atingido',
-        voiceMonthlyLimitReached: "Você atingiu o limite mensal de voz definido pelo seu administrador.",
-        voiceHardLimitReached: ({ hours }: { hours: number }) => `Você usou ${hours}+ horas de voz este mês. Este é o máximo permitido. Você pode configurar seu próprio agente ElevenLabs nas configurações de voz para usar sua própria cota.`,
-        voiceConversationLimitReached: 'Você atingiu o número máximo de conversas de voz este mês. Podemos adicionar uso de voz sob demanda no futuro — por favor, abra um issue em github.com/nicepkg/happy/issues se você atingir este limite.',
         oauthInitializationFailed: 'Falha ao inicializar o fluxo OAuth',
         tokenStorageFailed: 'Falha ao armazenar tokens de autenticação',
         oauthStateMismatch: 'Falha na validação de segurança. Por favor, tente novamente',
@@ -360,10 +345,6 @@ export const pt: TranslationStructure = {
         customServerUrlLabel: 'URL do servidor personalizado',
         advancedFeatureFooter: 'Este é um recurso avançado. Altere o servidor apenas se souber o que está fazendo. Você precisará sair e entrar novamente após alterar servidores.',
         services: 'Serviços',
-        useCustomServerForVoice: 'Usar servidor personalizado para voz',
-        customServerVoiceEnabled: 'As credenciais e o uso de voz utilizam seu servidor personalizado',
-        customServerVoiceDisabled: 'A voz utiliza a Happy Cloud e sua assinatura Happy',
-        customServerVoiceFooter: 'Quando desativado, iniciar a voz contata a Happy Cloud e a ElevenLabs. Ative somente se seu servidor personalizado estiver configurado para voz.',
     },
 
     sessionInfo: {
@@ -713,38 +694,6 @@ export const pt: TranslationStructure = {
         tabLabel: ({ index }: { index: number }) => `Chat lateral ${index}`,
         newChat: 'Novo chat lateral',
         close: 'Fechar chat lateral',
-    },
-
-    settingsVoice: {
-        // Voice settings screen
-        languageTitle: 'Idioma',
-        languageDescription: 'Escolha seu idioma preferido para interações com o assistente de voz. Esta configuração sincroniza em todos os seus dispositivos.',
-        preferredLanguage: 'Idioma preferido',
-        preferredLanguageSubtitle: 'Idioma usado para respostas do assistente de voz',
-        language: {
-            searchPlaceholder: 'Buscar idiomas...',
-            title: 'Idiomas',
-            footer: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'idioma', plural: 'idiomas' })} disponíveis`,
-            autoDetect: 'Detectar automaticamente',
-        },
-        // Bring your own agent
-        byoTitle: 'Traga seu próprio agente',
-        byoDescription: 'Use seu próprio agente ElevenLabs em vez do padrão do Happy. Nenhuma assinatura necessária — conecte-se diretamente com sua própria conta ElevenLabs. Seu agente deve definir duas ferramentas de cliente: messageClaudeCode (envia texto ao agente de código) e processPermissionRequest (permite ou nega o uso de ferramentas). Recebe o contexto da sessão através da variável dinâmica {{initialConversationContext}}.',
-        customAgentId: 'ElevenLabs Agent ID',
-        customAgentIdNotSet: 'Não configurado',
-        customAgentIdDescription: 'Insira seu ElevenLabs Agent ID. Deixe vazio para usar o padrão do Happy.',
-        customAgentIdPlaceholder: 'e.g. abc123def456',
-        bypassToken: 'Conexão direta',
-        bypassTokenSubtitle: 'Pule o servidor do Happy, conecte-se diretamente ao ElevenLabs',
-        promptGuideTitle: 'Guia de prompt do agente',
-        promptGuideDescription: 'Seu agente ElevenLabs precisa de:\n\n• Ferramenta: messageClaudeCode — parâmetro: message (string). Envia uma mensagem para a sessão de código ativa.\n• Ferramenta: processPermissionRequest — parâmetro: decision ("allow" ou "deny"). Aprova ou nega uma permissão de ferramenta pendente.\n• Variável dinâmica: {{initialConversationContext}} — recebe o histórico e contexto da sessão ao iniciar.\n\nO agente atua como ponte de voz entre o usuário e os agentes de código. Deve ser conciso, responder apenas quando abordado e informar quando um agente de código terminar o trabalho.',
-        usageTitle: 'Uso (últimos 30 dias)',
-        usageFooter: 'Tempo de voz utilizado nos últimos 30 dias. Plano gratuito: 20 min. Assinante: 5 horas. Máx. 100 conversas por mês.',
-        usageLabel: 'Tempo de voz',
-        conversationsLabel: 'Conversas',
-        usageUsed: ({ used, limit }: { used: string; limit: string }) => `${used} usado de ${limit}`,
-        supportTitle: 'Melhorar voz',
-        supportSubtitle: 'Mais tempo de voz e apoie o desenvolvimento',
     },
 
     settingsAccount: {

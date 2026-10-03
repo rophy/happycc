@@ -45,7 +45,6 @@ vi.mock('@/modal', () => ({ Modal: { alert: mocks.alert } }));
 vi.mock('@/text', () => ({ t: (key: string) => key }));
 vi.mock('@/utils/readFileBytes', () => ({}));
 vi.mock('@/sync/gitStatusSync', () => ({ gitStatusSync: {} }));
-vi.mock('@/realtime/hooks/voiceHooks', () => ({ voiceHooks: { onSessionOnline: vi.fn(), onSessionOffline: vi.fn() } }));
 
 import { sync } from './sync';
 import { Encryption } from './encryption/encryption';
@@ -239,15 +238,13 @@ describe('Happy Agent composer on send', () => {
         expect(record.meta).toMatchObject({ model: 'shared-model', modelProviderId: 'claude', effort: 'low', permissionMode: 'read_only', serviceTier: 'fast' });
     });
 
-    it('does not spend a draft the user has kept editing, nor one a voice message never used', async () => {
+    it('does not spend a draft the user has kept editing', async () => {
         const target = await sessionRecord('rig-session', false, { ...rigMetadataFixture, draft: { ...mode, text: 'first' }, draftUpdatedAt: 5, lastMode: null });
         fetchMock.mockResolvedValue({ ok: true, json: async () => ({ sessions: [target] }) });
         await engine.fetchSessions();
 
         mocks.state.sessions['rig-session'].draft = 'first, then more';
         await expect(engine.sendMessage('rig-session', 'first', { awaitDelivery: true })).resolves.toBe(true);
-        mocks.state.sessions['rig-session'].draft = null;
-        await expect(engine.sendMessage('rig-session', 'spoken', { source: 'voice', awaitDelivery: true })).resolves.toBe(true);
         expect(mocks.clearDraft).not.toHaveBeenCalled();
     });
 

@@ -8,7 +8,6 @@ import type { PermissionModeKey } from '@/components/PermissionModeSelector';
 const mmkv = new MMKV();
 const NEW_SESSION_DRAFT_KEY = 'new-session-draft-v1';
 const REGISTERED_PUSH_TOKEN_KEY = 'registered-push-token-v1';
-const VOICE_MESSAGE_COUNT_KEY = 'voice-message-count';
 
 export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'agy' | 'rig';
 export type NewSessionSessionType = 'simple' | 'worktree';
@@ -280,14 +279,6 @@ export function retrieveTempText(id: string): string | null {
         return content;
     }
     return null;
-}
-
-export function getVoiceMessageCount(): number {
-    return mmkv.getNumber(VOICE_MESSAGE_COUNT_KEY) ?? 0;
-}
-
-export function incrementVoiceMessageCount() {
-    mmkv.set(VOICE_MESSAGE_COUNT_KEY, getVoiceMessageCount() + 1);
 }
 
 export function clearPersistence() {
