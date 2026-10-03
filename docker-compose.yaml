@@ -9,8 +9,11 @@
 # The cli service is a simulated client device running the happycc CLI:
 #   docker compose exec cli happycc auth login       # open the printed link, sign in, Approve
 #   docker compose exec -it cli happycc              # start a session; it shows up in the web app
-# Claude Code on the device talks to aimock, which answers every prompt with a
-# canned reply (deploy/aimock/fixtures.json): no real model, no API key.
+# Claude Code, OpenCode and Pi on the device talk to aimock, which answers every
+# prompt with a canned reply (deploy/aimock/fixtures.json): no real model, no API key.
+#   docker compose exec -it cli happycc                  # Claude Code
+#   docker compose exec -it cli happycc acp opencode     # OpenCode
+#   docker compose exec -it cli happycc acp -- pi-acp    # Pi
 #
 # Users (no password, pick in the UI): alice, bob.
 # AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
@@ -107,6 +110,10 @@ services:
       - cli-happycc:/home/node/.happycc
       - cli-claude:/home/node/.claude
       - cli-workspace:/workspace
+      # OpenCode and Pi answered by aimock as well.
+      - ./deploy/aimock/agents/opencode.json:/home/node/.config/opencode/opencode.json:ro
+      - ./deploy/aimock/agents/pi-models.json:/home/node/.pi/agent/models.json:ro
+      - ./deploy/aimock/agents/pi-settings.json:/home/node/.pi/agent/settings.json:ro
 
 volumes:
   pgdata:

@@ -1,5 +1,6 @@
 # happycc CLI on a simulated client device: the CLI packed from this repo and
-# installed globally like a release, plus Claude Code and git.
+# installed globally like a release, plus the coding agents it drives (Claude
+# Code, OpenCode, and Pi through the pi-acp adapter) and git. Node 22: Pi needs it.
 # Used by the `cli` service in docker-compose.yaml.
 
 FROM node:20 AS deps
@@ -35,18 +36,26 @@ RUN pnpm --filter happycc --fail-if-no-match build
 RUN mkdir /pack && pnpm --filter happycc --fail-if-no-match pack --pack-destination /pack \
     && mv /pack/happycc-*.tgz /pack/happycc.tgz
 
-FROM node:20 AS runner
+FROM node:22 AS runner
 
 ARG CLAUDE_CODE_VERSION=2.1.288
+ARG OPENCODE_VERSION=1.18.34
+ARG PI_VERSION=1.0.0
+ARG PI_ACP_VERSION=0.0.34
 
 RUN apt-get update && apt-get install -y git ripgrep && rm -rf /var/lib/apt/lists/*
-RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && npm cache clean --force
+RUN npm install -g --no-audit --no-fund \
+        @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
+        opencode-ai@${OPENCODE_VERSION} \
+        @earendil-works/pi-coding-agent@${PI_VERSION} \
+        pi-acp@${PI_ACP_VERSION} \
+    && npm cache clean --force
 
 RUN --mount=type=bind,from=builder,source=/pack,target=/pack \
     npm install -g /pack/happycc.tgz --no-audit --no-fund && npm cache clean --force
 
-RUN mkdir -p /workspace /home/node/.happycc /home/node/.claude \
-    && chown node:node /workspace /home/node/.happycc /home/node/.claude
+RUN mkdir -p /workspace /home/node/.happycc /home/node/.claude /home/node/.config/opencode /home/node/.pi/agent \
+    && chown -R node:node /workspace /home/node
 
 USER node
 WORKDIR /workspace

@@ -1,0 +1,10 @@
+{
+  "providers": {
+    "aimock": {
+      "baseUrl": "http://aimock:4010/v1",
+      "api": "openai-completions",
+      "apiKey": "aimock",
+      "models": [{ "id": "mock-model" }]
+    }
+  }
+}
