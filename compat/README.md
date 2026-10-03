@@ -5,7 +5,7 @@ stack against a mock model server; no real model is ever called.
 
 ## Prerequisites
 
-- Docker with the compose plugin, Node >= 20.11 on the host.
+- Docker with the compose plugin, Node >= 22.6 on the host (`npm run report` uses `--experimental-strip-types`).
 - Start the stack from the repo root: `docker compose up -d --build`
 
 ## Run
@@ -23,7 +23,7 @@ Outputs land in `compat/`: `results.json` (vitest JSON), `report.md`, `logs/`, `
 
 ## Unit tests only
 
-`COMPAT_UNIT_ONLY=1 npx vitest run src/stack.test.ts` skips global setup, so no stack is needed.
+`COMPAT_UNIT_ONLY=1 npx vitest run src/` skips global setup, so no stack is needed.
 
 ## Reading the matrix
 
@@ -42,6 +42,11 @@ the same report to the job summary.
 ## Bumping a pinned version
 
 1. Edit the matching `ARG` in `Dockerfile.cli`.
+   - Claude Code: the `CLAUDE_CODE_VERSION` ARG pins only the standalone `claude` (reported as `claude`). Remote mode,
+     which every Claude scenario uses, runs the Claude Code binary bundled with happycc's `@anthropic-ai/claude-agent-sdk`
+     dependency (reported as `claudeSdk`). That follows the SDK's version range in `packages/happy-cli/package.json`,
+     resolved when the image is built (`npm install -g` of the packed happycc), so a rebuild can move it.
+     The report shows a warning line when the two differ.
 2. Rebuild: `docker compose up -d --build`.
 3. Run `npm test`, then `npm run report`.
 4. If a cell changes, update `CAPABILITIES.md` (and `src/agents.ts` for N/A or known-bug entries).
