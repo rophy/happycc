@@ -691,6 +691,76 @@ describe('runAcp', () => {
     expect(mocks.backendState.setConfigOptionCalls).toEqual([
       { configId: 'model', value: 'claude-opus' },
     ]);
+    expect(mocks.mockConsoleLog.mock.calls.some((c) => String(c[0]).includes('Ignored a request from the app to raise the permission mode to yolo.'))).toBe(true);
+    expect(mocks.backendState.setModeCalls).toEqual([]);
+    expect(mocks.backendState.setModelCalls).toEqual([]);
+  });
+
+  it('ignores an unranked agent-specific ACP mode id such as Code', async () => {
+    mocks.backendState.startSessionMessages = [
+      {
+        type: 'event',
+        name: 'config_options_update',
+        payload: {
+          configOptions: [
+            {
+              type: 'select',
+              id: 'permission-mode',
+              name: 'Permission Mode',
+              category: 'mode',
+              currentValue: 'ask',
+              options: [
+                { value: 'ask', name: 'Ask' },
+                { value: 'code', name: 'Code' },
+              ],
+            },
+            {
+              type: 'select',
+              id: 'model',
+              name: 'Model',
+              category: 'model',
+              currentValue: 'claude-sonnet',
+              options: [
+                { value: 'claude-sonnet', name: 'Claude Sonnet' },
+                { value: 'claude-opus', name: 'Claude Opus' },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+
+    const runPromise = runAcp({
+      credentials: { token: 'token', refreshToken: 'test-refresh', encryption: { type: 'legacy', secret: new Uint8Array(32) } },
+      agentName: 'opencode',
+      command: 'opencode',
+      args: ['acp'],
+    });
+
+    await vi.waitFor(() => {
+      expect(mocks.getUserMessageHandler()).toBeTypeOf('function');
+    });
+
+    mocks.getUserMessageHandler()!({
+      role: 'user',
+      content: { type: 'text', text: 'Apply settings then run' },
+      meta: {
+        permissionMode: 'Code',
+        model: 'claude-opus',
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(mocks.backendState.prompts).toHaveLength(1);
+    });
+
+    await mocks.getKillHandler()!();
+    await runPromise;
+
+    expect(mocks.backendState.setConfigOptionCalls).toEqual([
+      { configId: 'model', value: 'claude-opus' },
+    ]);
+    expect(mocks.mockConsoleLog.mock.calls.some((c) => String(c[0]).includes("Ignored a request from the app to change the permission mode to Code: this agent's modes cannot be changed from the app."))).toBe(true);
     expect(mocks.backendState.setModeCalls).toEqual([]);
     expect(mocks.backendState.setModelCalls).toEqual([]);
   });

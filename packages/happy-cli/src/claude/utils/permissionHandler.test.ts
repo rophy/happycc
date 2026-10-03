@@ -18,8 +18,10 @@ function createSessionMock() {
     const sendSessionNotification = vi.fn();
     const pushClient = { sendSessionNotification };
 
+    const notifyUser = vi.fn();
     return {
         session: {
+            notifyUser,
             client: {
                 sessionId: 'happy-session-1',
                 getMetadata: vi.fn(() => ({})),
@@ -38,6 +40,7 @@ function createSessionMock() {
             },
         },
         getState: () => state,
+        notifyUser,
         handlers,
         sendSessionNotification,
     };
@@ -205,5 +208,67 @@ describe('PermissionHandler', () => {
             reason: 'denied',
         });
         expect(handler.isAborted('toolu_result')).toBe(true);
+    });
+
+    describe('permission-mode ceiling on app responses', () => {
+        const ask = (handler: PermissionHandler, name: string, id: string) =>
+            handler.handleToolCall(name, { plan: 'x' }, mode, { signal: new AbortController().signal, toolUseID: id, requestId: id });
+
+        it('refuses a response that raises the mode, still honoring the approval', async () => {
+            const { session, handlers, notifyUser, getState } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'default');
+            const setMode = vi.fn(async () => {});
+            handler.setPermissionModeUpdater(setMode);
+            const pending = ask(handler, 'Bash', 't1');
+            await getPermissionResponseHandler(handlers)({ id: 't1', approved: true, mode: 'bypassPermissions' });
+            await expect(pending).resolves.toMatchObject({ behavior: 'allow' });
+            expect(notifyUser).toHaveBeenCalledWith('Ignored a request from the app to raise the permission mode to bypassPermissions.');
+            expect((handler as any).permissionMode).toBe('default');
+            expect(getState().completedRequests.t1.mode).toBeUndefined();
+        });
+
+        it('honors a response that lowers the mode', async () => {
+            const { session, handlers, notifyUser } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'acceptEdits');
+            const pending = ask(handler, 'Bash', 't2');
+            await getPermissionResponseHandler(handlers)({ id: 't2', approved: true, mode: 'default' });
+            await pending;
+            expect((handler as any).permissionMode).toBe('default');
+            expect(notifyUser).not.toHaveBeenCalled();
+        });
+
+        it('refuses ExitPlanMode with bypassPermissions when the session started in default', async () => {
+            const { session, handlers, notifyUser } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'default');
+            const setMode = vi.fn(async () => {});
+            handler.setPermissionModeUpdater(setMode);
+            const pending = ask(handler, 'ExitPlanMode', 't3');
+            await getPermissionResponseHandler(handlers)({ id: 't3', approved: true, mode: 'bypassPermissions' });
+            await expect(pending).resolves.toMatchObject({ behavior: 'allow' });
+            expect(setMode).toHaveBeenCalledWith('default');
+            expect(setMode).not.toHaveBeenCalledWith('bypassPermissions');
+            expect(notifyUser).toHaveBeenCalledTimes(1);
+        });
+
+        it('allows ExitPlanMode with bypassPermissions when the session started in bypass (e.g. sandbox)', async () => {
+            const { session, handlers, notifyUser } = createSessionMock();
+            const handler = new PermissionHandler(session as any, 'bypassPermissions');
+            const setMode = vi.fn(async () => {});
+            handler.setPermissionModeUpdater(setMode);
+            const pending = ask(handler, 'ExitPlanMode', 't4');
+            await getPermissionResponseHandler(handlers)({ id: 't4', approved: true, mode: 'bypassPermissions' });
+            await pending;
+            expect(setMode).toHaveBeenCalledWith('bypassPermissions');
+            expect(notifyUser).not.toHaveBeenCalled();
+        });
+
+        it('treats an unset starting mode as default', async () => {
+            const { session, handlers } = createSessionMock();
+            const handler = new PermissionHandler(session as any);
+            const pending = ask(handler, 'Bash', 't5');
+            await getPermissionResponseHandler(handlers)({ id: 't5', approved: true, mode: 'acceptEdits' });
+            await pending;
+            expect((handler as any).permissionMode).toBe('default');
+        });
     });
 });

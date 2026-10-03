@@ -1,6 +1,6 @@
 import { ApiClient, ApiSessionClient } from "@/lib";
 import { MessageQueue2 } from "@/utils/MessageQueue2";
-import { EnhancedMode } from "./loop";
+import { EnhancedMode, PermissionMode } from "./loop";
 import { logger } from "@/ui/logger";
 import type { JsRuntime } from "./runClaude";
 import type { SandboxConfig } from "@/persistence";
@@ -23,10 +23,34 @@ export class Session {
     /** JavaScript runtime to use for spawning Claude Code (default: 'node') */
     readonly jsRuntime: JsRuntime;
 
+    /** Mode the session started with (undefined = Claude's own default); the cap for app-requested modes */
+    readonly startingPermissionMode?: PermissionMode;
+
     sessionId: string | null;
     mode: 'local' | 'remote' = 'local';
     thinking: boolean = false;
     
+    /** Where user-facing status notices go (the remote launcher's message buffer); queued until set. */
+    private noticeSink?: (text: string) => void;
+    private pendingNotices: string[] = [];
+
+    /** Show a status line to the terminal user without writing into the Ink UI. */
+    notifyUser(text: string): void {
+        logger.debug(`[session] notice: ${text}`);
+        if (this.noticeSink) {
+            this.noticeSink(text);
+        } else {
+            this.pendingNotices.push(text);
+        }
+    }
+
+    setNoticeSink(sink: ((text: string) => void) | undefined): void {
+        this.noticeSink = sink;
+        if (sink) {
+            for (const text of this.pendingNotices.splice(0)) sink(text);
+        }
+    }
+
     /** Callbacks to be notified when session ID is found/changed */
     private sessionFoundCallbacks: ((sessionId: string) => void)[] = [];
     
@@ -51,7 +75,10 @@ export class Session {
         hookSettingsPath: string,
         /** JavaScript runtime to use for spawning Claude Code (default: 'node') */
         jsRuntime?: JsRuntime,
+        /** Mode the session started with; the app may lower it but never raise it */
+        startingPermissionMode?: PermissionMode,
     }) {
+        this.startingPermissionMode = opts.startingPermissionMode;
         this.path = opts.path;
         this.api = opts.api;
         this.client = opts.client;

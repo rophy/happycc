@@ -13,12 +13,26 @@ export function permissionModeRank(mode: string): number | undefined {
     return Object.prototype.hasOwnProperty.call(RANK, mode) ? RANK[mode] : undefined;
 }
 
-export function capPermissionMode(requested: string, ceiling: string | undefined): { mode: string; capped: boolean } {
+export type PermissionModeCapResult =
+    | { mode: string; capped: false }
+    | { mode: string; capped: true; reason: 'above-ceiling' | 'unranked' };
+
+/** The notice shown to the user when the app's requested mode is not applied. */
+export function permissionModeCapNotice(requested: string, result: PermissionModeCapResult): string {
+    return result.capped && result.reason === 'unranked'
+        ? `Ignored a request from the app to change the permission mode to ${requested}: this agent's modes cannot be changed from the app.`
+        : `Ignored a request from the app to raise the permission mode to ${requested}.`;
+}
+
+export function capPermissionMode(requested: string, ceiling: string | undefined): PermissionModeCapResult {
     const limit = ceiling ?? 'default';
     const requestedRank = permissionModeRank(requested);
     const limitRank = permissionModeRank(limit) ?? RANK.default;
-    if (requestedRank === undefined || requestedRank > limitRank) {
-        return { mode: limit, capped: true };
+    if (requestedRank === undefined) {
+        return { mode: limit, capped: true, reason: 'unranked' };
+    }
+    if (requestedRank > limitRank) {
+        return { mode: limit, capped: true, reason: 'above-ceiling' };
     }
     return { mode: requested, capped: false };
 }

@@ -69,7 +69,8 @@ export async function loop(opts: LoopOptions): Promise<number> {
         onModeChange: opts.onModeChange,
         onAbort: opts.onAbort,
         hookSettingsPath: opts.hookSettingsPath,
-        jsRuntime: opts.jsRuntime
+        jsRuntime: opts.jsRuntime,
+        startingPermissionMode: opts.permissionMode,
     });
 
     opts.onSessionReady?.(session)

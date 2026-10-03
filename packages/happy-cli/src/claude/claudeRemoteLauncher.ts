@@ -38,6 +38,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     // Configure terminal
     let messageBuffer = new MessageBuffer();
     let inkInstance: any = null;
+    session.setNoticeSink((text) => messageBuffer.addMessage(text, 'status'));
 
     if (hasTTY) {
         console.clear();
@@ -103,7 +104,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     // Removed catch-all stdin handler - now handled by RemoteModeDisplay keyboard handlers
 
     // Create permission handler
-    const permissionHandler = new PermissionHandler(session);
+    const permissionHandler = new PermissionHandler(session, session.startingPermissionMode);
 
     // Drop any permission requests left over in agent state from a
     // previous CLI process that died while a tool prompt was open. The
@@ -488,6 +489,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
         if (inkInstance) {
             inkInstance.unmount();
         }
+        session.setNoticeSink(undefined);
         logger.debug(`[remote]: ink.unmount() done +${Date.now() - t0}ms rawMode=${(process.stdin as any).isRaw}`);
 
         // Drain any keystrokes that landed in stdin while Ink owned it (e.g.

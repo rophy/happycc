@@ -30,7 +30,7 @@ import {
   mergeAcpSessionConfigIntoMetadata,
 } from './sessionConfigMetadata';
 import type { SessionConfigOption, SessionModeState, SessionModelState } from '@agentclientprotocol/sdk';
-import { capPermissionMode } from '@/utils/permissionModeCeiling';
+import { capPermissionMode, permissionModeCapNotice } from '@/utils/permissionModeCeiling';
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
 const ACP_EVENT_PREVIEW_CHARS = 240;
@@ -856,8 +856,9 @@ export async function runAcp(opts: {
       // The app may lower a session's permission mode but never raise it above
       // the starting one (ACP sessions start in 'default'); anything else is ignored.
       const requestedPermissionMode = message.meta.permissionMode;
-      if (capPermissionMode(requestedPermissionMode, STARTING_ACP_PERMISSION_MODE).capped) {
-        logAcp('muted', `Ignored a request from the app to raise the permission mode to ${requestedPermissionMode}.`);
+      const capResult = capPermissionMode(requestedPermissionMode, STARTING_ACP_PERMISSION_MODE);
+      if (capResult.capped) {
+        logAcp('outgoing', permissionModeCapNotice(requestedPermissionMode, capResult));
       } else {
         currentPermissionMode = requestedPermissionMode;
         logger.debug(`[${opts.agentName}] Requested ACP permission mode: ${currentPermissionMode}`);

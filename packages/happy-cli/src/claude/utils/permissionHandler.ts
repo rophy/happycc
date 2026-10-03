@@ -11,6 +11,7 @@ import { Session } from "../session";
 import { EnhancedMode, PermissionMode } from "../loop";
 import { getToolDescriptor } from "./getToolDescriptor";
 import { isClaudeBypassEquivalent, mapToClaudeMode } from "./permissionMode";
+import { capPermissionMode, permissionModeCapNotice } from "@/utils/permissionModeCeiling";
 
 export interface PermissionResponse {
     id: string;
@@ -45,8 +46,14 @@ export class PermissionHandler {
     /** Callback to change permission mode on the active query (set by claudeRemote) */
     private setPermissionModeCallback?: (mode: PermissionMode) => Promise<void>;
 
-    constructor(session: Session) {
+    /** Mode the session started with: the app may lower it, never raise it. */
+    private startingMode: PermissionMode | undefined;
+    private notify: (text: string) => void;
+
+    constructor(session: Session, startingMode?: PermissionMode) {
         this.session = session;
+        this.startingMode = startingMode;
+        this.notify = (text) => this.session.notifyUser(text);
         this.setupClientHandler();
     }
 
@@ -92,6 +99,23 @@ export class PermissionHandler {
     /**
      * Handler response
      */
+    /**
+     * Drop the mode carried by an app permission response when it would raise
+     * the session above its starting mode. The approve/deny itself is kept.
+     */
+    private capResponseMode(response: PermissionResponse): PermissionResponse {
+        if (!response.mode) {
+            return response;
+        }
+        const result = capPermissionMode(response.mode, this.startingMode);
+        if (!result.capped) {
+            return response;
+        }
+        this.notify(permissionModeCapNotice(response.mode, result));
+        const { mode: _dropped, ...rest } = response;
+        return rest;
+    }
+
     private handlePermissionResponse(
         response: PermissionResponse,
         pending: PendingRequest
@@ -118,9 +142,11 @@ export class PermissionHandler {
             logger.debug('Plan mode result received', response);
             if (response.approved) {
                 // Switch permission mode via SDK before allowing ExitPlanMode
-                const newMode = (response.mode && ['default', 'acceptEdits', 'bypassPermissions'].includes(response.mode))
+                const requestedNewMode = (response.mode && ['default', 'acceptEdits', 'bypassPermissions'].includes(response.mode))
                     ? response.mode
                     : 'default';
+                // Never leave plan mode above the session's starting mode
+                const newMode = capPermissionMode(requestedNewMode, this.startingMode).mode as PermissionMode;
 
                 logger.debug(`Plan approved - switching to ${newMode} mode and allowing ExitPlanMode`);
 
@@ -364,16 +390,19 @@ export class PermissionHandler {
      * Sets up the client handler for permission responses
      */
     private setupClientHandler(): void {
-        this.session.client.rpcHandlerManager.registerHandler<PermissionResponse, void>('permission', async (message) => {
-            logger.debug(`Permission response: ${JSON.stringify(message)}`);
+        this.session.client.rpcHandlerManager.registerHandler<PermissionResponse, void>('permission', async (rawMessage) => {
+            logger.debug(`Permission response: ${JSON.stringify(rawMessage)}`);
 
-            const id = message.id;
+            const id = rawMessage.id;
             const pending = this.pendingRequests.get(id);
 
             if (!pending) {
                 logger.debug('Permission request not found or already resolved');
                 return;
             }
+
+            // The app's mode may only lower the session's starting mode
+            const message = this.capResponseMode(rawMessage);
 
             // Store the response with timestamp
             this.responses.set(id, { ...message, receivedAt: Date.now() });
