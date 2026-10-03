@@ -40,6 +40,16 @@ describe('renderMatrix', () => {
         expect(md).toContain('- happycc: 1.2.5');
         expect(md).toContain('- claude: 2.1.288');
     });
+    it('shows no version warning when the bundled Claude Code matches the pin', () => {
+        expect(renderMatrix(results([]), { claude: '2.1.288', claudeSdk: '2.1.288' })).not.toContain('mismatch');
+        expect(md).not.toContain('mismatch');
+    });
+    it('flags a bundled Claude Code that differs from the pin', () => {
+        const out = renderMatrix(results([]), { claude: '2.1.288', claudeSdk: '2.1.300' });
+        const lines = out.split('\n');
+        expect(lines[2]).toBe("⚠️ Claude Code version mismatch: remote mode ran 2.1.300 (bundled with happycc's claude-agent-sdk), not the pinned `claude` 2.1.288.");
+        expect(out).toContain('- claudeSdk: 2.1.300');
+    });
     it('ignores tests that are not matrix cells', () => {
         expect(renderMatrix(results([t('runKnownBug passes when x', 'passed')]), {})).toContain('0 ✅ passed');
     });

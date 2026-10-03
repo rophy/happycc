@@ -64,6 +64,8 @@ export default async function setup() {
         happycc: await v('cli', 'happycc --version'),
         happyccAgent: await v('app', 'happycc-agent --version'),
         claude: await v('cli', 'claude --version'),
+        // Remote mode runs the Claude Code binary bundled with happycc's @anthropic-ai/claude-agent-sdk, not `claude`.
+        claudeSdk: await v('cli', `"$(find "$(npm root -g)/happycc/node_modules" -path '*claude-agent-sdk*' -name claude -type f | head -n 1)" --version`),
         opencode: await v('cli', 'opencode --version'),
         pi: await v('cli', 'pi --version 2>&1'),
         piAcp,

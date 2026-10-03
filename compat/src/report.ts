@@ -24,6 +24,13 @@ function parseTitle(title: string): { agent: string; scenario: string; na?: stri
     return { agent, scenario };
 }
 
+/** Remote mode runs the Claude Code bundled with happycc's claude-agent-sdk (`claudeSdk`); `claude` is the Dockerfile pin. */
+export function claudeVersionWarning(versions: Record<string, string>): string | undefined {
+    const { claude, claudeSdk } = versions;
+    if (!claude || !claudeSdk || claude === claudeSdk) return undefined;
+    return `⚠️ Claude Code version mismatch: remote mode ran ${claudeSdk} (bundled with happycc's claude-agent-sdk), not the pinned \`claude\` ${claude}.`;
+}
+
 export function renderMatrix(results: VitestJson, versions: Record<string, string>): string {
     const cells = new Map<string, Cell>();
     const naNotes = new Set<string>();
@@ -47,9 +54,11 @@ export function renderMatrix(results: VitestJson, versions: Record<string, strin
     }
     const count = (kind: Cell['kind']) => [...cells.values()].filter(c => c.kind === kind).length;
 
+    const warning = claudeVersionWarning(versions);
     const lines = [
         '# Agent compatibility',
         '',
+        ...(warning ? [warning, ''] : []),
         `${count('pass')} ✅ passed, ${count('na')} N/A, ${count('bug')} ❌ known bugs, ${count('fail')} ⚠️ FAILED.`,
         '`❌ #n` cells are known product bugs: expected while the bug exists, and the suite still exits 0. `⚠️ FAILED` cells (including a known bug that no longer reproduces) fail the run.',
         '',
