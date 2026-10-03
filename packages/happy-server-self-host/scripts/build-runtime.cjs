@@ -64,7 +64,7 @@ if (drift.length > 0) {
 }
 
 const bundledDependencies = new Set([
-  // The published 0.1.0 package does not include the newest voice schemas yet.
+  // The published 0.1.0 package does not include the newest schemas yet.
   // Keep the server release unblocked by bundling the workspace copy.
   '@slopus/happy-wire',
 ]);

@@ -61,7 +61,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
                 usesNonExemptEncryption: false,
             },
             infoPlist: {
-                NSMicrophoneUsageDescription: 'Allow $(PRODUCT_NAME) to access your microphone for voice conversations with AI.',
                 NSLocalNetworkUsageDescription: 'Allow $(PRODUCT_NAME) to find and connect to local devices on your network.',
                 NSBonjourServices: ['_http._tcp', '_https._tcp'],
                 // ATS: NSAllowsLocalNetworking lets HTTP reach LAN addresses; dev/preview
@@ -79,8 +78,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
                 backgroundColor: '#000000',
             },
             permissions: [
-                'android.permission.RECORD_AUDIO',
-                'android.permission.MODIFY_AUDIO_SETTINGS',
                 'android.permission.ACCESS_NETWORK_STATE',
                 'android.permission.POST_NOTIFICATIONS',
             ],
@@ -117,13 +114,13 @@ function buildExpoConfig(env, buildMetadata = {}) {
             'expo-mail-composer',
             'expo-secure-store',
             'expo-web-browser',
-            'react-native-vision-camera',
             '@more-tech/react-native-libsodium',
-            'react-native-audio-api',
-            '@livekit/react-native-expo-plugin',
-            '@config-plugins/react-native-webrtc',
-            ['expo-audio', {
-                microphonePermission: 'Allow $(PRODUCT_NAME) to access your microphone for voice conversations.',
+            // The picker only reads the photo library. Without this entry Expo
+            // applies its plugin with defaults, which adds camera and microphone
+            // usage strings and RECORD_AUDIO; `false` removes and blocks them.
+            ['expo-image-picker', {
+                cameraPermission: false,
+                microphonePermission: false,
             }],
             ['expo-location', {
                 locationAlwaysAndWhenInUsePermission: 'Allow $(PRODUCT_NAME) to improve AI quality by using your location.',
@@ -132,11 +129,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
             }],
             ['expo-calendar', {
                 calendarPermission: 'Allow $(PRODUCT_NAME) to access your calendar to improve AI quality.',
-            }],
-            ['expo-camera', {
-                cameraPermission: 'Allow $(PRODUCT_NAME) to access your camera to scan QR codes and share photos with AI.',
-                microphonePermission: 'Allow $(PRODUCT_NAME) to access your microphone for voice conversations.',
-                recordAudioAndroid: true,
             }],
             ['expo-notifications', {
                 enableBackgroundRemoteNotifications: true,

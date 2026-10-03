@@ -95,10 +95,18 @@ describe('buildExpoConfig', () => {
         expect(() => buildExpoConfig({ APP_ENV: 'staging' })).toThrow(/Unknown APP_ENV "staging"/);
     });
 
-    it('does not bake an ElevenLabs agent id into the app', () => {
+    it('requests no microphone or camera access and loads no voice plugins', () => {
         const { expo } = buildExpoConfig({});
-        expect(expo.extra.app).not.toHaveProperty('elevenLabsAgentId');
-        expect(JSON.stringify(expo)).not.toContain('agent_6701k211syvvegba4kt7m68nxjmw');
+        expect(expo.ios.infoPlist).not.toHaveProperty('NSMicrophoneUsageDescription');
+        expect(expo.ios.infoPlist).not.toHaveProperty('NSCameraUsageDescription');
+        expect(expo.android.permissions).not.toContain('android.permission.RECORD_AUDIO');
+        expect(expo.android.permissions).not.toContain('android.permission.CAMERA');
+        const picker = expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-image-picker');
+        expect(picker?.[1]).toEqual({ cameraPermission: false, microphonePermission: false });
+        const pluginNames = expo.plugins.map((p: unknown) => (Array.isArray(p) ? p[0] : p)).filter((p: unknown) => typeof p === 'string');
+        for (const removed of ['expo-audio', 'expo-camera', 'react-native-vision-camera', 'react-native-audio-api', '@livekit/react-native-expo-plugin', '@config-plugins/react-native-webrtc']) {
+            expect(pluginNames).not.toContain(removed);
+        }
     });
 
     it('passes build metadata through', () => {
