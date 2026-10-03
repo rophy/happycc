@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { capComposerPermissionModes, filterModesAtOrBelow, isPermissionModeAllowed, permissionModeRank, resolveDisplayedPermissionMode, sessionStartingPermissionMode } from './permissionModeRank';
+import { capComposerPermissionModes, filterModesAtOrBelow, isPermissionModeAllowed, permissionModeRank, resolveDisplayedPermissionMode, sessionStartingPermissionMode, usesClaudeModeMapping } from './permissionModeRank';
 
 describe('permissionModeRank', () => {
     it.each([
         ['plan', 0], ['read-only', 0],
-        ['default', 1], ['auto', 1],
-        ['acceptEdits', 2], ['safe-yolo', 2],
-        ['bypassPermissions', 3], ['yolo', 3],
+        ['default', 1],
+        ['auto', 2],
+        ['acceptEdits', 3], ['safe-yolo', 3],
+        ['bypassPermissions', 4], ['yolo', 4],
     ])('ranks %s as %i', (mode, rank) => {
         expect(permissionModeRank(mode)).toBe(rank);
     });
@@ -89,6 +90,31 @@ describe('isPermissionModeAllowed', () => {
         expect(isPermissionModeAllowed('yolo', 'yolo')).toBe(true);
         expect(isPermissionModeAllowed('turbo', 'yolo')).toBe(false);
     });
+
+    it('ranks auto above default', () => {
+        expect(isPermissionModeAllowed('auto', 'default')).toBe(false);
+        expect(isPermissionModeAllowed('default', 'auto')).toBe(true);
+        expect(isPermissionModeAllowed('auto', 'acceptEdits')).toBe(true);
+    });
+
+    it('compares Claude modes as the session applies them', () => {
+        // read-only runs as default on Claude: not below a plan start
+        expect(isPermissionModeAllowed('read-only', 'plan')).toBe(true);
+        expect(isPermissionModeAllowed('read-only', 'plan', true)).toBe(false);
+        expect(isPermissionModeAllowed('safe-yolo', 'default', true)).toBe(true);
+        expect(isPermissionModeAllowed('bypassPermissions', 'yolo', true)).toBe(true);
+        expect(isPermissionModeAllowed('plan', 'plan', true)).toBe(true);
+    });
+});
+
+describe('usesClaudeModeMapping', () => {
+    it('is true for Claude and for sessions without a flavor', () => {
+        expect(usesClaudeModeMapping({ flavor: 'claude' })).toBe(true);
+        expect(usesClaudeModeMapping({})).toBe(true);
+        expect(usesClaudeModeMapping(null)).toBe(true);
+        expect(usesClaudeModeMapping({ flavor: 'codex' })).toBe(false);
+        expect(usesClaudeModeMapping({ flavor: 'gemini' })).toBe(false);
+    });
 });
 
 describe('resolveDisplayedPermissionMode', () => {
@@ -117,6 +143,22 @@ describe('capComposerPermissionModes', () => {
         });
         expect(result.availableModes.map((m) => m.key)).toEqual(['default', 'acceptEdits', 'plan']);
         expect(result.permissionMode).toEqual({ key: 'acceptEdits' });
+    });
+
+    it('shows a Claude yolo start as bypass', () => {
+        const result = capComposerPermissionModes({
+            modes: claude, current: null, metadata: { flavor: 'claude', permissionModeCeiling: 'yolo' }, isRig: false,
+        });
+        expect(result.availableModes).toEqual(claude);
+        expect(result.permissionMode).toEqual({ key: 'bypassPermissions' });
+    });
+
+    it('offers a Codex auto start default and read-only, not safe-yolo', () => {
+        const codex = [{ key: 'auto' }, { key: 'default' }, { key: 'read-only' }, { key: 'safe-yolo' }, { key: 'yolo' }];
+        const result = capComposerPermissionModes({
+            modes: codex, current: null, metadata: { flavor: 'codex', permissionModeCeiling: 'auto' }, isRig: false,
+        });
+        expect(result.availableModes.map((m) => m.key)).toEqual(['auto', 'default', 'read-only']);
     });
 
     it('leaves a Rig session catalog alone', () => {

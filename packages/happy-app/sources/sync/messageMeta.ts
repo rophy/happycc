@@ -15,7 +15,7 @@ import {
     isRigMetadataV1,
     rigSendsMessageReceipts,
 } from './rig';
-import { isPermissionModeAllowed, sessionStartingPermissionMode } from '@/utils/permissionModeRank';
+import { isPermissionModeAllowed, sessionStartingPermissionMode, usesClaudeModeMapping } from '@/utils/permissionModeRank';
 
 export function resolveMessageDeliveryMeta(
     session: Pick<Session, 'metadata' | 'thinking' | 'agentState'>,
@@ -169,7 +169,7 @@ export function resolveMessageModeMeta(
  * is not sent at all, so the session simply keeps its current mode.
  */
 function capOutgoingPermissionMode(meta: MessageModeMeta, metadata: Session['metadata']): MessageModeMeta {
-    if (meta.permissionMode && !isPermissionModeAllowed(meta.permissionMode, sessionStartingPermissionMode(metadata))) {
+    if (meta.permissionMode && !isPermissionModeAllowed(meta.permissionMode, sessionStartingPermissionMode(metadata), usesClaudeModeMapping(metadata))) {
         delete meta.permissionMode;
     }
     return meta;

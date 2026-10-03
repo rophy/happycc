@@ -7,10 +7,38 @@
  */
 const RANK: Record<string, number> = {
     plan: 0, 'read-only': 0,
-    default: 1, auto: 1,
-    acceptEdits: 2, 'safe-yolo': 2,
-    bypassPermissions: 3, yolo: 3,
+    default: 1,
+    auto: 2, // runs tools without prompting: above default
+    acceptEdits: 3, 'safe-yolo': 3,
+    bypassPermissions: 4, yolo: 4,
 };
+
+/**
+ * The modes happycc maps for a Claude session before applying them (its
+ * mapToClaudeMode); the ceiling compares the mapped modes, since that is what
+ * the session actually runs (`read-only` runs as `default`, so it is not below
+ * a plan start).
+ */
+const CLAUDE_MODE_MAP: Record<string, string> = {
+    yolo: 'bypassPermissions',
+    'safe-yolo': 'default',
+    'read-only': 'default',
+};
+
+type CeilingMetadata = {
+    permissionModeCeiling?: string | null;
+    dangerouslySkipPermissions?: boolean | null;
+    flavor?: string | null;
+} | null | undefined;
+
+/** Whether the session runs Claude, whose modes happycc maps before applying (no flavor = Claude). */
+export function usesClaudeModeMapping(metadata: CeilingMetadata): boolean {
+    return !metadata?.flavor || metadata.flavor === 'claude';
+}
+
+function toApplied(mode: string, claude: boolean): string {
+    return claude && Object.prototype.hasOwnProperty.call(CLAUDE_MODE_MAP, mode) ? CLAUDE_MODE_MAP[mode] : mode;
+}
 
 export function permissionModeRank(mode: string): number | undefined {
     return Object.prototype.hasOwnProperty.call(RANK, mode) ? RANK[mode] : undefined;
@@ -26,9 +54,7 @@ export function permissionModeRank(mode: string): number | undefined {
  * `default`. The synced `permissionMode` pick is never used: any client can
  * write it, so it says nothing about how the session started.
  */
-export function sessionStartingPermissionMode(
-    metadata: { permissionModeCeiling?: string | null; dangerouslySkipPermissions?: boolean | null } | null | undefined,
-): string {
+export function sessionStartingPermissionMode(metadata: CeilingMetadata): string {
     if (typeof metadata?.permissionModeCeiling === 'string' && metadata.permissionModeCeiling) {
         return metadata.permissionModeCeiling;
     }
@@ -38,20 +64,22 @@ export function sessionStartingPermissionMode(
 /**
  * The modes no more permissive than `ceiling`, in their original order.
  * Unranked modes are dropped (the CLI ignores them from the app); an unranked
- * ceiling counts as `default`.
+ * ceiling counts as `default`. `claude` compares the modes as a Claude session
+ * applies them.
  */
-export function filterModesAtOrBelow<T extends { key: string }>(modes: readonly T[], ceiling: string): T[] {
-    return modes.filter((mode) => isPermissionModeAllowed(mode.key, ceiling));
+export function filterModesAtOrBelow<T extends { key: string }>(modes: readonly T[], ceiling: string, claude = false): T[] {
+    return modes.filter((mode) => isPermissionModeAllowed(mode.key, ceiling, claude));
 }
 
 /**
  * Whether happycc would accept `mode` from the app for a session whose ceiling
  * is `ceiling`: ranked, and no more permissive than the ceiling (an unranked
- * ceiling counts as `default`).
+ * ceiling counts as `default`). `claude` compares the modes as a Claude
+ * session applies them (see CLAUDE_MODE_MAP).
  */
-export function isPermissionModeAllowed(mode: string, ceiling: string): boolean {
-    const limit = permissionModeRank(ceiling) ?? RANK.default;
-    const rank = permissionModeRank(mode);
+export function isPermissionModeAllowed(mode: string, ceiling: string, claude = false): boolean {
+    const limit = permissionModeRank(toApplied(ceiling, claude)) ?? RANK.default;
+    const rank = permissionModeRank(toApplied(mode, claude));
     return rank !== undefined && rank <= limit;
 }
 
@@ -87,6 +115,10 @@ export function capComposerPermissionModes<T extends { key: string }>({
 }): { availableModes: T[]; permissionMode: T | null } {
     if (isRig) return { availableModes: modes, permissionMode: current };
     const ceiling = sessionStartingPermissionMode(metadata);
-    const availableModes = filterModesAtOrBelow(modes, ceiling);
-    return { availableModes, permissionMode: resolveDisplayedPermissionMode(current, availableModes, ceiling) };
+    const claude = usesClaudeModeMapping(metadata);
+    const availableModes = filterModesAtOrBelow(modes, ceiling, claude);
+    return {
+        availableModes,
+        permissionMode: resolveDisplayedPermissionMode(current, availableModes, toApplied(ceiling, claude)),
+    };
 }

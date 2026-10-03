@@ -77,7 +77,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex' },
+            metadata: { flavor: 'codex', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta).toEqual({
@@ -118,7 +118,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.1-beta.2' },
+            metadata: { flavor: 'codex', version: '1.2.1-beta.2', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta.permissionMode).toBe('auto');
@@ -221,7 +221,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: 'auto',
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude', version: '1.2.1-beta.2' },
+            metadata: { flavor: 'claude', version: '1.2.1-beta.2', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta.permissionMode).toBe('auto');
@@ -232,7 +232,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: 'auto',
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude' },
+            metadata: { flavor: 'claude', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta.permissionMode).toBe('auto');
@@ -304,7 +304,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: 'my-workspace-model',
             effortLevel: null,
-            metadata: { flavor: 'codex' },
+            metadata: { flavor: 'codex', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta).toEqual({
@@ -319,7 +319,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex' },
+            metadata: { flavor: 'codex', permissionModeCeiling: 'auto' },
         } as any, {
             agentDefaultOverrides: {
                 codex: { modelMode: 'my-workspace-model' },
@@ -437,6 +437,22 @@ describe('resolveMessageModeMeta', () => {
             } as any);
             expect(meta).not.toHaveProperty('permissionMode');
             expect(meta.effort).toBe('medium');
+        });
+
+        it('drops read-only on a Claude plan start: it runs as default', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: 'read-only', modelMode: null, effortLevel: null,
+                metadata: { flavor: 'claude', permissionModeCeiling: 'plan' },
+            } as any);
+            expect(meta).not.toHaveProperty('permissionMode');
+        });
+
+        it('keeps read-only on a Codex default start', () => {
+            const meta = resolveMessageModeMeta({
+                permissionMode: 'read-only', modelMode: null, effortLevel: null,
+                metadata: { flavor: 'codex', permissionModeCeiling: 'default' },
+            } as any);
+            expect(meta.permissionMode).toBe('read-only');
         });
 
         it('caps by the heuristic for a CLI that publishes no ceiling', () => {
