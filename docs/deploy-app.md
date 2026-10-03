@@ -7,12 +7,17 @@ without their own.
 
 ## Build configuration
 
-Two environment variables drive a build:
+Two environment variables drive a build; everything else is in the app config file:
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `APP_ENV` | no | `development` | `development`, `preview` or `production`. Picks the defaults below. |
-| `APP_CONFIG` | production | none | Path of the app config JSON, relative to the working directory (`packages/happy-app` for `expo` and EAS commands). Development and preview builds run without one on built-in placeholders. |
+| `APP_CONFIG` | production | none | Path of the app config JSON. A relative path resolves against `packages/happy-app`, wherever the command runs. Development and preview builds run without one on built-in placeholders. |
+
+Build metadata for the Settings version row is not configuration: it comes from
+`HAPPY_BUILD_COMMIT_SHA` / `HAPPY_BUILD_COMMIT_TIMESTAMP` (the `Dockerfile.webapp`
+build args of the same name), else from CI (`EAS_BUILD_GIT_COMMIT_HASH`,
+`GITHUB_SHA`) or `git`.
 
 ### App config file
 
@@ -25,7 +30,7 @@ each key. Relative paths inside the file resolve against the file's own director
 | `slug` | no | `happy` | Expo slug (lowercase, digits, dashes). Must match the slug of your EAS project. |
 | `bundleId` | production | `com.example.happy.dev` / `.preview` | iOS bundle id and Android package. |
 | `scheme` | production | `happy-dev` / `happy-preview` | URL scheme. Native sign-in returns to `<scheme>://auth/callback`. |
-| `serverUrl` | production | `http://localhost:3005` (development fallback) | The server this build talks to, e.g. `https://happy-api.example.com`. `http://` or `https://`. Users cannot change it. |
+| `serverUrl` | production | `http://localhost:3005` (runtime fallback for development and preview) | The server this build talks to, e.g. `https://happy-api.example.com`. Users cannot change it. Production requires `https://` (`http://localhost` is allowed for local test builds); development and preview also accept `http://` to any host. |
 | `linksHost` | no | none | Bare host for iOS associated domains and Android app links, e.g. `happy.example.com`. Without it, none are emitted. |
 | `eas.projectId` | no | none | EAS project id. Also enables EAS Updates (`https://u.expo.dev/<id>`). |
 | `eas.owner` | no | none | EAS account that owns the project. |
@@ -40,6 +45,7 @@ each key. Relative paths inside the file resolve against the file's own director
 | `analytics.posthogHost` | no | `https://us.i.posthog.com` | PostHog instance, e.g. your self-hosted `https://posthog.example.com`. Only used with a key. `https://`, or `http://localhost`/`http://127.0.0.1`. |
 | `features.claudeConnect` | no | `false` | `true` shows the Claude.ai account connect screen, which talks to claude.ai directly. |
 | `mermaidScriptUrl` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`). Web always uses the bundled `mermaid` package and ignores this key. |
+| `logServerUrl` | no | none | Development tooling: `http://` or `https://` receiver for the app's remote console logs (`pnpm app-logs`). Rejected in production builds. |
 
 Links (`links.*`) must be `https://` (`http://localhost`/`http://127.0.0.1` is
 accepted outside production). An absent link hides its row; there is no fallback

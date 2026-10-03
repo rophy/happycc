@@ -37,7 +37,7 @@ export function rewriteLoopbackHost(url: string): string {
 
 export function getLogServerUrl(): string | null {
     return serverConfigStorage.getString(LOG_SERVER_KEY) ||
-           process.env.EXPO_PUBLIC_LOG_SERVER_URL ||
+           config.logServerUrl ||
            null;
 }
 

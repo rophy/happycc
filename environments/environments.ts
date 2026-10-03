@@ -789,7 +789,11 @@ function commandRun(service: string, serviceArgs: string[] = []) {
 function writeAppConfig(envDir: string, serverPort: number): string {
     const file = path.join(envDir, "app-config.json");
     fs.mkdirSync(envDir, { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ serverUrl: `http://localhost:${serverPort}` }, null, 4) + "\n");
+    const appConfig = {
+        serverUrl: `http://localhost:${serverPort}`,
+        logServerUrl: "http://localhost:8787",
+    };
+    fs.writeFileSync(file, JSON.stringify(appConfig, null, 4) + "\n");
     return file;
 }
 
@@ -820,7 +824,6 @@ function buildEnvVars(
 
         // App (Expo)
         APP_CONFIG: writeAppConfig(envDir, serverPort),
-        EXPO_PUBLIC_LOG_SERVER_URL: "http://localhost:8787",
         EXPO_PORT: String(expoPort),
 
         // CLI
@@ -862,7 +865,6 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
 
     lines.push("# App (Expo)");
     lines.push(`export APP_CONFIG="${vars.APP_CONFIG}"`);
-    lines.push(`export EXPO_PUBLIC_LOG_SERVER_URL="${vars.EXPO_PUBLIC_LOG_SERVER_URL}"`);
     lines.push(`export EXPO_PORT=${vars.EXPO_PORT}`);
     lines.push("");
 

@@ -16,6 +16,7 @@ export interface AppConfig {
     privacyUrl?: string;
     termsUrl?: string;
     helpUrl?: string;
+    logServerUrl?: string;
 }
 
 /**

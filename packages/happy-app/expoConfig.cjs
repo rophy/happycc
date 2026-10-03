@@ -67,13 +67,17 @@ const KINDS = {
         return v;
     },
     host: (v) => {
-        if (!/^[A-Za-z0-9.-]+$/.test(v)) throw 'must be a bare host name such as happy.example.com';
+        const label = '[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?';
+        if (!new RegExp(`^${label}(?:\\.${label})*$`).test(v)) throw 'must be a bare host name such as happy.example.com';
         return v;
     },
     path: (v, ctx) => ctx.resolvePath(v),
-    serverUrl: (v) => {
+    // Plain http is for local and LAN servers; production allows it only for
+    // localhost (the e2e web build), since iOS ATS blocks it elsewhere anyway.
+    serverUrl: (v, ctx) => {
         const url = parseUrl(v);
         if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:')) throw 'must be an http:// or https:// URL';
+        if (url.protocol === 'http:' && ctx.variant === 'production' && !isLoopback(url)) throw 'must be https:// in production (http://localhost only)';
         return url.href.replace(/\/+$/, '');
     },
     // Links the app opens (GitHub, issues, privacy, terms, help).
@@ -87,6 +91,13 @@ const KINDS = {
         const url = parseUrl(v);
         if (url && (url.protocol === 'https:' || (url.protocol === 'http:' && isLoopback(url)))) return url.href.replace(/\/+$/, '');
         throw 'must be an https:// URL (or http://localhost)';
+    },
+    // Dev tooling: the remote console log receiver (`pnpm app-logs`).
+    logServerUrl: (v, ctx) => {
+        if (ctx.variant === 'production') throw 'is dev tooling and not allowed in production builds';
+        const url = parseUrl(v);
+        if (url && (url.protocol === 'https:' || url.protocol === 'http:')) return url.href.replace(/\/+$/, '');
+        throw 'must be an http:// or https:// URL';
     },
     mermaidScriptUrl: (v) => {
         const url = parseUrl(v);
@@ -110,6 +121,7 @@ const APP_CONFIG_SCHEMA = {
     analytics: { posthogKey: 'string', posthogHost: 'posthogHost' },
     features: { claudeConnect: 'boolean' },
     mermaidScriptUrl: 'mermaidScriptUrl',
+    logServerUrl: 'logServerUrl',
 };
 
 /** Keys that accept null, meaning "hide this". */
@@ -123,7 +135,8 @@ function validateSection(input, schema, prefix, ctx, errors) {
     }
     for (const [key, raw] of Object.entries(input)) {
         const name = prefix ? `${prefix}.${key}` : key;
-        const kind = schema[key];
+        // Own keys only: `toString` or `__proto__` must not reach Object.prototype.
+        const kind = Object.prototype.hasOwnProperty.call(schema, key) ? schema[key] : undefined;
         if (kind === undefined) {
             errors.push(`${name}: unknown key`);
             continue;
@@ -356,6 +369,7 @@ function buildExpoConfig(env, buildMetadata = {}, options = {}) {
                 privacyUrl: links.privacy ?? undefined,
                 termsUrl: links.terms ?? undefined,
                 helpUrl: links.help ?? undefined,
+                logServerUrl: cfg.logServerUrl,
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,
             },

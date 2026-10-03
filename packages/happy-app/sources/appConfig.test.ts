@@ -154,6 +154,32 @@ describe('buildExpoConfig', () => {
         }
     });
 
+    it('treats Object.prototype names as unknown keys', () => {
+        expect(() => build({ ...productionConfig, toString: 'x' })).toThrow(/toString: unknown key/);
+        expect(() => build(JSON.parse('{"__proto__": {"x": 1}}'), {})).toThrow(/__proto__: unknown key/);
+        expect(() => build({ links: { constructor: 'https://example.com' } }, {})).toThrow(/links\.constructor: unknown key/);
+    });
+
+    it('accepts only well-formed host names for linksHost', () => {
+        for (const bad of ['..', '-', '.example.com', 'example.com.', 'a..b', '-a.example.com']) {
+            expect(() => build({ linksHost: bad }, {})).toThrow(/linksHost: must be a bare host name/);
+        }
+        expect(build({ linksHost: 'links-1.example.com' }, {}).ios.associatedDomains).toEqual(['applinks:links-1.example.com']);
+    });
+
+    it('allows a plain http server only for localhost in production', () => {
+        expect(() => build({ ...productionConfig, serverUrl: 'http://happy.acme.example' })).toThrow(/serverUrl: must be https:\/\/ in production/);
+        expect(build({ ...productionConfig, serverUrl: 'http://localhost:3005' }).extra.app.serverUrl).toBe('http://localhost:3005');
+        expect(build({ serverUrl: 'http://192.168.1.5:3005' }, { APP_ENV: 'preview' }).extra.app.serverUrl).toBe('http://192.168.1.5:3005');
+    });
+
+    it('takes a log server URL outside production only', () => {
+        expect(build({ logServerUrl: 'http://192.168.1.5:8787/' }, {}).extra.app.logServerUrl).toBe('http://192.168.1.5:8787');
+        expect(build(productionConfig).extra.app.logServerUrl).toBeUndefined();
+        expect(() => build({ logServerUrl: 'ftp://example.com' }, {})).toThrow(/logServerUrl: must be an http/);
+        expect(() => build({ ...productionConfig, logServerUrl: 'http://localhost:8787' })).toThrow(/logServerUrl: is dev tooling/);
+    });
+
     it('carries no links but the default GitHub link unless the config sets them', () => {
         const app = build(productionConfig).extra.app;
         expect(app.githubUrl).toBe('https://github.com/rophy/happy');
@@ -213,12 +239,14 @@ describe('buildExpoConfig', () => {
         const { expo } = buildExpoConfig({
             APP_NAME: 'Env Name', APP_BUNDLE_ID: 'com.env.happy', HAPPY_SERVER_URL: 'https://env.example.com',
             EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_env', EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: '1',
+            EXPO_PUBLIC_LOG_SERVER_URL: 'http://localhost:8787',
         });
         expect(expo.name).toBe('Happy (dev)');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
         expect(expo.extra.app.serverUrl).toBeUndefined();
         expect(expo.extra.app.postHogKey).toBeUndefined();
         expect(expo.extra.app.enableClaudeConnect).toBe(false);
+        expect(expo.extra.app.logServerUrl).toBeUndefined();
     });
 
     it('accepts the committed example and e2e config files', () => {

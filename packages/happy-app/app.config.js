@@ -32,13 +32,13 @@ function loadBuildMetadata() {
     };
 }
 
-/** The organization's app config file named by APP_CONFIG, relative to the working directory. */
+/** The organization's app config file named by APP_CONFIG, relative to this directory. */
 function loadAppConfigFile() {
     const raw = process.env.APP_CONFIG && process.env.APP_CONFIG.trim();
     if (!raw) {
         return null;
     }
-    const file = path.resolve(process.cwd(), raw);
+    const file = path.resolve(__dirname, raw);
     try {
         return { path: file, contents: fs.readFileSync(file, 'utf8') };
     } catch (e) {
