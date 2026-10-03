@@ -9,7 +9,7 @@ type Session = { id: string; active: boolean; createdAt: number; metadata?: { ma
  * The machine id of the cli device, read from its own settings. Matching `machines --json` by host is ambiguous:
  * re-signing in the same container registers a new machine with the same host name.
  */
-async function cliMachineId(): Promise<string> {
+export async function cliMachineId(): Promise<string> {
     const { stdout } = await exec('cli', 'cat "$HOME/.happycc/settings.json"');
     const machineId = (JSON.parse(stdout) as { machineId?: string }).machineId;
     if (!machineId) throw new Error('The cli device has no machineId in ~/.happycc/settings.json');

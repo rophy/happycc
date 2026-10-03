@@ -168,6 +168,19 @@ OpenCode and Pi: see bug 4.
 - offline-start: OpenCode and Pi pass (CLI logs `offline mode`, then `Reconnected`, a session appears and answers
   `compat:hello`). Claude is N/A by design, see [below](#claude-offline-start-is-a-local-terminal-session).
 
+## Scenarios 7-8 (`tests/remote-control.test.ts`)
+
+- resume (Claude): pass. Start, `warmUp` (one `COMPAT-HELLO-OK`), `kill <metadata.hostPid>` on cli (that runner only),
+  wait until `status` reports inactive, `resume S --json` -> `type: success` with the **same** session id, then wait
+  until `active: true`, `compat:hello` completes (`send --wait` returns: the first turn after a resume does get its
+  `turn-end`) and the history holds `COMPAT-HELLO-OK` exactly twice. The resumed runner (`index.mjs claude
+  --started-by daemon --resume <claude session>`) takes ~35-40 s to report active (waits are 90 s), and the session's
+  `metadata.hostPid` still shows the old pid afterwards (not updated by the resumed runner).
+- spawn (Claude): pass. `spawn --machine <cli machine id> --path /workspace --agent claude --json` -> `success` with a
+  new session id; a spawned session hits bug 1 on its first turn too, so `warmUp` runs first and the asserted turn is
+  the second (`COMPAT-HELLO-OK` twice).
+- OpenCode and Pi: N/A cells, see above.
+
 ## Stack fixes
 
 Made during this investigation (config of our stack, not product code):
