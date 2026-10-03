@@ -12,7 +12,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { REPO_ROOT, exec, execDetached, extractUrl, poll, type Service } from './stack';
+import { REPO_ROOT, exec, execDetached, extractUrl, poll, shellQuote, type Service } from './stack';
 
 const USER = 'alice';
 
@@ -30,7 +30,7 @@ async function signIn(service: Service, loginCmd: string, urlPattern: RegExp, st
         const { stdout } = await exec(service, 'cat /tmp/compat-login.log', { allowFail: true });
         return extractUrl(stdout, urlPattern);
     }, { timeoutMs: 60_000, what: `${service} sign-in URL` });
-    await exec(service, `node /tmp/signin.mjs "${url}" ${USER}`, { timeoutMs: 60_000 });
+    await exec(service, `node /tmp/signin.mjs ${shellQuote(url)} ${shellQuote(USER)}`, { timeoutMs: 60_000 });
     await poll(async () => ((await signedIn(service, statusCmd)) ? true : undefined), { timeoutMs: 60_000, what: `${service} to report signed in` });
 }
 

@@ -51,6 +51,14 @@ export async function poll<T>(fn: () => Promise<T | undefined>, opts: { timeoutM
     throw new Error(`Timed out waiting for ${opts.what}${lastError ? `: ${String(lastError)}` : ''}`);
 }
 
+/** Single-quote a value for safe interpolation into a POSIX shell command. */
+export function shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+
 export function extractUrl(text: string, pattern: RegExp): string | undefined {
-    return text.match(/https?:\/\/\S+/g)?.find((url) => pattern.test(url));
+    const clean = text.replace(ANSI, '');
+    return clean.match(/https?:\/\/[^\s<>"'\x00-\x1f]+/g)?.map((url) => url.replace(/[.,;:!?)\]}]+$/, '')).find((url) => pattern.test(url));
 }

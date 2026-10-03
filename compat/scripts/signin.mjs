@@ -35,12 +35,22 @@ function forms(html) {
     }));
 }
 
-let page = await request(startUrl);
-for (let step = 0; step < 6; step++) {
-    const all = forms(page.body);
+const pick = (html) => {
+    const all = forms(html);
     const userForm = all.find((f) => f.fields.sub === user);
     const confirm = all.find((f) => f.fields.csrf && f.decisions.some((d) => d === 'approve' || d === 'allow'));
-    const form = userForm ?? confirm;
+    return { form: userForm ?? confirm, confirm };
+};
+const snippet = (html) => html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+function fail(why, page) {
+    console.error(`Sign-in failed: ${why}\n  final url: ${page.url}\n  status: ${page.status}\n  body: ${snippet(page.body)}`);
+    process.exit(1);
+}
+
+let page = await request(startUrl);
+if (!pick(page.body).form) fail('first page has no user or confirm form', page);
+for (let step = 0; step < 6; step++) {
+    const { form, confirm } = pick(page.body);
     if (!form) break;
     const fields = { ...form.fields };
     if (form === confirm) fields.decision = form.decisions.find((d) => d === 'approve' || d === 'allow');
@@ -50,8 +60,10 @@ for (let step = 0; step < 6; step++) {
         body: new URLSearchParams(fields).toString(),
     });
 }
-if (page.status >= 400) {
-    console.error(`Sign-in ended with HTTP ${page.status} at ${page.url}`);
-    process.exit(1);
-}
+if (page.status >= 400) fail(`HTTP ${page.status}`, page);
+if (pick(page.body).form) fail('step budget exhausted, a form is still pending', page);
+// Success is the loopback callback (loopback flow) or the server's "Terminal authorized" page (device flow).
+const host = new URL(page.url).hostname;
+const isCallback = host === '127.0.0.1' || host === '[::1]' || host === '::1';
+if (!isCallback && !/Terminal authorized/.test(page.body)) fail('final page is neither the loopback callback nor "Terminal authorized"', page);
 console.log(`Sign-in finished at ${page.url}`);
