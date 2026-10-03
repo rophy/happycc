@@ -97,6 +97,9 @@ services:
     # Same network namespace as the server, so localhost:3005 is the same URL
     # here and in the browser on the host.
     network_mode: "service:oidc-mock"
+    # PID 1 must reap orphans: a killed runner left as a zombie still answers
+    # kill(pid, 0), so the daemon would treat it as alive and not respawn it on resume.
+    init: true
     depends_on:
       server: { condition: service_started }
       aimock: { condition: service_started }
@@ -122,6 +125,7 @@ services:
       dockerfile: Dockerfile.cli
     # The "phone" for the compatibility suite: happycc-agent signed in as its own device.
     network_mode: "service:oidc-mock"
+    init: true
     depends_on:
       server: { condition: service_started }
     environment:

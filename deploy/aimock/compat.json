@@ -11,7 +11,7 @@
     { "match": { "userMessage": "compat:write", "hasToolResult": true }, "response": { "content": "COMPAT-WRITE-DONE" } },
 
     { "match": { "userMessage": "compat:slow" },
-      "response": { "content": "COMPAT-SLOW-START this reply streams slowly so the test can abort it before it completes. ... COMPAT-SLOW-END" },
-      "latency": 1500, "chunkSize": 4 }
+      "response": { "content": "COMPAT-SLOW-START this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. ... COMPAT-SLOW-END" },
+      "latency": 200, "chunkSize": 4 }
   ]
 }
