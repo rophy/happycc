@@ -50,6 +50,9 @@ This document describes how to deploy the Happy backend (`packages/happy-server`
   - CLI releases before this fork (e.g. `happy notify`) could send pushes directly to Expo using tokens from `GET /v1/push-tokens`; deploy only this fork's clients.
 - Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).
 
+## Session RPC isolation
+The server binds RPC registration to the session's own CLI socket: a CLI connection that authenticates for a session may register RPC methods only for that session, and session ownership is checked when the socket connects. A CLI therefore cannot register handlers for another session or machine. Combined with the app's `workstationOnly` flag (see `docs/deploy-app.md`), sessions are only ever started from the workstation.
+
 ## Docker image
 A production Dockerfile is provided at `Dockerfile.server`.
 

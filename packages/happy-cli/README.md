@@ -50,38 +50,7 @@ happycc acp -- custom-agent --flag
 
 ## Daemon
 
-The daemon is a background service that stays running on your machine. It lets you spawn and manage coding sessions remotely — from your phone or the web app — without needing an open terminal.
-
-```bash
-happycc daemon start
-happycc daemon stop
-happycc daemon status
-happycc daemon list
-```
-
-The daemon starts automatically when you run `happycc`, so you usually don't need to manage it manually.
-
-### Keeping the daemon running across reboots
-
-If you want the daemon to come back automatically after a reboot — without opening a `happycc` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
-
-```bash
-# ~/.zshrc or ~/.bashrc
-if [[ -o interactive ]] && [[ -z "$HAPPY_DAEMON_CHECKED" ]]; then
-    export HAPPY_DAEMON_CHECKED=1
-    () {
-        local state=$HOME/.happycc/daemon.state.json
-        local pid=$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$state" 2>/dev/null | grep -oE '[0-9]+')
-        if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
-            happycc daemon start >/dev/null 2>&1
-        fi
-    } &!
-fi
-```
-
-The first interactive shell after a reboot triggers the start; subsequent shells short-circuit because the daemon is already running.
-
-> **macOS users:** prefer this shell-init approach over a `launchd` LaunchAgent. A LaunchAgent runs in an agent domain that is **detached from your GUI/Aqua login session**, which means the bundled `claude-agent-sdk` cannot reach the macOS keychain and silently fails authentication ("Failed to authenticate. API Error: 401 terminated", `duration_api_ms: 0`). If you must use launchd, your wrapper has to read the OAuth access token from `~/.claude/.credentials.json` and export it as `CLAUDE_CODE_OAUTH_TOKEN` before exec'ing the daemon — and you'll need to handle token rotation yourself.
+This build has no background daemon. `happycc daemon …` exits with code 1 and prints "The background daemon is not available in this build." Sessions are started from the workstation: run `happycc` in a project folder and the session appears in the app, where you can watch and control it. The app cannot start, resume or fork sessions.
 
 ## Authentication
 
