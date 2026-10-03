@@ -48,3 +48,48 @@ export function pendingPermissionRequests(agentState: unknown): PermissionReques
             ...(typeof r.createdAt === 'number' ? { createdAt: r.createdAt } : {}),
         }));
 }
+
+/** The params the app sends with `killSession` (`sessionKill` in happy-app/sources/sync/ops.ts). */
+export const KILL_SESSION_PARAMS = {} as const;
+
+type SessionMetadata = { flavor?: unknown; client?: { id?: unknown } } | null | undefined;
+
+/** The app's `sessionAbort`: rig sessions get `{}`, every other session gets the reason. */
+export function abortParams(metadata: unknown): Record<string, never> | { reason: string } {
+    return (metadata as SessionMetadata)?.client?.id === 'rig' ? {} : { reason: ABORT_REASON };
+}
+
+/** Same test as the app's PermissionFooter: Codex sessions get the decision-based buttons. */
+export function isCodexPermission(metadata: unknown, tool: string): boolean {
+    return (metadata as SessionMetadata)?.flavor === 'codex' || tool.startsWith('Codex');
+}
+
+/** Tools for which the app's Claude-style footer offers no "for this session" button. */
+const NO_FOR_SESSION_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'exit_plan_mode', 'ExitPlanMode']);
+
+export type PermissionAction = 'approve' | 'approve-for-session' | 'deny';
+
+/**
+ * The `permission` RPC params the app's PermissionFooter sends for each button
+ * (via `sessionAllow` / `sessionDeny` in happy-app/sources/sync/ops.ts; undefined fields are left out, as JSON does):
+ * - Codex: Yes → `decision: 'approved'`, Yes for session → `decision: 'approved_for_session'`,
+ *   Stop and explain (the only deny) → `approved: false, decision: 'abort'`.
+ * - Everyone else: Yes → `{ id, approved: true }`, Yes for this tool → `allowTools: [tool]` (`Bash(<command>)` for Bash),
+ *   No → `{ id, approved: false }`.
+ */
+export function permissionParams(action: PermissionAction, request: PermissionRequest, metadata: unknown): Record<string, unknown> {
+    const { id, tool } = request;
+    if (isCodexPermission(metadata, tool)) {
+        if (action === 'approve') return { id, approved: true, decision: 'approved' };
+        if (action === 'approve-for-session') return { id, approved: true, decision: 'approved_for_session' };
+        return { id, approved: false, decision: 'abort' };
+    }
+    if (action === 'approve') return { id, approved: true };
+    if (action === 'deny') return { id, approved: false };
+    if (NO_FOR_SESSION_TOOLS.has(tool)) {
+        throw new Error(`The app offers no "for this session" approval for ${tool}; use approve without --for-session.`);
+    }
+    const command = (request.arguments as { command?: unknown } | null | undefined)?.command;
+    const toolIdentifier = tool === 'Bash' && command ? `Bash(${String(command)})` : tool;
+    return { id, approved: true, allowTools: [toolIdentifier] };
+}

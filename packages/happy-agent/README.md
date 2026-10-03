@@ -2,7 +2,7 @@
 
 CLI client for controlling Happy Coder agents remotely.
 
-Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
+Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping or killing sessions.
 
 ## Installation
 
@@ -134,10 +134,16 @@ happycc-agent history <session-id> --limit 10
 happycc-agent history <session-id> --json
 ```
 
-### Stop a session
+### Stop or kill a session
 
 ```bash
+# End the session: sends a session-end event, so the server marks it inactive.
+# The session process on the machine keeps running.
 happycc-agent stop <session-id>
+
+# Kill the session process, like the app's kill action: calls the session's
+# `killSession` RPC, and the CLI that owns the session exits.
+happycc-agent kill <session-id>
 ```
 
 ### Permissions and abort
@@ -151,7 +157,18 @@ happycc-agent approve <session-id> <request-id>
 
 # Deny a request
 happycc-agent deny <session-id> <request-id>
+```
 
+`approve`, `approve --for-session` and `deny` send the same `permission` RPC params as the app's buttons,
+chosen by the session's `metadata.flavor`:
+
+| Command | Codex sessions | Other sessions |
+|---|---|---|
+| `approve` | `{ id, approved: true, decision: 'approved' }` | `{ id, approved: true }` |
+| `approve --for-session` | `{ id, approved: true, decision: 'approved_for_session' }` | `{ id, approved: true, allowTools: [tool] }` (`Bash(<command>)` for Bash; refused for Edit/MultiEdit/Write/NotebookEdit/ExitPlanMode, where the app has no such button) |
+| `deny` | `{ id, approved: false, decision: 'abort' }` (the app's only Codex deny) | `{ id, approved: false }` |
+
+```bash
 # Abort the current turn; the session keeps running
 happycc-agent abort <session-id>
 ```

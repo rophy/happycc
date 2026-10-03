@@ -11,7 +11,7 @@ import { authLogin, authLogout, authStatus } from './auth';
 import { listSessions, listActiveSessions, createSession, getSessionMessages, listMachines } from './api';
 import type { DecryptedMachine, DecryptedSession } from './api';
 import { connectRpcSocket, resumeSessionOnMachine, spawnSessionOnMachine, type SupportedAgent } from './machineRpc';
-import { ABORT_REASON, callSessionRpc, pendingPermissionRequests } from './sessionRpc';
+import { abortParams, callSessionRpc, KILL_SESSION_PARAMS, pendingPermissionRequests, permissionParams } from './sessionRpc';
 import { SessionClient } from './session';
 import { TokenStore } from './tokenStore';
 import type { TokenSource } from './tokenStore';
@@ -510,6 +510,28 @@ program
     });
 
 program
+    .command('kill')
+    .description('Kill the session process, like the app does (the killSession session RPC)')
+    .argument('<session-id>', 'Session ID or prefix')
+    .action(async (sessionId: string) => {
+        const config = loadConfig();
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        const socket = await connectRpcSocket(config, tokens);
+        let result: unknown;
+        try {
+            result = await callSessionRpc(socket, session, 'killSession', KILL_SESSION_PARAMS);
+        } finally {
+            socket.close();
+        }
+        const response = result as { success?: unknown; message?: unknown } | null;
+        if (response?.success !== true) {
+            throw new Error(`Failed to kill session ${session.id}: ${String(response?.message ?? 'no response')}`);
+        }
+        console.log(`Killed session ${session.id}`);
+    });
+
+program
     .command('permissions')
     .description('List pending permission requests of a session')
     .argument('<session-id>', 'Session ID or prefix')
@@ -534,10 +556,11 @@ for (const [name, approved] of [['approve', true], ['deny', false]] as const) {
         const { creds, tokens } = openAuth(config);
         const session = await resolveSession(config, creds, tokens, sessionId);
         const request = resolveByPrefix(pendingPermissionRequests(session.agentState), requestId, 'Request ID');
-        const decision = approved ? (opts.forSession ? 'approved_for_session' : 'approved') : 'denied';
+        const action = approved ? (opts.forSession ? 'approve-for-session' : 'approve') : 'deny';
+        const params = permissionParams(action, request, session.metadata);
         const socket = await connectRpcSocket(config, tokens);
         try {
-            await callSessionRpc(socket, session, 'permission', { id: request.id, approved, decision });
+            await callSessionRpc(socket, session, 'permission', params);
         } finally {
             socket.close();
         }
@@ -555,7 +578,7 @@ program
         const session = await resolveSession(config, creds, tokens, sessionId);
         const socket = await connectRpcSocket(config, tokens);
         try {
-            await callSessionRpc(socket, session, 'abort', { reason: ABORT_REASON });
+            await callSessionRpc(socket, session, 'abort', abortParams(session.metadata));
         } finally {
             socket.close();
         }

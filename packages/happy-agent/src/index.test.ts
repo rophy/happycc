@@ -71,6 +71,13 @@ describe('happy-agent CLI', () => {
         expect(stdout).toContain('approve');
         expect(stdout).toContain('deny');
         expect(stdout).toContain('abort');
+        expect(stdout).toContain('kill');
+    });
+
+    it('kill without arguments exits non-zero', () => {
+        const { exitCode, stderr } = runCli('kill');
+        expect(exitCode).not.toBe(0);
+        expect(stderr).toContain('missing required argument');
     });
 
     it('approve without arguments exits non-zero', () => {
