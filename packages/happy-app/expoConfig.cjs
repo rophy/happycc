@@ -146,9 +146,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
                 cameraPermission: false,
                 microphonePermission: false,
             }],
-            ['expo-calendar', {
-                calendarPermission: 'Allow $(PRODUCT_NAME) to access your calendar to improve AI quality.',
-            }],
             ['expo-notifications', {
                 enableBackgroundRemoteNotifications: true,
                 icon: asset('icon-notification.png'),

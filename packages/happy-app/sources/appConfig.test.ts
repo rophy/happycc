@@ -121,11 +121,12 @@ describe('buildExpoConfig', () => {
         }
     });
 
-    it('requests no location access and loads no plugins for removed packages', () => {
+    it('requests no location or calendar access and loads no plugins for removed packages', () => {
         const { expo } = buildExpoConfig({});
         const pluginNames = expo.plugins.map((p: unknown) => (Array.isArray(p) ? p[0] : p)).filter((p: unknown) => typeof p === 'string');
         expect(pluginNames).not.toContain('expo-location');
-        expect(JSON.stringify(expo)).not.toMatch(/location/i);
+        expect(pluginNames).not.toContain('expo-calendar');
+        expect(JSON.stringify(expo)).not.toMatch(/location|calendar/i);
     });
 
     it('passes build metadata through', () => {

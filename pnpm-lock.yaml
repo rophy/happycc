@@ -236,9 +236,6 @@ importers:
       expo-build-properties:
         specifier: ~55.0.18
         version: 55.0.18(expo@55.0.8)
-      expo-calendar:
-        specifier: ~55.0.0
-        version: 55.0.10(expo@55.0.8)(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))
       expo-checkbox:
         specifier: ~55.0.0
         version: 55.0.3(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0)
@@ -6810,12 +6807,6 @@ packages:
     resolution: {integrity: sha512-LLTuab2S4Gv9dYjolBF/noRAUosa9Fu1o374yoQ7WD+NLWP8rn3fUd5ciKlx7f702JqO7tDJB2+BUjTwtgciCg==}
     peerDependencies:
       expo: '*'
-
-  expo-calendar@55.0.10:
-    resolution: {integrity: sha512-UvETOHoUbXwNNT6sV61URbKhxgqHzyvtcUNTdnBo4ndLMx5Drd3KARK9YHG0wKCacBo43D/aCl8d7E2g6ngngQ==}
-    peerDependencies:
-      expo: '*'
-      react-native: '*'
 
   expo-checkbox@55.0.3:
     resolution: {integrity: sha512-Jv5LbehH3GxJVRWGgaoRlFU9b7mfagZX/I2WMC5NLcTxLViIqOe5/lKLVdl/B20/Po23TfbE6nyBrM4fMH0MGg==}
@@ -17882,11 +17873,6 @@ snapshots:
       expo: 55.0.8(@babel/core@7.28.6)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.7)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.15.0(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       resolve-from: 5.0.0
       semver: 7.8.5
-
-  expo-calendar@55.0.10(expo@55.0.8)(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0)):
-    dependencies:
-      expo: 55.0.8(@babel/core@7.28.6)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.7)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.15.0(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
-      react-native: 0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0)
 
   expo-checkbox@55.0.3(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-native@0.83.1(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.2.0))(react@19.2.0):
     dependencies:
