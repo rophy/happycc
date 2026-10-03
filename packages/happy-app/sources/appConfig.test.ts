@@ -121,6 +121,13 @@ describe('buildExpoConfig', () => {
         }
     });
 
+    it('requests no location access and loads no plugins for removed packages', () => {
+        const { expo } = buildExpoConfig({});
+        const pluginNames = expo.plugins.map((p: unknown) => (Array.isArray(p) ? p[0] : p)).filter((p: unknown) => typeof p === 'string');
+        expect(pluginNames).not.toContain('expo-location');
+        expect(JSON.stringify(expo)).not.toMatch(/location/i);
+    });
+
     it('passes build metadata through', () => {
         const { expo } = buildExpoConfig({}, { commitSha: 'abc', commitTimestamp: '2026-10-01T00:00:00Z' });
         expect(expo.extra.app.buildCommitSha).toBe('abc');

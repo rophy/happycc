@@ -27,7 +27,6 @@ const ANDROID_EXTRA_PROGUARD_RULES = [
     '-keep class com.shopify.reactnative.skia.** { *; }',
     '-keep class com.libsodium.** { *; }',
     '-keep class com.reactnativequickbase64.** { *; }',
-    '-keep class expo.modules.gl.** { *; }',
 ].join('\n');
 const DEFAULT_ASSETS_DIR = './sources/assets/images';
 
@@ -146,11 +145,6 @@ function buildExpoConfig(env, buildMetadata = {}) {
             ['expo-image-picker', {
                 cameraPermission: false,
                 microphonePermission: false,
-            }],
-            ['expo-location', {
-                locationAlwaysAndWhenInUsePermission: 'Allow $(PRODUCT_NAME) to improve AI quality by using your location.',
-                locationAlwaysPermission: 'Allow $(PRODUCT_NAME) to improve AI quality by using your location.',
-                locationWhenInUsePermission: 'Allow $(PRODUCT_NAME) to improve AI quality by using your location.',
             }],
             ['expo-calendar', {
                 calendarPermission: 'Allow $(PRODUCT_NAME) to access your calendar to improve AI quality.',
