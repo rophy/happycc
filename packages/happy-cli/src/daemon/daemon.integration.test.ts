@@ -25,6 +25,7 @@ import {
 import { clearDaemonState, readDaemonState } from '@/persistence';
 import { getLatestDaemonLog } from '@/ui/logger';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
+import { DAEMON_ENABLED } from '@/daemon/ensureDaemonRunning';
 
 // Utility to wait for condition
 async function waitFor(
@@ -52,7 +53,8 @@ async function stopAllTrackedSessions(): Promise<void> {
   );
 }
 
-describe('Daemon Integration Tests', { timeout: 180_000 }, () => {
+// The workstation-only build never runs the daemon.
+describe.skipIf(!DAEMON_ENABLED)('Daemon Integration Tests', { timeout: 180_000 }, () => {
   let daemonPid: number;
 
   beforeEach(async () => {

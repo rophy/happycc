@@ -48,7 +48,7 @@ describe('handleCodexCommand', () => {
     mocks.mockRunCodex.mockResolvedValue(undefined)
   })
 
-  it('ensures the daemon is running before starting a codex session', async () => {
+  it('calls the daemon guard (a no-op while the daemon is disabled) before starting a codex session', async () => {
     await handleCodexCommand(['--started-by', 'terminal'])
 
     expect(mocks.mockEnsureDaemonRunning).toHaveBeenCalledTimes(1)

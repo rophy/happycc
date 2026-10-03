@@ -32,6 +32,7 @@ import {
   stopDaemonSession,
 } from '@/daemon/controlClient';
 import { readDaemonState } from '@/persistence';
+import { DAEMON_ENABLED } from '@/daemon/ensureDaemonRunning';
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -386,7 +387,8 @@ describe.skipIf(!gatewayAvailable)('OpenClaw integration - full message pipeline
 
 // ── 4. Daemon lifecycle ─────────────────────────────────────────────────────
 
-describe.skipIf(!gatewayAvailable)('OpenClaw integration - daemon lifecycle', { timeout: 30000 }, () => {
+// The workstation-only build never runs the daemon.
+describe.skipIf(!gatewayAvailable || !DAEMON_ENABLED)('OpenClaw integration - daemon lifecycle', { timeout: 30000 }, () => {
   it('should spawn openclaw session via daemon and stop it cleanly', async () => {
     const daemonRunning = await isDaemonRunning();
     if (!daemonRunning) {
