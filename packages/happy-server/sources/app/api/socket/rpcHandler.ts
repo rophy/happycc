@@ -3,6 +3,7 @@ import { Server, Socket } from "socket.io";
 import type { RemoteSocket } from "socket.io";
 import type { DefaultEventsMap } from "socket.io/dist/typed-events";
 import { Counter, Histogram, register } from 'prom-client';
+import { canRegisterRpc } from './rpcRegistration';
 
 // RPC routing uses Socket.IO rooms. A daemon registering method M for user U
 // joins room `rpc:U:M`. Callers look the daemon up cross-replica via
@@ -132,6 +133,10 @@ export function rpcHandler(userId: string, socket: Socket, io: Server) {
             const { method } = data ?? {};
             if (!method || typeof method !== 'string') {
                 socket.emit('rpc-error', { type: 'register', error: 'Invalid method name' });
+                return;
+            }
+            if (!canRegisterRpc(method, socket.data)) {
+                socket.emit('rpc-error', { type: 'register', error: 'RPC method not allowed' });
                 return;
             }
             socket.join(rpcRoom(userId, method));
