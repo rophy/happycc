@@ -38,7 +38,7 @@ RUN pnpm --filter happycc --fail-if-no-match build
 RUN mkdir /pack && pnpm --filter happycc --fail-if-no-match pack --pack-destination /pack \
     && mv /pack/happycc-*.tgz /pack/happycc.tgz
 RUN pnpm --filter happycc-agent --fail-if-no-match build
-RUN pnpm --filter happycc-agent pack --pack-destination /pack \
+RUN pnpm --filter happycc-agent --fail-if-no-match pack --pack-destination /pack \
     && mv /pack/happycc-agent-*.tgz /pack/happycc-agent.tgz
 
 FROM node:22 AS runner

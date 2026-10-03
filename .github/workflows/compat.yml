@@ -3,6 +3,9 @@ name: Agent compatibility
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   compat:
     runs-on: ubuntu-latest
