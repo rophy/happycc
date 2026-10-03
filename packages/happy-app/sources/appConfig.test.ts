@@ -95,6 +95,18 @@ describe('buildExpoConfig', () => {
         expect(() => buildExpoConfig({ APP_ENV: 'staging' })).toThrow(/Unknown APP_ENV "staging"/);
     });
 
+    it('shrinks Android release builds', () => {
+        const { expo } = buildExpoConfig({});
+        const entry = expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties');
+        expect(entry).toBeDefined();
+        expect(entry[1].android).toMatchObject({
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            useLegacyPackaging: true,
+        });
+        expect(entry[1].android.extraProguardRules).toContain('-keep class com.margelo.nitro.** { *; }');
+    });
+
     it('requests no microphone or camera access and loads no voice plugins', () => {
         const { expo } = buildExpoConfig({});
         expect(expo.ios.infoPlist).not.toHaveProperty('NSMicrophoneUsageDescription');

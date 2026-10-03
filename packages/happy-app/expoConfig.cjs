@@ -14,6 +14,21 @@ const VARIANTS = {
 };
 
 const PRODUCTION_REQUIRED = ['APP_BUNDLE_ID', 'APP_SCHEME', 'HAPPY_SERVER_URL'];
+
+/**
+ * R8 keep rules for JNI-backed libraries that ship no consumer ProGuard rules
+ * of their own. Their native code looks Java classes up by name, which R8
+ * cannot see, so renaming or stripping them would crash only at runtime.
+ */
+const ANDROID_EXTRA_PROGUARD_RULES = [
+    '-keep class com.margelo.nitro.** { *; }',
+    '-keep class com.mrousavy.mmkv.** { *; }',
+    '-keep class com.unistyles.** { *; }',
+    '-keep class com.shopify.reactnative.skia.** { *; }',
+    '-keep class com.libsodium.** { *; }',
+    '-keep class com.reactnativequickbase64.** { *; }',
+    '-keep class expo.modules.gl.** { *; }',
+].join('\n');
 const DEFAULT_ASSETS_DIR = './sources/assets/images';
 
 function value(env, name) {
@@ -107,6 +122,16 @@ function buildExpoConfig(env, buildMetadata = {}) {
         },
         plugins: [
             require('./plugins/withEinkCompatibility.js'),
+            ['expo-build-properties', {
+                android: {
+                    // Release APK size: R8 shrinks code, resources drop what it
+                    // leaves unreferenced, and native libs are stored compressed.
+                    enableProguardInReleaseBuilds: true,
+                    enableShrinkResourcesInReleaseBuilds: true,
+                    useLegacyPackaging: true,
+                    extraProguardRules: ANDROID_EXTRA_PROGUARD_RULES,
+                },
+            }],
             ['expo-router', { root: './sources/app' }],
             'expo-updates',
             'expo-asset',
