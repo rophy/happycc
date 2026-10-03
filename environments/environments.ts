@@ -781,6 +781,18 @@ function commandRun(service: string, serviceArgs: string[] = []) {
 // env.sh builder
 // ============================================================================
 
+/**
+ * The app reads its server from a build-time config file (APP_CONFIG), not
+ * from env vars. Written on every use so environments created before the
+ * file existed get one too.
+ */
+function writeAppConfig(envDir: string, serverPort: number): string {
+    const file = path.join(envDir, "app-config.json");
+    fs.mkdirSync(envDir, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ serverUrl: `http://localhost:${serverPort}` }, null, 4) + "\n");
+    return file;
+}
+
 function buildEnvVars(
     envDir: string,
     serverPort: number,
@@ -807,8 +819,7 @@ function buildEnvVars(
         MOBILE_REDIRECT_URIS: "happy-dev://auth/callback,happy-preview://auth/callback",
 
         // App (Expo)
-        EXPO_PUBLIC_SERVER_URL: `http://localhost:${serverPort}`,
-        EXPO_PUBLIC_HAPPY_SERVER_URL: `http://localhost:${serverPort}`,
+        APP_CONFIG: writeAppConfig(envDir, serverPort),
         EXPO_PUBLIC_LOG_SERVER_URL: "http://localhost:8787",
         EXPO_PORT: String(expoPort),
 
@@ -850,8 +861,7 @@ function buildEnvSh(name: string, envDir: string, serverPort: number, expoPort: 
     lines.push("");
 
     lines.push("# App (Expo)");
-    lines.push(`export EXPO_PUBLIC_SERVER_URL="${vars.EXPO_PUBLIC_SERVER_URL}"`);
-    lines.push(`export EXPO_PUBLIC_HAPPY_SERVER_URL="${vars.EXPO_PUBLIC_HAPPY_SERVER_URL}"`);
+    lines.push(`export APP_CONFIG="${vars.APP_CONFIG}"`);
     lines.push(`export EXPO_PUBLIC_LOG_SERVER_URL="${vars.EXPO_PUBLIC_LOG_SERVER_URL}"`);
     lines.push(`export EXPO_PORT=${vars.EXPO_PORT}`);
     lines.push("");

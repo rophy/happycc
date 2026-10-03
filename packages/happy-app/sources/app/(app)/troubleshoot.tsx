@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Stack, useRouter } from 'expo-router';
@@ -16,14 +16,15 @@ import { buildOfflineMachineTroubleshooting } from '@/utils/offlineMachineTroubl
 import { Modal } from '@/modal';
 import { layout } from '@/components/layout';
 import { t } from '@/text';
-
-const DESKTOP_URL = 'https://happy.engineering';
+import { appLinks } from '@/config';
+import { openExternalUrl } from '@/utils/openExternalUrl';
 
 /**
  * What to check when every linked computer is offline. The order is the
- * order of likelihood: the machine is asleep, then Happy is not open, then
- * the terminal daemon has stopped. The AI prompt at the end points a coding
- * agent on the computer at the local Happy logs.
+ * order of likelihood: the machine is asleep, then the terminal daemon has
+ * stopped. The build's help link (APP_CONFIG `links.help`) follows when one is set. The
+ * AI prompt at the end points a coding agent on the computer at the local
+ * Happy logs.
  */
 export default function TroubleshootScreen() {
     const { theme } = useUnistyles();
@@ -33,6 +34,7 @@ export default function TroubleshootScreen() {
     const choices = React.useMemo(() => collectMachineChoices(machines), [machines]);
     const guide = React.useMemo(() => buildOfflineMachineTroubleshooting(choices, sessions), [choices, sessions]);
     const [copied, setCopied] = React.useState(false);
+    const helpUrl = appLinks.helpUrl;
 
     const copyPrompt = React.useCallback(async () => {
         try {
@@ -74,32 +76,27 @@ export default function TroubleshootScreen() {
                     {step('moon-outline', t('troubleshoot.awakeStep'), (
                         <Text style={styles.stepBody}>{t('troubleshoot.awakeBody')}</Text>
                     ))}
-                    {step('desktop-outline', t('troubleshoot.desktopStep'), (
-                        <Text style={styles.stepBody}>
-                            {t('troubleshoot.desktopBodyPrefix')}
-                            <Text
-                                style={styles.link}
-                                accessibilityRole="link"
-                                onPress={() => { void Linking.openURL(DESKTOP_URL); }}
-                            >
-                                {t('troubleshoot.desktopBodyLink')}
-                            </Text>
-                            {t('troubleshoot.desktopBodySuffix')}
-                        </Text>
-                    ))}
                     {step('terminal-outline', t('troubleshoot.terminalStep'), (
                         <>
                             <Text style={styles.stepBody}>{t('troubleshoot.terminalBody')}</Text>
                             <TerminalBlock
                                 style={styles.terminal}
                                 lines={[
-                                    { kind: 'comment', text: t('troubleshoot.terminalComment') },
                                     { kind: 'command', text: t('onboarding.terminalInstall') },
                                     { kind: 'command', text: t('onboarding.terminalRun') },
                                 ]}
                             />
                         </>
                     ))}
+                    {helpUrl ? step('help-circle-outline', t('onboarding.getHelp'), (
+                        <Text
+                            style={[styles.stepBody, styles.link]}
+                            accessibilityRole="link"
+                            onPress={() => { void openExternalUrl(helpUrl); }}
+                        >
+                            {helpUrl}
+                        </Text>
+                    )) : null}
                 </View>
 
                 {choices.length > 0 ? (

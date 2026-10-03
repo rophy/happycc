@@ -110,7 +110,7 @@ export const MermaidRenderer = React.memo((props: {
     }
 
     // For iOS/Android, use WebView — but only when a script URL was explicitly
-    // configured (EXPO_PUBLIC_MERMAID_SCRIPT_URL). Third-party services are off
+    // configured (APP_CONFIG `mermaidScriptUrl`). Third-party services are off
     // unless configured: without it, there is no bundled mermaid on native and
     // no default CDN fallback, so the diagram renders as a plain code block.
     if (!config.mermaidScriptUrl) {

@@ -1,33 +1,50 @@
 import { createRequire } from 'node:module';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { buildExpoConfig } = require('../expoConfig.cjs') as {
-    buildExpoConfig: (env: Record<string, string | undefined>, meta?: Record<string, string>) => { expo: any };
+    buildExpoConfig: (
+        env: Record<string, string | undefined>,
+        meta?: Record<string, string>,
+        options?: { configFile?: { path: string; contents: string } | null; projectRoot?: string },
+    ) => { expo: any };
 };
 
-const production = {
-    APP_ENV: 'production',
-    APP_BUNDLE_ID: 'com.acme.happy',
-    APP_SCHEME: 'acmehappy',
-    HAPPY_SERVER_URL: 'https://happy.acme.example',
+const PROJECT_ROOT = '/repo/packages/happy-app';
+const CONFIG_PATH = '/repo/deploy/app-config/acme.json';
+
+const productionConfig = {
+    bundleId: 'com.acme.happy',
+    scheme: 'acmehappy',
+    serverUrl: 'https://happy.acme.example',
 };
 
-const UPSTREAM_IDENTIFIERS = ['com.slopus', 'com.ex3ndr', 'bulkacorp', '4558dd3d', 'app.happy.engineering', 'google-services.json'];
+/** Builds with an in-memory APP_CONFIG file, the way app.config.js passes one in. */
+function build(config: unknown, env: Record<string, string | undefined> = { APP_ENV: 'production' }, meta?: Record<string, string>) {
+    const contents = typeof config === 'string' ? config : JSON.stringify(config);
+    return buildExpoConfig(env, meta, { configFile: { path: CONFIG_PATH, contents }, projectRoot: PROJECT_ROOT }).expo;
+}
+
+const UPSTREAM_IDENTIFIERS = ['com.slopus', 'com.ex3ndr', 'bulkacorp', '4558dd3d', 'app.happy.engineering', 'google-services.json', 'slopus'];
 
 describe('buildExpoConfig', () => {
-    it('builds development with placeholder identities and no upstream identifiers', () => {
+    it('builds development without a config file, with placeholder identities and no upstream identifiers', () => {
         const { expo } = buildExpoConfig({});
         expect(expo.name).toBe('Happy (dev)');
+        expect(expo.slug).toBe('happy');
         expect(expo.scheme).toBe('happy-dev');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
         expect(expo.android.package).toBe('com.example.happy.dev');
+        expect(expo.icon).toBe('./sources/assets/images/icon.png');
         expect(expo.updates).toBeUndefined();
         expect(expo.owner).toBeUndefined();
         expect(expo.extra.eas).toBeUndefined();
         expect(expo.ios.associatedDomains).toBeUndefined();
         expect(expo.android.intentFilters).toEqual([]);
         expect(expo.android.googleServicesFile).toBeUndefined();
+        expect(expo.extra.app.serverUrl).toBeUndefined();
         const serialized = JSON.stringify(expo);
         for (const id of UPSTREAM_IDENTIFIERS) {
             expect(serialized).not.toContain(id);
@@ -41,27 +58,41 @@ describe('buildExpoConfig', () => {
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.preview');
     });
 
-    it.each(['APP_BUNDLE_ID', 'APP_SCHEME', 'HAPPY_SERVER_URL'])('fails a production build without %s', (name) => {
-        expect(() => buildExpoConfig({ ...production, [name]: undefined })).toThrow(new RegExp(`Production builds require .*${name}`));
-        expect(() => buildExpoConfig({ ...production, [name]: '   ' })).toThrow(/Production builds require/);
+    it('lets a development config file override only what it sets', () => {
+        const expo = build({ serverUrl: 'http://localhost:3006' }, {});
+        expect(expo.name).toBe('Happy (dev)');
+        expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
+        expect(expo.extra.app.serverUrl).toBe('http://localhost:3006');
     });
 
-    it('lists every missing production variable at once', () => {
-        expect(() => buildExpoConfig({ APP_ENV: 'production' })).toThrow('APP_BUNDLE_ID, APP_SCHEME, HAPPY_SERVER_URL');
+    it('fails a production build without a config file', () => {
+        expect(() => buildExpoConfig({ APP_ENV: 'production' })).toThrow(/Production builds require APP_CONFIG/);
+    });
+
+    it.each(['bundleId', 'scheme', 'serverUrl'])('fails a production build whose config has no %s', (key) => {
+        const config: Record<string, string> = { ...productionConfig };
+        delete config[key];
+        expect(() => build(config)).toThrow(new RegExp(`Production builds require ${key} in APP_CONFIG`));
+    });
+
+    it('lists every missing production field at once', () => {
+        expect(() => build({})).toThrow('bundleId, scheme, serverUrl');
     });
 
     it('uses the configured identity in production', () => {
-        const { expo } = buildExpoConfig({ ...production, APP_NAME: 'Acme Happy' });
+        const expo = build({ ...productionConfig, name: 'Acme Happy', slug: 'acme-happy' });
         expect(expo.name).toBe('Acme Happy');
+        expect(expo.slug).toBe('acme-happy');
         expect(expo.scheme).toBe('acmehappy');
         expect(expo.ios.bundleIdentifier).toBe('com.acme.happy');
         expect(expo.android.package).toBe('com.acme.happy');
         expect(expo.ios.infoPlist.NSAppTransportSecurity).toEqual({ NSAllowsLocalNetworking: true });
         expect(expo.extra.app.consoleLoggingDefault).toBe(false);
+        expect(expo.extra.app.serverUrl).toBe('https://happy.acme.example');
     });
 
-    it('emits associated domains and intent filters only with APP_LINKS_HOST', () => {
-        const { expo } = buildExpoConfig({ ...production, APP_LINKS_HOST: 'links.acme.example' });
+    it('emits associated domains and intent filters only with linksHost', () => {
+        const expo = build({ ...productionConfig, linksHost: 'links.acme.example' });
         expect(expo.ios.associatedDomains).toEqual(['applinks:links.acme.example']);
         expect(expo.android.intentFilters).toEqual([{
             action: 'VIEW',
@@ -72,23 +103,135 @@ describe('buildExpoConfig', () => {
     });
 
     it('configures EAS updates, project and owner only when set', () => {
-        const { expo } = buildExpoConfig({ ...production, EAS_PROJECT_ID: 'proj-123', EAS_OWNER: 'acme' });
+        const expo = build({ ...productionConfig, eas: { projectId: 'proj-123', owner: 'acme' } });
         expect(expo.updates).toEqual({ url: 'https://u.expo.dev/proj-123', requestHeaders: { 'expo-channel-name': 'production' } });
         expect(expo.extra.eas).toEqual({ projectId: 'proj-123' });
         expect(expo.owner).toBe('acme');
     });
 
-    it('takes the Google services file and assets directory from the environment', () => {
-        const { expo } = buildExpoConfig({ ...production, GOOGLE_SERVICES_FILE: './acme/google-services.json', APP_ASSETS_DIR: './acme/assets/' });
-        expect(expo.android.googleServicesFile).toBe('./acme/google-services.json');
-        expect(expo.icon).toBe('./acme/assets/icon.png');
-        expect(expo.android.adaptiveIcon.foregroundImage).toBe('./acme/assets/icon-adaptive.png');
-        expect(expo.web.favicon).toBe('./acme/assets/favicon.png');
+    it('resolves relative paths in the file against the file, relative to the project root', () => {
+        const expo = build({ ...productionConfig, googleServicesFile: './google-services.json', assetsDir: 'assets/' });
+        expect(expo.android.googleServicesFile).toBe('../../deploy/app-config/google-services.json');
+        expect(expo.icon).toBe('../../deploy/app-config/assets/icon.png');
+        expect(expo.android.adaptiveIcon.foregroundImage).toBe('../../deploy/app-config/assets/icon-adaptive.png');
+        expect(expo.web.favicon).toBe('../../deploy/app-config/assets/favicon.png');
+        expect(build({ ...productionConfig, assetsDir: '/abs/assets' }).icon).toBe('../../../abs/assets/icon.png');
+        expect(build({ ...productionConfig, assetsDir: '../../packages/happy-app/brand' }).icon).toBe('./brand/icon.png');
     });
 
-    it('takes the slug from APP_SLUG, defaulting to happy', () => {
-        expect(buildExpoConfig(production).expo.slug).toBe('happy');
-        expect(buildExpoConfig({ ...production, APP_SLUG: 'acme-happy' }).expo.slug).toBe('acme-happy');
+    it('rejects unknown keys, naming them', () => {
+        expect(() => build({ ...productionConfig, bundleID: 'x' })).toThrow(/bundleID: unknown key/);
+        expect(() => build({ ...productionConfig, links: { discord: 'https://example.com' } })).toThrow(/links\.discord: unknown key/);
+    });
+
+    it('rejects wrong types and lists every problem', () => {
+        let message = '';
+        try {
+            build({ ...productionConfig, name: 42, features: { claudeConnect: 'yes' }, eas: 'proj', slug: '' });
+        } catch (e) {
+            message = (e as Error).message;
+        }
+        expect(message).toContain(CONFIG_PATH);
+        expect(message).toContain('name: must be a non-empty string');
+        expect(message).toContain('features.claudeConnect: must be true or false');
+        expect(message).toContain('eas: must be an object');
+        expect(message).toContain('slug: must be a non-empty string');
+    });
+
+    it('rejects malformed JSON and identifiers', () => {
+        expect(() => build('{ not json')).toThrow(/is not valid JSON/);
+        expect(() => build({ ...productionConfig, bundleId: 'not a bundle id' })).toThrow(/bundleId: must be a reverse-DNS id/);
+        expect(() => build({ ...productionConfig, scheme: 'Acme Happy' })).toThrow(/scheme: must be a lowercase URL scheme/);
+        expect(() => build({ ...productionConfig, linksHost: 'https://links.example.com' })).toThrow(/linksHost: must be a bare host name/);
+    });
+
+    it('rejects invalid URLs', () => {
+        expect(() => build({ ...productionConfig, serverUrl: 'ftp://example.com' })).toThrow(/serverUrl: must be an http/);
+        expect(() => build({ ...productionConfig, analytics: { posthogHost: 'http://posthog.example.com' } })).toThrow(/analytics\.posthogHost/);
+        expect(() => build({ ...productionConfig, mermaidScriptUrl: 'http://example.com/mermaid.js' })).toThrow(/mermaidScriptUrl: must be an https/);
+        for (const bad of ['not a url', 'http://example.com/x', 'javascript:alert(1)', 'ftp://example.com/x', 'http://localhost:8080/x']) {
+            expect(() => build({ ...productionConfig, links: { issues: bad } })).toThrow(/links\.issues: must be an https/);
+        }
+    });
+
+    it('carries no links but the default GitHub link unless the config sets them', () => {
+        const app = build(productionConfig).extra.app;
+        expect(app.githubUrl).toBe('https://github.com/rophy/happy');
+        for (const key of ['issuesUrl', 'privacyUrl', 'termsUrl', 'helpUrl']) {
+            expect(app[key]).toBeUndefined();
+        }
+    });
+
+    it('passes configured links through, and null hides one', () => {
+        const app = build({
+            ...productionConfig,
+            links: {
+                github: null,
+                issues: 'https://example.com/issues',
+                privacy: ' https://example.com/privacy ',
+                terms: 'https://example.com/terms',
+                help: null,
+            },
+        }).extra.app;
+        expect(app.githubUrl).toBeUndefined();
+        expect(app.helpUrl).toBeUndefined();
+        expect(app).toMatchObject({
+            issuesUrl: 'https://example.com/issues',
+            privacyUrl: 'https://example.com/privacy',
+            termsUrl: 'https://example.com/terms',
+        });
+    });
+
+    it('allows http localhost links only outside production', () => {
+        expect(build({ links: { help: 'http://localhost:8080/help' } }, {}).extra.app.helpUrl).toBe('http://localhost:8080/help');
+        expect(build({ links: { help: 'http://127.0.0.1/help' } }, { APP_ENV: 'preview' }).extra.app.helpUrl).toBe('http://127.0.0.1/help');
+        expect(() => build({ ...productionConfig, links: { help: 'http://localhost:8080/help' } })).toThrow(/links\.help/);
+    });
+
+    it('carries analytics, Claude connect and mermaid settings only when set', () => {
+        const off = build(productionConfig).extra.app;
+        expect(off.postHogKey).toBeUndefined();
+        expect(off.postHogHost).toBeUndefined();
+        expect(off.enableClaudeConnect).toBe(false);
+        expect(off.mermaidScriptUrl).toBeUndefined();
+
+        const on = build({
+            ...productionConfig,
+            analytics: { posthogKey: 'phc_test', posthogHost: 'https://posthog.corp.example/' },
+            features: { claudeConnect: true },
+            mermaidScriptUrl: 'https://assets.example.com/mermaid.min.js',
+        }).extra.app;
+        expect(on).toMatchObject({
+            postHogKey: 'phc_test',
+            postHogHost: 'https://posthog.corp.example',
+            enableClaudeConnect: true,
+            mermaidScriptUrl: 'https://assets.example.com/mermaid.min.js',
+        });
+    });
+
+    it('ignores the removed environment variables', () => {
+        const { expo } = buildExpoConfig({
+            APP_NAME: 'Env Name', APP_BUNDLE_ID: 'com.env.happy', HAPPY_SERVER_URL: 'https://env.example.com',
+            EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_env', EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: '1',
+        });
+        expect(expo.name).toBe('Happy (dev)');
+        expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
+        expect(expo.extra.app.serverUrl).toBeUndefined();
+        expect(expo.extra.app.postHogKey).toBeUndefined();
+        expect(expo.extra.app.enableClaudeConnect).toBe(false);
+    });
+
+    it('accepts the committed example and e2e config files', () => {
+        const repoRoot = path.resolve(__dirname, '../../..');
+        const projectRoot = path.join(repoRoot, 'packages/happy-app');
+        for (const file of ['deploy/app-config/org.example.json', 'deploy/app-config/e2e.json']) {
+            const configPath = path.join(repoRoot, file);
+            const { expo } = buildExpoConfig({ APP_ENV: 'production' }, {}, {
+                configFile: { path: configPath, contents: fs.readFileSync(configPath, 'utf8') },
+                projectRoot,
+            });
+            expect(expo.extra.app.serverUrl).toMatch(/^https?:\/\//);
+        }
     });
 
     it('rejects an unknown APP_ENV', () => {
@@ -140,19 +283,5 @@ describe('buildExpoConfig', () => {
         for (const key of ['revenueCatAppleKey', 'revenueCatGoogleKey', 'revenueCatStripeKey']) {
             expect(expo.extra.app).not.toHaveProperty(key);
         }
-    });
-
-    it('carries analytics and Claude connect settings only when set', () => {
-        const off = buildExpoConfig({}).expo.extra.app;
-        expect(off.postHogKey).toBeUndefined();
-        expect(off.postHogHost).toBeUndefined();
-        expect(off.enableClaudeConnect).toBe(false);
-
-        const on = buildExpoConfig({
-            EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_test',
-            EXPO_PUBLIC_POSTHOG_HOST: 'https://posthog.corp.example',
-            EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: '1',
-        }).expo.extra.app;
-        expect(on).toMatchObject({ postHogKey: 'phc_test', postHogHost: 'https://posthog.corp.example', enableClaudeConnect: true });
     });
 });

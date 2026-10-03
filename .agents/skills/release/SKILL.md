@@ -474,7 +474,7 @@ Web releases go through TeamCity (`Lab_HappyWeb`). The config is in the TeamCity
 
 Flow: `expo export --platform web` -> nginx:alpine static serve -> Docker build -> push -> K8s deploy.
 
-Build args: `POSTHOG_API_KEY`, `REVENUE_CAT_STRIPE`.
+Build arg: `APP_CONFIG`, the app config file under `deploy/app-config/` (see `docs/deploy-app.md`).
 
 Guide the user to trigger the TeamCity build, or help with manual Docker builds if needed.
 

@@ -85,7 +85,7 @@ HAPPY_SERVER_URL=http://localhost:3005 happyco daemon start
 pnpm --filter happy-server standalone:dev   # localhost:3005, embedded PGlite, no Docker
 ```
 
-App auto-reloads on source changes. Point the CLI or the Expo app at it with `HAPPY_SERVER_URL=http://localhost:3005` / `EXPO_PUBLIC_HAPPY_SERVER_URL=...`.
+App auto-reloads on source changes. Point the CLI at it with `HAPPY_SERVER_URL=http://localhost:3005`. A development app build already defaults to `http://localhost:3005`; for another server, set `APP_CONFIG` to a JSON file with `{"serverUrl": "..."}` (see `docs/deploy-app.md`).
 
 ## happy-app (Expo)
 

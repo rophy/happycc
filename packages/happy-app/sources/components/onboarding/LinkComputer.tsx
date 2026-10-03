@@ -14,17 +14,15 @@ import { Modal } from '@/modal';
 import { t } from '@/text';
 import { getServerLabel } from '@/sync/serverConfig';
 import { openExternalUrl } from '@/utils/openExternalUrl';
+import { appLinks } from '@/config';
 
 /**
- * Where somebody stuck on this screen can turn, and to whom. The same list
- * the desktop app offers during its own setup.
+ * Where somebody stuck on this screen can turn: the issue tracker the build
+ * points at (APP_CONFIG `links.issues`). Without one there is no Get help button.
  */
-const HELP_LINKS: readonly { label: () => string; url: string }[] = [
-    { label: () => t('onboarding.helpDiscord'), url: 'https://discord.gg/fX9WBAhyfD' },
-    { label: () => t('onboarding.helpBra1nDump'), url: 'https://x.com/bra1n_dump' },
-    { label: () => t('onboarding.helpEx3ndr'), url: 'https://x.com/Ex3NDR' },
-    { label: () => t('onboarding.helpIssues'), url: 'https://github.com/slopus/happy/issues' },
-];
+const HELP_LINKS: readonly { label: () => string; url: string }[] = appLinks.issuesUrl
+    ? [{ label: () => t('onboarding.helpIssues'), url: appLinks.issuesUrl }]
+    : [];
 
 // Corporate fork: a computer links itself by signing in with `happyco auth login`
 // (OIDC device flow). English-only copy until it goes through translation.
@@ -254,10 +252,12 @@ export const OnboardingLinkComputer = React.memo(function OnboardingLinkComputer
                     </Pressable>
                 )}
             />
-            <LinkComputerChecklist variant="link" bottomInset={GET_HELP_RESERVED_HEIGHT} />
-            <View style={[styles.getHelpCorner, { bottom: insets.bottom + 12 }]} pointerEvents="box-none">
-                <GetHelpButton />
-            </View>
+            <LinkComputerChecklist variant="link" bottomInset={HELP_LINKS.length > 0 ? GET_HELP_RESERVED_HEIGHT : 0} />
+            {HELP_LINKS.length > 0 && (
+                <View style={[styles.getHelpCorner, { bottom: insets.bottom + 12 }]} pointerEvents="box-none">
+                    <GetHelpButton />
+                </View>
+            )}
         </View>
     );
 });

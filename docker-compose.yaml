@@ -72,11 +72,10 @@ services:
       context: .
       dockerfile: Dockerfile.webapp
       args:
-        # As seen by the browser on the host (oidc-mock publishes the server's port).
-        HAPPY_SERVER_URL: http://localhost:3005
-        # Placeholder identity for the production app config; unused on the web.
-        APP_BUNDLE_ID: com.example.happy.web
-        APP_SCHEME: happy-web
+        # serverUrl is http://localhost:3005 as seen by the browser on the host
+        # (oidc-mock publishes the server's port); bundleId/scheme are
+        # placeholders the production config requires but the web ignores.
+        APP_CONFIG: deploy/app-config/e2e.json
     depends_on:
       server: { condition: service_started }
     ports:

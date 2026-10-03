@@ -16,7 +16,7 @@ import type { AuthCredentials } from './tokenStorage';
 
 const PENDING_LOGIN_KEY = 'happy-oidc-pending';
 
-/** The build's URL scheme (app.config `scheme`, from APP_SCHEME). */
+/** The build's URL scheme (app.config `scheme`, from APP_CONFIG `scheme`). */
 export function getAppScheme(): string {
     const scheme = Constants.expoConfig?.scheme;
     const value = Array.isArray(scheme) ? scheme[0] : scheme;

@@ -1,6 +1,6 @@
 /**
  * Resolves the native mermaid renderer's script URL from the raw
- * EXPO_PUBLIC_MERMAID_SCRIPT_URL build value.
+ * APP_CONFIG `mermaidScriptUrl` build value.
  *
  * Third-party services are off unless explicitly configured: native has no
  * built-in CDN fallback. Only an https URL is accepted; a blank, invalid or

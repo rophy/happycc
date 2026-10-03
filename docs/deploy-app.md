@@ -1,45 +1,107 @@
 # Deploying the app (web, iOS, Android)
 
-Every identity value of the app is build-time configuration, read by
-`packages/happy-app/expoConfig.cjs`. There is no fallback to upstream identifiers:
-production builds refuse to start without their own.
+Every identity value of the app is build-time configuration: one JSON file per
+organization, read and strictly validated by `packages/happy-app/expoConfig.cjs`.
+There is no fallback to upstream identifiers: production builds refuse to start
+without their own.
 
-## Build environment
+## Build configuration
+
+Two environment variables drive a build:
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `APP_ENV` | no | `development` | `development`, `preview` or `production`. Picks the defaults below. |
-| `APP_NAME` | no | `Happy (dev)` / `Happy (preview)` / `Happy` | Display name. |
-| `APP_SLUG` | no | `happy` | Expo slug. Must match the slug of your EAS project. |
-| `APP_BUNDLE_ID` | production | `com.example.happy.dev` / `.preview` | iOS bundle id and Android package. |
-| `APP_SCHEME` | production | `happy-dev` / `happy-preview` | URL scheme. Native sign-in returns to `${APP_SCHEME}://auth/callback`. |
-| `HAPPY_SERVER_URL` | production | `http://localhost:3005` (development only) | The server this build talks to, e.g. `https://happy-api.example.com`. Inlined at build time; users cannot change it. |
-| `APP_LINKS_HOST` | no | none | Host for iOS associated domains and Android app links, e.g. `happy.example.com`. Without it, none are emitted. |
-| `EAS_PROJECT_ID` | no | none | EAS project id. Also enables EAS Updates (`https://u.expo.dev/<id>`). |
-| `EAS_OWNER` | no | none | EAS account that owns the project. |
-| `GOOGLE_SERVICES_FILE` | no | none | Path to your Firebase `google-services.json` (Android push). The file in the repo is not used unless this points to it. |
-| `APP_ASSETS_DIR` | no | `./sources/assets/images` | Directory with your icons and splash images (same file names). |
-| `EXPO_PUBLIC_POSTHOG_API_KEY` | no | none | PostHog project key. Without it the app sends no analytics and hides the Analytics setting. |
-| `EXPO_PUBLIC_POSTHOG_HOST` | no | `https://us.i.posthog.com` | PostHog instance, e.g. your self-hosted `https://posthog.example.com`. Only used with a key. Must be `https://`, or `http://localhost`/`http://127.0.0.1` for local dev; an invalid custom host disables analytics rather than falling back to the default. |
-| `EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT` | no | off | `1` shows the Claude.ai account connect screen, which talks to claude.ai directly. Hidden otherwise. |
-| `EXPO_PUBLIC_MERMAID_SCRIPT_URL` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`) rather than pointing at a public CDN or a floating major-version tag. Web always uses the bundled `mermaid` package and ignores this variable. |
+| `APP_CONFIG` | production | none | Path of the app config JSON, relative to the working directory (`packages/happy-app` for `expo` and EAS commands). Development and preview builds run without one on built-in placeholders. |
+
+### App config file
+
+Unknown keys, wrong types and invalid values fail the build with a message naming
+each key. Relative paths inside the file resolve against the file's own directory.
+
+| Key | Required | Default | Purpose |
+|---|---|---|---|
+| `name` | no | `Happy (dev)` / `Happy (preview)` / `Happy` | Display name. |
+| `slug` | no | `happy` | Expo slug (lowercase, digits, dashes). Must match the slug of your EAS project. |
+| `bundleId` | production | `com.example.happy.dev` / `.preview` | iOS bundle id and Android package. |
+| `scheme` | production | `happy-dev` / `happy-preview` | URL scheme. Native sign-in returns to `<scheme>://auth/callback`. |
+| `serverUrl` | production | `http://localhost:3005` (development fallback) | The server this build talks to, e.g. `https://happy-api.example.com`. `http://` or `https://`. Users cannot change it. |
+| `linksHost` | no | none | Bare host for iOS associated domains and Android app links, e.g. `happy.example.com`. Without it, none are emitted. |
+| `eas.projectId` | no | none | EAS project id. Also enables EAS Updates (`https://u.expo.dev/<id>`). |
+| `eas.owner` | no | none | EAS account that owns the project. |
+| `googleServicesFile` | no | none | Path to your Firebase `google-services.json` (Android push). The file in the repo is not used unless this points to it. |
+| `assetsDir` | no | `packages/happy-app/sources/assets/images` | Directory with your icons and splash images (same file names). |
+| `links.github` | no | `https://github.com/rophy/happy` | Settings › GitHub. `null` hides the row. |
+| `links.issues` | no | none | Issue tracker, e.g. `https://example.com/issues`. Settings › Report an Issue and the onboarding Get help button. |
+| `links.privacy` | no | none | Settings › Privacy Policy. |
+| `links.terms` | no | none | Settings › Terms of Service. |
+| `links.help` | no | none | Setup help, linked from the new-session dock when no agent is available and from the Troubleshoot screen. |
+| `analytics.posthogKey` | no | none | PostHog project key. Without it the app sends no analytics and hides the Analytics setting. |
+| `analytics.posthogHost` | no | `https://us.i.posthog.com` | PostHog instance, e.g. your self-hosted `https://posthog.example.com`. Only used with a key. `https://`, or `http://localhost`/`http://127.0.0.1`. |
+| `features.claudeConnect` | no | `false` | `true` shows the Claude.ai account connect screen, which talks to claude.ai directly. |
+| `mermaidScriptUrl` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`). Web always uses the bundled `mermaid` package and ignores this key. |
+
+Links (`links.*`) must be `https://` (`http://localhost`/`http://127.0.0.1` is
+accepted outside production). An absent link hides its row; there is no fallback
+to upstream URLs.
+
+Example, also committed as `deploy/app-config/org.example.json` (a test keeps it valid):
+
+```json
+{
+    "name": "Acme Happy",
+    "slug": "acme-happy",
+    "bundleId": "com.example.happy",
+    "scheme": "acmehappy",
+    "serverUrl": "https://happy-api.example.com",
+    "linksHost": "happy.example.com",
+    "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000",
+        "owner": "example"
+    },
+    "assetsDir": "../../packages/happy-app/sources/assets/images",
+    "links": {
+        "github": "https://github.com/rophy/happy",
+        "issues": "https://example.com/happy/issues",
+        "privacy": "https://example.com/privacy",
+        "terms": "https://example.com/terms",
+        "help": "https://example.com/happy/help"
+    },
+    "analytics": {
+        "posthogKey": "phc_example",
+        "posthogHost": "https://posthog.example.com"
+    },
+    "features": {
+        "claudeConnect": false
+    },
+    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js"
+}
+```
 
 Example production build:
 
 ```bash
-APP_ENV=production \
-APP_NAME="Acme Happy" \
-APP_SLUG=acme-happy \
-APP_BUNDLE_ID=com.example.happy \
-APP_SCHEME=acmehappy \
-HAPPY_SERVER_URL=https://happy-api.example.com \
-EAS_PROJECT_ID=<your project id> EAS_OWNER=<your EAS account> \
-eas build --platform all
+cd packages/happy-app
+APP_ENV=production APP_CONFIG=../../deploy/app-config/acme.json eas build --platform all
 ```
+
+For EAS cloud builds, the file must be part of the uploaded project, and
+`APP_CONFIG` set in the `eas.json` build profile's `env` or as an EAS environment
+variable.
+
+## What's New
+
+Settings › What's New shows the release notes bundled into the app. To publish your own:
+
+1. Edit `packages/happy-app/CHANGELOG.md`. Each release is a `# <Date> - <Title>` section, newest first. An optional first plain line is the summary; the rest (usually `- ` bullets) is Markdown. A trailing `![alt](images/<file>)` on the heading line adds a title image.
+2. Put title images in `packages/happy-app/sources/changelog/images/` and register each path in `CHANGELOG_IMAGES` in `sources/app/(app)/changelog.tsx` (Metro needs a static `require`).
+3. Run `pnpm --filter happy-app changelog`. It regenerates `sources/changelog/changelog.json`, which is what the app bundles; commit both files.
+
+The newest section's title marks the notes unread: when it changes, existing installs flag What's New until it is opened. A fresh install starts with them read.
 
 ## Server settings that pair with the build
 
-- `MOBILE_REDIRECT_URIS` (comma-separated) must list `${APP_SCHEME}://auth/callback`
+- `MOBILE_REDIRECT_URIS` (comma-separated) must list `<scheme>://auth/callback`
   for every native build, e.g. `acmehappy://auth/callback`. The server rejects any
   other redirect URI.
 - `MOBILE_APP_NAME` (optional) is the app name shown on the sign-in confirmation
@@ -52,17 +114,17 @@ eas build --platform all
 - GitHub connect and push are server decisions. The app reads `GET /v1/features` after sign-in and hides the GitHub connect rows and push registration for anything the server has off.
   - Turn them on with `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` + `GITHUB_REDIRECT_URL`, and `PUSH_ENABLED` (default `true`). See `docs/deployment.md`.
 - Voice is removed from the app: no mic button, voice settings, ElevenLabs/LiveKit SDKs, or microphone/camera permissions. There is nothing to configure.
-- Push also needs your own EAS project (`EAS_PROJECT_ID`), APNs key and FCM credentials (`GOOGLE_SERVICES_FILE`). Notifications carry only a fixed title per event, a generic body, and the session id.
+- Push also needs your own EAS project (`eas.projectId`), APNs key and FCM credentials (`googleServicesFile`). Notifications carry only a fixed title per event, a generic body, and the session id.
 
 ## Web app
 
 - Serve it over HTTPS (or `localhost`). Sign-in needs `crypto.subtle`, which browsers
   only expose in a secure context. On plain HTTP the app shows "This web app must be
   served over HTTPS (or localhost)." and does not start sign-in.
-- `Dockerfile.webapp` builds a production web image. Pass `HAPPY_SERVER_URL`, `APP_BUNDLE_ID` and `APP_SCHEME` as build args (the last two are unused on the web but required by production config). Optional build args: `POSTHOG_API_KEY`, `POSTHOG_HOST` and `ENABLE_CLAUDE_CONNECT`, which map to the `EXPO_PUBLIC_*` variables above.
+- `Dockerfile.webapp` builds a production web image from one build arg, `APP_CONFIG`: the config file's path in the build context, under `deploy/app-config/` (e.g. `--build-arg APP_CONFIG=deploy/app-config/acme.json`). Only `deploy/app-config/` and `packages/happy-app/` are copied into the build, so an `assetsDir` must point inside one of them. `bundleId` and `scheme` are unused on the web but required by the production config. The e2e stack builds with `deploy/app-config/e2e.json`.
 - A deploy-time `window.__HAPPY_CONFIG__.serverUrl` overrides the build-time
-  `HAPPY_SERVER_URL`. The standalone server injects it when it serves the web app
+  `serverUrl`. The standalone server injects it when it serves the web app
   itself, from `HAPPY_INJECT_HTML_CONFIG` (JSON, e.g. `{"serverUrl":"https://happy-api.example.com"}`).
 - The image serves `/.well-known/` from the web root, but ships no files there. To
-  enable universal links / app links for `APP_LINKS_HOST`, add your own
+  enable universal links / app links for `linksHost`, add your own
   `apple-app-site-association` and `assetlinks.json` to `packages/happy-app/public/.well-known/`.

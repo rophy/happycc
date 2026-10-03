@@ -440,7 +440,6 @@ export const en = {
         emptyMainScreen: {
             // Used by EmptyMainScreen component
             connectComputer: 'Connect your computer',
-            desktopSetupInstructions: 'Install Happy Desktop from happy.engineering. In desktop setup, choose “I have the app open,” then scan the device-linking QR code here.',
             harnessDescription: 'Use Claude Code or Codex, or try Happy Harness. Your account stays linked across your computer and phone.',
             getDesktop: 'Get Happy Desktop',
             terminalAlternative: 'Prefer the terminal? Set up Happy CLI',
@@ -877,9 +876,6 @@ export const en = {
         restoreExisting: 'Restore an existing account',
         linkTitle: 'Link your computer',
         installStep: 'Install Happy on your computer',
-        installBodyPrefix: 'Download Happy Desktop from ',
-        installBodyLink: 'happy.engineering',
-        installBodySuffix: '. We recommend it.',
         terminalComment: '# Prefer the terminal?',
         terminalInstall: 'npm install -g happyco',
         terminalRun: 'happyco',
@@ -905,9 +901,6 @@ export const en = {
         // Get help, bottom right of the link screen.
         getHelp: 'Get help',
         helpMessage: 'Stuck? Come ask us.',
-        helpDiscord: 'Ask on Discord',
-        helpBra1nDump: 'DM @bra1n_dump on X',
-        helpEx3ndr: 'DM @Ex3NDR on X',
         helpIssues: 'Browse known issues',
         // Gear on the link screen.
         settingsTitle: 'Settings',
@@ -937,13 +930,8 @@ export const en = {
         intro: 'Your phone talks to Happy on your computer. When nothing is running there, everything here is offline.',
         awakeStep: 'Is the computer awake and online?',
         awakeBody: 'Sleep and a dropped connection are the usual causes.',
-        desktopStep: 'Is Happy Desktop open?',
-        desktopBodyPrefix: 'Open it, or download it from ',
-        desktopBodyLink: 'happy.engineering',
-        desktopBodySuffix: '. We recommend it.',
         terminalStep: 'Using the terminal?',
         terminalBody: 'Run happyco again. The computer comes back online as soon as it starts.',
-        terminalComment: '# Not using Happy Desktop?',
         machines: 'Machines',
         machineOffline: 'Offline',
         copyAiPrompt: 'Copy AI prompt',

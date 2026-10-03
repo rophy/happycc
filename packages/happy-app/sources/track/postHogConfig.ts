@@ -21,8 +21,8 @@ function isValidPostHogHost(host: string): boolean {
 }
 
 /**
- * PostHog runs only when the build sets EXPO_PUBLIC_POSTHOG_API_KEY.
- * EXPO_PUBLIC_POSTHOG_HOST selects a self-hosted instance.
+ * PostHog runs only when the build's APP_CONFIG sets `analytics.posthogKey`.
+ * `analytics.posthogHost` selects a self-hosted instance.
  *
  * Fail-safe: a non-blank but invalid host disables analytics entirely rather
  * than silently falling back to the PostHog cloud default — a self-hosted

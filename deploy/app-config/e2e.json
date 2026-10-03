@@ -1,0 +1,6 @@
+{
+    "name": "Happy (e2e)",
+    "bundleId": "com.example.happy.web",
+    "scheme": "happy-web",
+    "serverUrl": "http://localhost:3005"
+}

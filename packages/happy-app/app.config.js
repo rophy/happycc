@@ -1,4 +1,6 @@
 const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 const { buildExpoConfig } = require('./expoConfig.cjs');
 
 function git(args) {
@@ -30,10 +32,21 @@ function loadBuildMetadata() {
     };
 }
 
-// HAPPY_SERVER_URL is the build's server (spec §3); the app reads it as
-// EXPO_PUBLIC_HAPPY_SERVER_URL, which Expo inlines when bundling.
-if (process.env.HAPPY_SERVER_URL && process.env.HAPPY_SERVER_URL.trim()) {
-    process.env.EXPO_PUBLIC_HAPPY_SERVER_URL = process.env.HAPPY_SERVER_URL.trim();
+/** The organization's app config file named by APP_CONFIG, relative to the working directory. */
+function loadAppConfigFile() {
+    const raw = process.env.APP_CONFIG && process.env.APP_CONFIG.trim();
+    if (!raw) {
+        return null;
+    }
+    const file = path.resolve(process.cwd(), raw);
+    try {
+        return { path: file, contents: fs.readFileSync(file, 'utf8') };
+    } catch (e) {
+        throw new Error(`APP_CONFIG: cannot read ${file}: ${e.message}`);
+    }
 }
 
-export default buildExpoConfig(process.env, loadBuildMetadata());
+export default buildExpoConfig(process.env, loadBuildMetadata(), {
+    configFile: loadAppConfigFile(),
+    projectRoot: __dirname,
+});

@@ -1,6 +1,6 @@
 /**
  * Used only when neither a deploy-time (`window.__HAPPY_CONFIG__.serverUrl`) nor a
- * build-time (`EXPO_PUBLIC_HAPPY_SERVER_URL`) URL exists, i.e. local development
+ * build-time (APP_CONFIG `serverUrl`) URL exists, i.e. local development
  * against the repo's docker-compose / `pnpm env` server. Deliberately not the
  * upstream hosted server: a misconfigured corporate build must fail closed.
  */

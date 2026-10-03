@@ -1,5 +1,6 @@
 import { MMKV } from 'react-native-mmkv';
 import { resolveServerUrl } from './serverUrl';
+import { config } from '@/config';
 
 // Device-local developer settings that persist across logouts (remote log server).
 const serverConfigStorage = new MMKV({ id: 'server-config' });
@@ -11,11 +12,11 @@ const LOG_SERVER_KEY = 'log-server-url';
 serverConfigStorage.delete('custom-server-url');
 serverConfigStorage.delete('use-custom-server-for-voice');
 
-/** Deploy-time `window.__HAPPY_CONFIG__.serverUrl`, else build-time EXPO_PUBLIC_HAPPY_SERVER_URL. */
+/** Deploy-time `window.__HAPPY_CONFIG__.serverUrl`, else the build's APP_CONFIG `serverUrl`. */
 export function getServerUrl(): string {
     return resolveServerUrl({
         deployUrl: (globalThis as any).__HAPPY_CONFIG__?.serverUrl,
-        buildUrl: process.env.EXPO_PUBLIC_HAPPY_SERVER_URL,
+        buildUrl: config.serverUrl,
     });
 }
 

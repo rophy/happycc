@@ -7,12 +7,13 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useAuth } from '@/auth/AuthContext';
+import { linkDetail } from '@/utils/appLinks';
 import { Typography } from "@/constants/Typography";
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { useLocalSettingMutable, useServerFeature, useSetting } from '@/sync/storage';
-import { config } from '@/config';
+import { appLinks, config } from '@/config';
 import { sync } from '@/sync/sync';
 import { trackWhatsNewClicked } from '@/track';
 import { Modal } from '@/modal';
@@ -93,18 +94,11 @@ export const SettingsView = React.memo(function SettingsView({
     const experiments = useSetting('experiments');
     const githubConnectEnabled = useServerFeature('githubConnect');
     const claudeConnectEnabled = config.enableClaudeConnect === true;
+    const { githubUrl, issuesUrl, privacyUrl, termsUrl } = appLinks;
     const profile = useProfile();
     const displayName = getDisplayName(profile);
     const avatarUrl = getAvatarUrl(profile);
     const bio = getBio(profile);
-
-    const handleGitHub = async () => {
-        await openExternalUrl('https://github.com/slopus/happy');
-    };
-
-    const handleReportIssue = async () => {
-        await openExternalUrl('https://github.com/slopus/happy/issues');
-    };
 
     // Use the multi-click hook for version clicks
     const handleVersionClick = useMultiClick(() => {
@@ -320,27 +314,35 @@ export const SettingsView = React.memo(function SettingsView({
                         router.push('/changelog');
                     }}
                 />
-                <Item
-                    title={t('settings.github')}
-                    icon={<Ionicons name="logo-github" size={29} color={theme.colors.text} />}
-                    detail="slopus/happy"
-                    onPress={handleGitHub}
-                />
-                <Item
-                    title={t('settings.reportIssue')}
-                    icon={<Ionicons name="bug-outline" size={29} color="#FF3B30" />}
-                    onPress={handleReportIssue}
-                />
-                <Item
-                    title={t('settings.privacyPolicy')}
-                    icon={<Ionicons name="shield-checkmark-outline" size={29} color="#007AFF" />}
-                    onPress={() => openExternalUrl('https://happy.engineering/privacy/')}
-                />
-                <Item
-                    title={t('settings.termsOfService')}
-                    icon={<Ionicons name="document-text-outline" size={29} color="#007AFF" />}
-                    onPress={() => openExternalUrl('https://github.com/slopus/happy/blob/main/TERMS.md')}
-                />
+                {githubUrl && (
+                    <Item
+                        title={t('settings.github')}
+                        icon={<Ionicons name="logo-github" size={29} color={theme.colors.text} />}
+                        detail={linkDetail(githubUrl)}
+                        onPress={() => openExternalUrl(githubUrl)}
+                    />
+                )}
+                {issuesUrl && (
+                    <Item
+                        title={t('settings.reportIssue')}
+                        icon={<Ionicons name="bug-outline" size={29} color="#FF3B30" />}
+                        onPress={() => openExternalUrl(issuesUrl)}
+                    />
+                )}
+                {privacyUrl && (
+                    <Item
+                        title={t('settings.privacyPolicy')}
+                        icon={<Ionicons name="shield-checkmark-outline" size={29} color="#007AFF" />}
+                        onPress={() => openExternalUrl(privacyUrl)}
+                    />
+                )}
+                {termsUrl && (
+                    <Item
+                        title={t('settings.termsOfService')}
+                        icon={<Ionicons name="document-text-outline" size={29} color="#007AFF" />}
+                        onPress={() => openExternalUrl(termsUrl)}
+                    />
+                )}
                 {Platform.OS === 'ios' && (
                     <Item
                         title={t('settings.eula')}

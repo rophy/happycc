@@ -87,6 +87,7 @@ import { getHarnessName } from '@/utils/harnessCatalog';
 import { getPermissionModeMenuLabel, getPermissionModeShortLabel } from '@/utils/permissionModeLabels';
 import { getRigMachineSessionCreation } from '@/sync/rigSessionCreation';
 import { openExternalUrl } from '@/utils/openExternalUrl';
+import { appLinks } from '@/config';
 import {
     MobileHeaderScrim,
     MOBILE_HOME_SCRIM_OVERLAY_OPACITY,
@@ -140,7 +141,6 @@ const MOBILE_HOME_DOCK_TOP_PADDING = 8;
 // Sits in the gap the focused dock already leaves above the composer, so it
 // costs no layout: showing it must not move the pickers or the composer.
 const START_PROGRESS_ROW_HEIGHT = 18;
-const HARNESS_SETUP_HELP_URL = 'https://happy.engineering/docs/quick-start/';
 // Matches Shaker's own keyframes so a refused picker reads the same as every
 // other refusal in the app.
 const SHAKE_KEYFRAMES = [3, -3, 3, -3, 0];
@@ -1384,8 +1384,8 @@ export const HomeDock = React.memo(({
             {
                 page: 'agent' as const,
                 label: 'HARNESS',
-                value: hasAvailableHarness ? currentAgent.name : 'Help',
-                icon: rowIcon(hasAvailableHarness ? 'hardware-chip-outline' : 'help-circle-outline'),
+                value: hasAvailableHarness ? currentAgent.name : (appLinks.helpUrl ? 'Help' : 'None'),
+                icon: rowIcon(hasAvailableHarness || !appLinks.helpUrl ? 'hardware-chip-outline' : 'help-circle-outline'),
             },
         ]),
     ];
@@ -1446,9 +1446,9 @@ export const HomeDock = React.memo(({
         })();
     };
 
-    const openHarnessSetupHelp = () => {
+    const openHarnessSetupHelp = (url: string) => {
         Keyboard.dismiss();
-        void openExternalUrl(HARNESS_SETUP_HELP_URL);
+        void openExternalUrl(url);
     };
 
     const getEnvironmentPickerConfig = (setting: EnvironmentSetting): PickerConfig => {
@@ -1624,10 +1624,16 @@ export const HomeDock = React.memo(({
 
     const renderPickerRow = (row: EnvironmentRow, config: PickerConfig) => {
         if (row.page === 'agent' && !hasAvailableHarness) {
+            // Without a configured help URL the row only states that no
+            // harness is available; there is nothing to open.
+            const helpUrl = appLinks.helpUrl;
+            if (!helpUrl) {
+                return <View key={row.page}>{renderPressableRow(row)}</View>;
+            }
             return (
                 <Pressable
                     key={row.page}
-                    onPress={openHarnessSetupHelp}
+                    onPress={() => openHarnessSetupHelp(helpUrl)}
                     accessibilityRole="link"
                     accessibilityLabel="Harness setup help"
                 >

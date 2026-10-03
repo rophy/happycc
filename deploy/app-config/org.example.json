@@ -1,0 +1,28 @@
+{
+    "name": "Acme Happy",
+    "slug": "acme-happy",
+    "bundleId": "com.example.happy",
+    "scheme": "acmehappy",
+    "serverUrl": "https://happy-api.example.com",
+    "linksHost": "happy.example.com",
+    "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000",
+        "owner": "example"
+    },
+    "assetsDir": "../../packages/happy-app/sources/assets/images",
+    "links": {
+        "github": "https://github.com/rophy/happy",
+        "issues": "https://example.com/happy/issues",
+        "privacy": "https://example.com/privacy",
+        "terms": "https://example.com/terms",
+        "help": "https://example.com/happy/help"
+    },
+    "analytics": {
+        "posthogKey": "phc_example",
+        "posthogHost": "https://posthog.example.com"
+    },
+    "features": {
+        "claudeConnect": false
+    },
+    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js"
+}

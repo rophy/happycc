@@ -1,19 +1,25 @@
 /**
- * Builds the Expo config from environment variables. Pure: app.config.js passes
- * process.env and git metadata; sources/appConfig.test.ts passes fixtures.
+ * Builds the Expo config from APP_ENV and the organization's app config file
+ * (APP_CONFIG, a JSON path). Pure: app.config.js reads the file and passes its
+ * contents in; sources/appConfig.test.ts passes fixtures.
  *
  * Every identity value is build-time configuration (spec §3 "Mobile builds").
  * Production refuses to build without its own identity; development and preview
  * fall back to placeholders under the reserved example.com namespace, never to
  * upstream identifiers.
  */
+const path = require('node:path');
+
 const VARIANTS = {
     development: { name: 'Happy (dev)', bundleId: 'com.example.happy.dev', scheme: 'happy-dev', consoleLoggingDefault: true },
     preview: { name: 'Happy (preview)', bundleId: 'com.example.happy.preview', scheme: 'happy-preview', consoleLoggingDefault: true },
     production: { name: 'Happy', bundleId: null, scheme: null, consoleLoggingDefault: false },
 };
 
-const PRODUCTION_REQUIRED = ['APP_BUNDLE_ID', 'APP_SCHEME', 'HAPPY_SERVER_URL'];
+const PRODUCTION_REQUIRED = ['bundleId', 'scheme', 'serverUrl'];
+
+/** The fork's source, shown in Settings unless the config sets `links.github` to null. */
+const DEFAULT_GITHUB_URL = 'https://github.com/rophy/happy';
 
 /**
  * R8 keep rules for JNI-backed libraries that ship no consumer ProGuard rules
@@ -30,34 +36,195 @@ const ANDROID_EXTRA_PROGUARD_RULES = [
 ].join('\n');
 const DEFAULT_ASSETS_DIR = './sources/assets/images';
 
-function value(env, name) {
+function isLoopback(url) {
+    return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+}
+
+function parseUrl(raw) {
+    try {
+        return new URL(raw);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Value kinds of the config file. Each returns the normalized value or throws
+ * a message; `ctx` carries the variant and the path helpers.
+ */
+const KINDS = {
+    string: (v) => v,
+    slug: (v) => {
+        if (!/^[a-z0-9][a-z0-9-]*$/.test(v)) throw 'must be lowercase letters, digits and dashes';
+        return v;
+    },
+    bundleId: (v) => {
+        if (!/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(v)) throw 'must be a reverse-DNS id such as com.example.happy';
+        return v;
+    },
+    scheme: (v) => {
+        if (!/^[a-z][a-z0-9+.-]*$/.test(v)) throw 'must be a lowercase URL scheme such as acmehappy';
+        return v;
+    },
+    host: (v) => {
+        if (!/^[A-Za-z0-9.-]+$/.test(v)) throw 'must be a bare host name such as happy.example.com';
+        return v;
+    },
+    path: (v, ctx) => ctx.resolvePath(v),
+    serverUrl: (v) => {
+        const url = parseUrl(v);
+        if (!url || (url.protocol !== 'https:' && url.protocol !== 'http:')) throw 'must be an http:// or https:// URL';
+        return url.href.replace(/\/+$/, '');
+    },
+    // Links the app opens (GitHub, issues, privacy, terms, help).
+    link: (v, ctx) => {
+        const url = parseUrl(v);
+        if (url && url.protocol === 'https:') return url.href;
+        if (url && url.protocol === 'http:' && isLoopback(url) && ctx.variant !== 'production') return url.href;
+        throw 'must be an https:// URL (http://localhost only outside production)';
+    },
+    posthogHost: (v) => {
+        const url = parseUrl(v);
+        if (url && (url.protocol === 'https:' || (url.protocol === 'http:' && isLoopback(url)))) return url.href.replace(/\/+$/, '');
+        throw 'must be an https:// URL (or http://localhost)';
+    },
+    mermaidScriptUrl: (v) => {
+        const url = parseUrl(v);
+        if (url && url.protocol === 'https:') return url.href;
+        throw 'must be an https:// URL';
+    },
+};
+
+/** The app config file schema. Nested objects are sections; strings name a kind. */
+const APP_CONFIG_SCHEMA = {
+    name: 'string',
+    slug: 'slug',
+    bundleId: 'bundleId',
+    scheme: 'scheme',
+    serverUrl: 'serverUrl',
+    linksHost: 'host',
+    eas: { projectId: 'string', owner: 'string' },
+    googleServicesFile: 'path',
+    assetsDir: 'path',
+    links: { github: 'link', issues: 'link', privacy: 'link', terms: 'link', help: 'link' },
+    analytics: { posthogKey: 'string', posthogHost: 'posthogHost' },
+    features: { claudeConnect: 'boolean' },
+    mermaidScriptUrl: 'mermaidScriptUrl',
+};
+
+/** Keys that accept null, meaning "hide this". */
+const NULLABLE = new Set(['links.github', 'links.issues', 'links.privacy', 'links.terms', 'links.help']);
+
+function validateSection(input, schema, prefix, ctx, errors) {
+    const out = {};
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+        errors.push(`${prefix || '(root)'}: must be an object`);
+        return out;
+    }
+    for (const [key, raw] of Object.entries(input)) {
+        const name = prefix ? `${prefix}.${key}` : key;
+        const kind = schema[key];
+        if (kind === undefined) {
+            errors.push(`${name}: unknown key`);
+            continue;
+        }
+        if (typeof kind === 'object') {
+            out[key] = validateSection(raw, kind, name, ctx, errors);
+            continue;
+        }
+        if (raw === null && NULLABLE.has(name)) {
+            out[key] = null;
+            continue;
+        }
+        if (kind === 'boolean') {
+            if (typeof raw !== 'boolean') errors.push(`${name}: must be true or false`);
+            else out[key] = raw;
+            continue;
+        }
+        if (typeof raw !== 'string' || !raw.trim()) {
+            errors.push(`${name}: must be a non-empty string`);
+            continue;
+        }
+        try {
+            out[key] = KINDS[kind](raw.trim(), ctx);
+        } catch (message) {
+            errors.push(`${name}: ${message}`);
+        }
+    }
+    return out;
+}
+
+/**
+ * Parses and strictly validates the app config file. Relative paths in it
+ * resolve against the file's directory and come back relative to the app's
+ * project root, the way Expo expects them.
+ */
+function parseAppConfig(file, variant, projectRoot) {
+    if (!file) {
+        return {};
+    }
+    let json;
+    try {
+        json = JSON.parse(file.contents);
+    } catch (e) {
+        throw new Error(`APP_CONFIG ${file.path} is not valid JSON: ${e.message}`);
+    }
+    const configDir = path.dirname(file.path);
+    const ctx = {
+        variant,
+        resolvePath: (p) => {
+            const relative = path.relative(projectRoot, path.resolve(configDir, p)).split(path.sep).join('/');
+            return relative.startsWith('.') || path.isAbsolute(relative) ? relative : `./${relative}`;
+        },
+    };
+    const errors = [];
+    const config = validateSection(json, APP_CONFIG_SCHEMA, '', ctx, errors);
+    if (errors.length > 0) {
+        throw new Error(`Invalid APP_CONFIG ${file.path}:\n${errors.map((e) => `  - ${e}`).join('\n')}`);
+    }
+    return config;
+}
+
+function envValue(env, name) {
     const raw = env[name];
     return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
 }
 
-function buildExpoConfig(env, buildMetadata = {}) {
-    const variant = value(env, 'APP_ENV') || 'development';
+/**
+ * @param env process environment; only APP_ENV is read.
+ * @param buildMetadata git commit info for the Settings version row.
+ * @param options.configFile `{ path, contents }` of the APP_CONFIG file, or null.
+ * @param options.projectRoot directory app.config.js lives in (defaults to this file's).
+ */
+function buildExpoConfig(env, buildMetadata = {}, options = {}) {
+    const variant = envValue(env, 'APP_ENV') || 'development';
     const defaults = VARIANTS[variant];
     if (!defaults) {
         throw new Error(`Unknown APP_ENV "${variant}". Use development, preview or production.`);
     }
+    const projectRoot = options.projectRoot || __dirname;
+    const cfg = parseAppConfig(options.configFile || null, variant, projectRoot);
     if (variant === 'production') {
-        const missing = PRODUCTION_REQUIRED.filter((name) => !value(env, name));
+        if (!options.configFile) {
+            throw new Error('Production builds require APP_CONFIG, the path of your organization\'s app config JSON. There is no fallback to upstream identifiers.');
+        }
+        const missing = PRODUCTION_REQUIRED.filter((key) => cfg[key] === undefined);
         if (missing.length > 0) {
-            throw new Error(`Production builds require ${missing.join(', ')}. Set them to your organization's values; there is no fallback to upstream identifiers.`);
+            throw new Error(`Production builds require ${missing.join(', ')} in APP_CONFIG ${options.configFile.path}. Set them to your organization's values; there is no fallback to upstream identifiers.`);
         }
     }
 
-    const name = value(env, 'APP_NAME') || defaults.name;
-    const slug = value(env, 'APP_SLUG') || 'happy';
-    const bundleId = value(env, 'APP_BUNDLE_ID') || defaults.bundleId;
-    const scheme = value(env, 'APP_SCHEME') || defaults.scheme;
-    const linksHost = value(env, 'APP_LINKS_HOST');
-    const easProjectId = value(env, 'EAS_PROJECT_ID');
-    const easOwner = value(env, 'EAS_OWNER');
-    const googleServicesFile = value(env, 'GOOGLE_SERVICES_FILE');
-    const assetsDir = (value(env, 'APP_ASSETS_DIR') || DEFAULT_ASSETS_DIR).replace(/\/+$/, '');
+    const name = cfg.name || defaults.name;
+    const slug = cfg.slug || 'happy';
+    const bundleId = cfg.bundleId || defaults.bundleId;
+    const scheme = cfg.scheme || defaults.scheme;
+    const linksHost = cfg.linksHost;
+    const easProjectId = cfg.eas?.projectId;
+    const easOwner = cfg.eas?.owner;
+    const googleServicesFile = cfg.googleServicesFile;
+    const assetsDir = (cfg.assetsDir || DEFAULT_ASSETS_DIR).replace(/\/+$/, '');
     const asset = (file) => `${assetsDir}/${file}`;
+    const links = cfg.links || {};
 
     const expo = {
         name,
@@ -178,10 +345,17 @@ function buildExpoConfig(env, buildMetadata = {}) {
             router: { root: './sources/app' },
             ...(easProjectId ? { eas: { projectId: easProjectId } } : {}),
             app: {
-                postHogKey: value(env, 'EXPO_PUBLIC_POSTHOG_API_KEY') || undefined,
-                postHogHost: value(env, 'EXPO_PUBLIC_POSTHOG_HOST') || undefined,
-                enableClaudeConnect: value(env, 'EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT') === '1',
+                serverUrl: cfg.serverUrl,
+                postHogKey: cfg.analytics?.posthogKey,
+                postHogHost: cfg.analytics?.posthogHost,
+                enableClaudeConnect: cfg.features?.claudeConnect === true,
+                mermaidScriptUrl: cfg.mermaidScriptUrl,
                 consoleLoggingDefault: defaults.consoleLoggingDefault,
+                githubUrl: links.github === undefined ? DEFAULT_GITHUB_URL : links.github ?? undefined,
+                issuesUrl: links.issues ?? undefined,
+                privacyUrl: links.privacy ?? undefined,
+                termsUrl: links.terms ?? undefined,
+                helpUrl: links.help ?? undefined,
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,
             },
@@ -191,4 +365,4 @@ function buildExpoConfig(env, buildMetadata = {}) {
     return { expo };
 }
 
-module.exports = { buildExpoConfig, VARIANTS, PRODUCTION_REQUIRED };
+module.exports = { buildExpoConfig, parseAppConfig, APP_CONFIG_SCHEMA, VARIANTS, PRODUCTION_REQUIRED };

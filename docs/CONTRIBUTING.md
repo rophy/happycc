@@ -109,10 +109,11 @@ To sandbox dev data, set `HAPPY_HOME_DIR=~/.happyco-dev` in your shell before ru
 pnpm --filter happy-server standalone:dev   # Local server (no Docker needed)
 ```
 
-Runs on `localhost:3005` with embedded PGlite. To point the app at your local server:
+Runs on `localhost:3005` with embedded PGlite. A development app build talks to `http://localhost:3005` by default. To point it at another server, put the URL in an app config file:
 
 ```bash
-EXPO_PUBLIC_HAPPY_SERVER_URL=http://localhost:3005 pnpm --filter happy-app start
+echo '{ "serverUrl": "http://192.168.1.5:3005" }' > /tmp/app-config.json
+APP_CONFIG=/tmp/app-config.json pnpm --filter happy-app start
 ```
 
 ## Project Structure

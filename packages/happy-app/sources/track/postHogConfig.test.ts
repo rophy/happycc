@@ -11,7 +11,7 @@ describe('resolvePostHogConfig', () => {
         expect(resolvePostHogConfig({ apiKey: 'phc_test' })).toEqual({ apiKey: 'phc_test', host: DEFAULT_POSTHOG_HOST });
     });
 
-    it('uses a self-hosted instance from EXPO_PUBLIC_POSTHOG_HOST', () => {
+    it('uses a self-hosted instance from the configured host', () => {
         expect(resolvePostHogConfig({ apiKey: 'phc_test', host: 'https://posthog.corp.example/' }))
             .toEqual({ apiKey: 'phc_test', host: 'https://posthog.corp.example' });
     });

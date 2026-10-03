@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { applyAppConfigEnv } from './appConfigEnv';
+import { resolveMermaidScriptUrl } from '../components/markdown/mermaidScriptUrl';
 
 export interface AppConfig {
     postHogKey?: string;
@@ -11,6 +11,11 @@ export interface AppConfig {
     buildCommitSha?: string;
     buildCommitTimestamp?: string;
     mermaidScriptUrl?: string;
+    githubUrl?: string;
+    issuesUrl?: string;
+    privacyUrl?: string;
+    termsUrl?: string;
+    helpUrl?: string;
 }
 
 /**
@@ -18,6 +23,9 @@ export interface AppConfig {
  * Looks for the "app" field in expoConfig.extra across different manifests
  * and merges them into a single configuration object.
  * 
+ * Every value comes from the build's APP_CONFIG file via expoConfig.cjs; web
+ * gets the same manifest, inlined when the bundle is built.
+ *
  * Priority (later overrides earlier):
  * 1. ExponentConstants native module manifest (fetches embedded manifest)
  * 2. Constants.expoConfig
@@ -66,11 +74,7 @@ export function loadAppConfig(): AppConfig {
 
     console.log('[loadAppConfig] Final merged config:', JSON.stringify(config, null, 2));
 
-    return applyAppConfigEnv(config, {
-        EXPO_PUBLIC_POSTHOG_API_KEY: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
-        EXPO_PUBLIC_POSTHOG_HOST: process.env.EXPO_PUBLIC_POSTHOG_HOST,
-        EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: process.env.EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT,
-        EXPO_PUBLIC_SERVER_URL: process.env.EXPO_PUBLIC_SERVER_URL,
-        EXPO_PUBLIC_MERMAID_SCRIPT_URL: process.env.EXPO_PUBLIC_MERMAID_SCRIPT_URL,
-    });
+    // Validated at build time; re-checked here because the value is
+    // interpolated into the native renderer's WebView HTML.
+    return { ...config, mermaidScriptUrl: resolveMermaidScriptUrl(config.mermaidScriptUrl) ?? undefined } as AppConfig;
 }
