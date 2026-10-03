@@ -2314,22 +2314,6 @@ function NewSessionScreen() {
                         )}
                     </View>
                 )}
-                {isNativeMobile && (
-                    <BubblePressable
-                        onPress={() => {
-                            composerInputRef.current?.focus();
-                        }}
-                        hitSlop={6}
-                        style={(pressedState) => [
-                            styles.composerActionButton,
-                            pressedState.pressed && styles.configRowPressed,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Voice input"
-                    >
-                        <Ionicons name="mic-outline" size={21} color={theme.colors.textSecondary} />
-                    </BubblePressable>
-                )}
                 {sendButtonNode}
             </View>
         </MobileGlassSurface>
