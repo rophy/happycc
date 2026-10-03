@@ -12,6 +12,7 @@ import { getOidcRuntime } from "@/app/auth/oidc/oidcRuntime";
 import { getMetricsLabelsFromSocket, redisStreamLagMsGauge, websocketConnectionsGauge, websocketEventsCounter } from "../monitoring/metrics2";
 import { usageHandler } from "./socket/usageHandler";
 import { rpcHandler } from "./socket/rpcHandler";
+import { sessionBelongsToUser } from "./socket/sessionOwnership";
 import { pingHandler } from "./socket/pingHandler";
 import { sessionUpdateHandler } from "./socket/sessionUpdateHandler";
 import { machineUpdateHandler } from "./socket/machineUpdateHandler";
@@ -106,6 +107,12 @@ export function startSocket(app: Fastify) {
         if (!active) {
             log({ module: 'websocket' }, `Inactive device for token`);
             next(new Error('Invalid authentication token'));
+            return;
+        }
+
+        if (clientType === 'session-scoped' && !(await sessionBelongsToUser(sessionId!, verified.userId))) {
+            log({ module: 'websocket' }, `Session-scoped client for unknown or foreign session`);
+            next(new Error('Session not found'));
             return;
         }
 
