@@ -34,11 +34,11 @@ describe('config', () => {
 
     describe('home directory', () => {
         it('uses default home directory', () => {
-            expect(loadConfig().homeDir).toBe(join(homedir(), '.happyco'));
+            expect(loadConfig().homeDir).toBe(join(homedir(), '.happycc'));
         });
 
         it('derives credential path from home directory', () => {
-            expect(loadConfig().credentialPath).toBe(join(homedir(), '.happyco', 'agent.key'));
+            expect(loadConfig().credentialPath).toBe(join(homedir(), '.happycc', 'agent.key'));
         });
 
         it('overrides home directory with HAPPY_HOME_DIR', () => {

@@ -6,9 +6,9 @@
 #   docker compose up -d --build                     # server stack; open http://localhost:3005/activate
 #   docker compose --profile e2e up -d --build       # + web app on http://localhost:8080 (Playwright e2e)
 #
-# The cli service is a simulated client device running the happyco CLI:
-#   docker compose exec cli happyco auth login       # open the printed link, sign in, Approve
-#   docker compose exec -it cli happyco              # start a session; it shows up in the web app
+# The cli service is a simulated client device running the happycc CLI:
+#   docker compose exec cli happycc auth login       # open the printed link, sign in, Approve
+#   docker compose exec -it cli happycc              # start a session; it shows up in the web app
 # Claude Code on the device talks to aimock, which answers every prompt with a
 # canned reply (deploy/aimock/fixtures.json): no real model, no API key.
 #
@@ -104,12 +104,12 @@ services:
       ANTHROPIC_BASE_URL: http://aimock:4010
       ANTHROPIC_API_KEY: aimock
     volumes:
-      - cli-happyco:/home/node/.happyco
+      - cli-happycc:/home/node/.happycc
       - cli-claude:/home/node/.claude
       - cli-workspace:/workspace
 
 volumes:
   pgdata:
-  cli-happyco:
+  cli-happycc:
   cli-claude:
   cli-workspace:

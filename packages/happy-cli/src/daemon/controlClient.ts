@@ -145,7 +145,7 @@ export async function stopDaemonHttp(): Promise<void> {
  * Not just a boolean.
  * 
  * We can destructure the response on the caller for richer output.
- * For instance when running `happyco daemon status` we can show more information.
+ * For instance when running `happycc daemon status` we can show more information.
  */
 export async function checkIfDaemonRunningAndCleanupStaleState(): Promise<boolean> {
   const state = await readDaemonState();

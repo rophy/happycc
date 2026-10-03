@@ -41,12 +41,12 @@ jobs:
     - name: Build packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match build
-        pnpm --filter happyco --fail-if-no-match build
+        pnpm --filter happycc --fail-if-no-match build
 
     - name: Pack packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match pack --pack-destination packages/happy-wire
-        pnpm --filter happyco --fail-if-no-match pack --pack-destination packages/happy-cli
+        pnpm --filter happycc --fail-if-no-match pack --pack-destination packages/happy-cli
 
     - name: Install packed packages globally
       run: |
@@ -57,27 +57,27 @@ jobs:
     - name: Test binary execution
       run: |
         # Test that the binary starts successfully
-        echo "Testing happyco --help..."
-        timeout 30s happyco --help || {
-          echo "Error: happyco --help failed or timed out"
+        echo "Testing happycc --help..."
+        timeout 30s happycc --help || {
+          echo "Error: happycc --help failed or timed out"
           exit 1
         }
 
-        echo "Testing happyco --version..."
-        timeout 10s happyco --version || {
-          echo "Error: happyco --version failed or timed out"
+        echo "Testing happycc --version..."
+        timeout 10s happycc --version || {
+          echo "Error: happycc --version failed or timed out"
           exit 1
         }
 
-        echo "Testing happyco doctor..."
-        timeout 30s happyco doctor || {
-          echo "Error: happyco doctor failed or timed out"
+        echo "Testing happycc doctor..."
+        timeout 30s happycc doctor || {
+          echo "Error: happycc doctor failed or timed out"
           exit 1
         }
 
-        echo "Testing happyco daemon status..."
-        timeout 10s happyco daemon status || {
-          echo "Error: happyco daemon status failed or timed out"
+        echo "Testing happycc daemon status..."
+        timeout 10s happycc daemon status || {
+          echo "Error: happycc daemon status failed or timed out"
           exit 1
         }
 
@@ -108,12 +108,12 @@ jobs:
     - name: Build packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match build
-        pnpm --filter happyco --fail-if-no-match build
+        pnpm --filter happycc --fail-if-no-match build
 
     - name: Pack packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match pack --pack-destination packages/happy-wire
-        pnpm --filter happyco --fail-if-no-match pack --pack-destination packages/happy-cli
+        pnpm --filter happycc --fail-if-no-match pack --pack-destination packages/happy-cli
 
     - name: Install packed package globally
       shell: cmd
@@ -133,20 +133,20 @@ jobs:
           echo Found node_modules directory
           dir "%NPM_PREFIX%\node_modules" 2>nul
           echo.
-          echo Checking for happyco package:
-          if exist "%NPM_PREFIX%\node_modules\happyco" (
-            echo Found happyco package
-            dir "%NPM_PREFIX%\node_modules\happyco" 2>nul
+          echo Checking for happycc package:
+          if exist "%NPM_PREFIX%\node_modules\happycc" (
+            echo Found happycc package
+            dir "%NPM_PREFIX%\node_modules\happycc" 2>nul
             echo.
             echo Checking for dist directory:
-            if exist "%NPM_PREFIX%\node_modules\happyco\dist" (
+            if exist "%NPM_PREFIX%\node_modules\happycc\dist" (
               echo Found dist directory
-              dir "%NPM_PREFIX%\node_modules\happyco\dist" 2>nul
+              dir "%NPM_PREFIX%\node_modules\happycc\dist" 2>nul
             ) else (
               echo No dist directory found
             )
           ) else (
-            echo No happyco package found
+            echo No happycc package found
           )
         ) else (
           echo No node_modules directory found
@@ -163,67 +163,67 @@ jobs:
         echo NPM_PREFIX: %NPM_PREFIX%
         echo Current PATH: %PATH%
 
-        rem Debug: Check if happyco exists in various locations
-        echo Checking for happyco binary...
-        where happyco 2>nul && echo Found happyco in PATH || echo happyco not found in PATH
-        if exist "%NPM_PREFIX%\happyco.cmd" echo Found happyco.cmd in NPM_PREFIX
-        if exist "%NPM_PREFIX%\node_modules\.bin\happyco.cmd" echo Found happyco.cmd in .bin directory
-        dir "%NPM_PREFIX%\*happyco*" 2>nul || echo No happyco files found in NPM_PREFIX
+        rem Debug: Check if happycc exists in various locations
+        echo Checking for happycc binary...
+        where happycc 2>nul && echo Found happycc in PATH || echo happycc not found in PATH
+        if exist "%NPM_PREFIX%\happycc.cmd" echo Found happycc.cmd in NPM_PREFIX
+        if exist "%NPM_PREFIX%\node_modules\.bin\happycc.cmd" echo Found happycc.cmd in .bin directory
+        dir "%NPM_PREFIX%\*happycc*" 2>nul || echo No happycc files found in NPM_PREFIX
 
         rem Debug: Check the actual contents and encoding of the installed file
-        if exist "%NPM_PREFIX%\happyco.cmd" (
+        if exist "%NPM_PREFIX%\happycc.cmd" (
           echo File size and type:
-          dir "%NPM_PREFIX%\happyco.cmd"
+          dir "%NPM_PREFIX%\happycc.cmd"
           echo.
           echo First few lines of the file:
-          type "%NPM_PREFIX%\happyco.cmd" | head -5
+          type "%NPM_PREFIX%\happycc.cmd" | head -5
           echo.
           echo Hex dump of first 50 bytes to check line endings:
-          powershell -Command "Get-Content '%NPM_PREFIX%\happyco.cmd' -Encoding Byte -TotalCount 50 | ForEach-Object { '{0:X2}' -f $_ } | Join-String -Separator ' '"
+          powershell -Command "Get-Content '%NPM_PREFIX%\happycc.cmd' -Encoding Byte -TotalCount 50 | ForEach-Object { '{0:X2}' -f $_ } | Join-String -Separator ' '"
           echo.
           echo Testing with direct path...
-          "%NPM_PREFIX%\happyco.cmd" --help
+          "%NPM_PREFIX%\happycc.cmd" --help
         ) else (
-          echo Testing happyco --help...
-          happyco --help
+          echo Testing happycc --help...
+          happycc --help
         )
         if errorlevel 1 (
-          echo Error: happyco --help failed
+          echo Error: happycc --help failed
           exit /b 1
         )
 
         rem Test version
-        if exist "%NPM_PREFIX%\happyco.cmd" (
-          "%NPM_PREFIX%\happyco.cmd" --version
+        if exist "%NPM_PREFIX%\happycc.cmd" (
+          "%NPM_PREFIX%\happycc.cmd" --version
         ) else (
-          happyco --version
+          happycc --version
         )
         if errorlevel 1 (
-          echo Error: happyco --version failed
+          echo Error: happycc --version failed
           exit /b 1
         )
 
         rem Test doctor
-        echo Testing happyco doctor...
-        if exist "%NPM_PREFIX%\happyco.cmd" (
-          "%NPM_PREFIX%\happyco.cmd" doctor
+        echo Testing happycc doctor...
+        if exist "%NPM_PREFIX%\happycc.cmd" (
+          "%NPM_PREFIX%\happycc.cmd" doctor
         ) else (
-          happyco doctor
+          happycc doctor
         )
         if errorlevel 1 (
-          echo Error: happyco doctor failed
+          echo Error: happycc doctor failed
           exit /b 1
         )
 
         rem Test daemon status
-        echo Testing happyco daemon status...
-        if exist "%NPM_PREFIX%\happyco.cmd" (
-          "%NPM_PREFIX%\happyco.cmd" daemon status
+        echo Testing happycc daemon status...
+        if exist "%NPM_PREFIX%\happycc.cmd" (
+          "%NPM_PREFIX%\happycc.cmd" daemon status
         ) else (
-          happyco daemon status
+          happycc daemon status
         )
         if errorlevel 1 (
-          echo Error: happyco daemon status failed
+          echo Error: happycc daemon status failed
           exit /b 1
         )
 

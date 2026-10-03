@@ -28,7 +28,7 @@ history still need a later fixture upgrade.
 
 ## `pnpm env:cli` Is A Passthrough
 
-`pnpm env:cli` forwards extra arguments directly to `happyco`.
+`pnpm env:cli` forwards extra arguments directly to `happycc`.
 
 Examples:
 
@@ -44,7 +44,7 @@ This is equivalent to sourcing the environment and running the CLI manually:
 
 ```bash
 source environments/data/envs/<name>/env.sh
-happyco daemon status
+happycc daemon status
 ```
 
 ## Why `env:cli` Exists
@@ -59,7 +59,7 @@ If you want a lower-level, shell-native workflow, use the generated env file dir
 
 ```bash
 source environments/data/envs/<name>/env.sh
-happyco
+happycc
 ```
 
 ## Restarting The Current Environment Daemon
@@ -75,6 +75,6 @@ Or:
 
 ```bash
 source environments/data/envs/<name>/env.sh
-happyco daemon stop
-happyco daemon start
+happycc daemon stop
+happycc daemon start
 ```

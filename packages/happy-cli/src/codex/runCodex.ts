@@ -115,7 +115,7 @@ export async function runCodex(opts: {
         console.error('\x1b[1mOption 2 - Homebrew (macOS):\x1b[0m');
         console.error('  \x1b[36mbrew install --cask codex\x1b[0m\n');
         console.error('Alternatively, use Claude Code:');
-        console.error('  \x1b[36mhappyco claude\x1b[0m\n');
+        console.error('  \x1b[36mhappycc claude\x1b[0m\n');
         process.exit(1);
     }
 
@@ -286,7 +286,7 @@ export async function runCodex(opts: {
     const resetCurrentModeDefaults = () => {
         // Reset permission mode and prompts to what the session was launched
         // with. Note this is NOT
-        // a safety guarantee by itself — for plain `happyco codex` the launch
+        // a safety guarantee by itself — for plain `happycc codex` the launch
         // mode IS yolo; the post-abort grace window is protected by the
         // approval handler only trusting explicitly-picked modes.
         // Model and effort deliberately remain sticky. Current apps also

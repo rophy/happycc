@@ -1,16 +1,16 @@
 # happy-server-self-host
 
 Self-host runtime for [Happy](https://happy.engineering) — the sync server plus
-the bundled web app, packaged for `happyco server`.
+the bundled web app, packaged for `happycc server`.
 
 ## Usage
 
 ```bash
-npm install -g happyco happy-server-self-host
-happyco server
+npm install -g happycc happy-server-self-host
+happycc server
 ```
 
-`happyco server` (from the `happyco` CLI) discovers this package automatically and
+`happycc server` (from the `happycc` CLI) discovers this package automatically and
 runs it with embedded PGlite storage and local filesystem uploads — no Postgres,
 no Redis, no S3. It writes `settings.serverUrl` so the daemon and CLI target
 your local server.

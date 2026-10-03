@@ -296,7 +296,7 @@ describe('api', () => {
             mockedAxios.get.mockRejectedValue(new (AxiosError as any)('Unauthorized', { response: { status: 401 } }));
 
             await expect(listSessions(config, creds, tokens)).rejects.toThrow(
-                'Authentication expired. Run `happyco-agent auth login` to re-authenticate.',
+                'Authentication expired. Run `happycc-agent auth login` to re-authenticate.',
             );
             expect(mockedAxios.get).toHaveBeenCalledTimes(2);
         });
@@ -305,7 +305,7 @@ describe('api', () => {
             const { LoggedOutError } = await import('./tokenStore');
             tokens.getAccessToken.mockRejectedValueOnce(new LoggedOutError());
 
-            await expect(listSessions(config, creds, tokens)).rejects.toThrow('happyco-agent auth login');
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('happycc-agent auth login');
             expect(mockedAxios.get).not.toHaveBeenCalled();
         });
 

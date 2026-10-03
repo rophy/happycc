@@ -2,14 +2,14 @@
 
 CLI client for controlling Happy Coder agents remotely.
 
-Unlike `happy-cli` which both runs and controls agents, `happyco-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
+Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping sessions.
 
 ## Installation
 
 From the monorepo:
 
 ```bash
-yarn workspace happyco-agent build
+yarn workspace happycc-agent build
 ```
 
 Or link globally:
@@ -24,19 +24,19 @@ Happy Agent signs in with your organization's identity provider through the Happ
 
 ```bash
 # Opens the sign-in URL in your default browser (and prints it too). Waits up to 5 minutes.
-happyco-agent auth login
+happycc-agent auth login
 
 # Only print the sign-in URL; do not open a browser
-happyco-agent auth login --no-browser
+happycc-agent auth login --no-browser
 
 # Check authentication status (never prints tokens)
-happyco-agent auth status
+happycc-agent auth status
 
 # Revoke this device on the server and clear stored credentials
-happyco-agent auth logout
+happycc-agent auth logout
 ```
 
-Credentials are stored at `~/.happyco/agent.key` (mode 0600). Access tokens refresh automatically; if the device is revoked or the session reaches its maximum age, run `happyco-agent auth login` again.
+Credentials are stored at `~/.happycc/agent.key` (mode 0600). Access tokens refresh automatically; if the device is revoked or the session reaches its maximum age, run `happycc-agent auth login` again.
 
 ## Commands
 
@@ -44,110 +44,110 @@ Credentials are stored at `~/.happyco/agent.key` (mode 0600). Access tokens refr
 
 ```bash
 # List all sessions
-happyco-agent list
+happycc-agent list
 
 # List only active sessions
-happyco-agent list --active
+happycc-agent list --active
 
 # Output as JSON
-happyco-agent list --json
+happycc-agent list --json
 ```
 
 ### List machines
 
 ```bash
 # List all machines
-happyco-agent machines
+happycc-agent machines
 
 # List only active machines
-happyco-agent machines --active
+happycc-agent machines --active
 
 # Output as JSON
-happyco-agent machines --json
+happycc-agent machines --json
 ```
 
 ### Spawn on a machine
 
 ```bash
 # Spawn a session on a specific machine
-happyco-agent spawn --machine <machine-id> --path ~/project
+happycc-agent spawn --machine <machine-id> --path ~/project
 
 # Let the daemon create the directory if needed
-happyco-agent spawn --machine <machine-id> --path ~/new-project --create-dir
+happycc-agent spawn --machine <machine-id> --path ~/new-project --create-dir
 
 # Choose a specific agent
-happyco-agent spawn --machine <machine-id> --path ~/project --agent codex
+happycc-agent spawn --machine <machine-id> --path ~/project --agent codex
 
 # Output as JSON
-happyco-agent spawn --machine <machine-id> --path ~/project --json
+happycc-agent spawn --machine <machine-id> --path ~/project --json
 ```
 
 ### Session status
 
 ```bash
 # Get live session state (supports ID prefix matching)
-happyco-agent status <session-id>
+happycc-agent status <session-id>
 
 # Output as JSON
-happyco-agent status <session-id> --json
+happycc-agent status <session-id> --json
 ```
 
 ### Create a session
 
 ```bash
 # Create a new session with a tag
-happyco-agent create --tag my-project
+happycc-agent create --tag my-project
 
 # Specify a working directory
-happyco-agent create --tag my-project --path /home/user/project
+happycc-agent create --tag my-project --path /home/user/project
 
 # Output as JSON
-happyco-agent create --tag my-project --json
+happycc-agent create --tag my-project --json
 ```
 
 ### Send a message
 
 ```bash
 # Send a message to a session
-happyco-agent send <session-id> "Fix the login bug"
+happycc-agent send <session-id> "Fix the login bug"
 
 # Send with yolo permissions
-happyco-agent send <session-id> "Ship it" --yolo
+happycc-agent send <session-id> "Ship it" --yolo
 
 # Send and wait for the agent to finish
-happyco-agent send <session-id> "Run the tests" --wait
+happycc-agent send <session-id> "Run the tests" --wait
 
 # Output as JSON
-happyco-agent send <session-id> "Hello" --json
+happycc-agent send <session-id> "Hello" --json
 ```
 
 ### Message history
 
 ```bash
 # View message history
-happyco-agent history <session-id>
+happycc-agent history <session-id>
 
 # Limit to last N messages
-happyco-agent history <session-id> --limit 10
+happycc-agent history <session-id> --limit 10
 
 # Output as JSON
-happyco-agent history <session-id> --json
+happycc-agent history <session-id> --json
 ```
 
 ### Stop a session
 
 ```bash
-happyco-agent stop <session-id>
+happycc-agent stop <session-id>
 ```
 
 ### Wait for idle
 
 ```bash
 # Wait for agent to become idle (default 300s timeout)
-happyco-agent wait <session-id>
+happycc-agent wait <session-id>
 
 # Custom timeout
-happyco-agent wait <session-id> --timeout 60
+happycc-agent wait <session-id> --timeout 60
 ```
 
 Exit code 0 when agent becomes idle, 1 on timeout.
@@ -155,7 +155,7 @@ Exit code 0 when agent becomes idle, 1 on timeout.
 ## Environment Variables
 
 - `HAPPY_SERVER_URL` - Your Happy server URL. Required: there is no default.
-- `HAPPY_HOME_DIR` - Home directory for credential storage (default: `~/.happyco`)
+- `HAPPY_HOME_DIR` - Home directory for credential storage (default: `~/.happycc`)
 
 ## Session ID Matching
 
@@ -179,14 +179,14 @@ Maintainers can publish a new version:
 ```bash
 yarn release               # From repo root: choose library to release
 # or directly:
-yarn workspace happyco-agent release
+yarn workspace happycc-agent release
 ```
 
 This flow:
 - runs tests/build checks via `prepublishOnly`
-- creates a release commit and `happyco-agent-vX.Y.Z` tag
+- creates a release commit and `happycc-agent-vX.Y.Z` tag
 - creates a GitHub release with generated notes
-- publishes `happyco-agent` to npm
+- publishes `happycc-agent` to npm
 
 ## License
 

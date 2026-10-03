@@ -282,7 +282,7 @@ export class SessionClient extends EventEmitter {
                 text,
             },
             meta: {
-                sentFrom: 'happyco-agent',
+                sentFrom: 'happycc-agent',
                 ...meta,
             },
         };

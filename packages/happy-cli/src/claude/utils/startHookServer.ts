@@ -14,7 +14,7 @@
  *     │                                         
  *     ├─► startHookServer() ──► HTTP server on random port (e.g., 52290)
  *     │                                         
- *     ├─► generateHookSettingsFile(port) ──► ~/.happyco/tmp/hooks/session-hook-<pid>.json
+ *     ├─► generateHookSettingsFile(port) ──► ~/.happycc/tmp/hooks/session-hook-<pid>.json
  *     │   (contains SessionStart hook pointing to our server)
  *     │                                         
  *     └─► loop() ──► claudeLocal/claudeRemote
@@ -44,10 +44,10 @@
  * ```
  * 
  * ### Triggered By
- * - `happyco` (fresh start) - new session created
- * - `happyco --continue` - continues last session (may fork)
- * - `happyco --resume` - interactive picker, then resume
- * - `happyco --resume <id>` - resume specific session
+ * - `happycc` (fresh start) - new session created
+ * - `happycc --continue` - continues last session (may fork)
+ * - `happycc --resume` - interactive picker, then resume
+ * - `happycc --resume <id>` - resume specific session
  * - `/compact` command - compacts and forks session
  * - Double-escape fork - user forks conversation in CLI
  * 

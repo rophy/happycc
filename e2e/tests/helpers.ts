@@ -47,7 +47,7 @@ export async function redeemRefreshToken(page: Page, refreshToken: string): Prom
 }
 
 export async function expectSignedIn(page: Page): Promise<void> {
-    await expect(page.getByText('happyco auth login').first()).toBeVisible();
+    await expect(page.getByText('happycc auth login').first()).toBeVisible();
     await expect(page.getByText('Sign in', { exact: true })).toHaveCount(0);
     const credentials = await readCredentials(page);
     expect(credentials?.refreshToken).toBeTruthy();

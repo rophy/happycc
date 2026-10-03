@@ -45,7 +45,7 @@ describe('commandNeedsServerUrl', () => {
     });
 
     it('includes a copy-paste export hint', () => {
-        const message = missingServerUrlMessage('/home/u/.happyco/settings.json');
+        const message = missingServerUrlMessage('/home/u/.happycc/settings.json');
         expect(message).toContain('export HAPPY_SERVER_URL=');
     });
 });
@@ -70,9 +70,9 @@ describe('configuration default home directory', () => {
         rmSync(fakeHome, { recursive: true, force: true });
     });
 
-    it('defaults to ~/.happyco when HAPPY_HOME_DIR is not set', async () => {
+    it('defaults to ~/.happycc when HAPPY_HOME_DIR is not set', async () => {
         const { configuration } = await import('./configuration');
-        expect(configuration.happyHomeDir).toBe(join(fakeHome, '.happyco'));
+        expect(configuration.happyHomeDir).toBe(join(fakeHome, '.happycc'));
     });
 });
 

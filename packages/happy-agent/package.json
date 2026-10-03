@@ -1,5 +1,5 @@
 {
-  "name": "happyco-agent",
+  "name": "happycc-agent",
   "version": "0.1.0",
   "description": "CLI client for controlling Happy Coder agents remotely",
   "author": "Kirill Dubovitskiy",
@@ -9,7 +9,7 @@
   "bugs": "https://github.com/slopus/happy/issues",
   "repository": "slopus/happy",
   "bin": {
-    "happyco-agent": "./bin/happy-agent.mjs"
+    "happycc-agent": "./bin/happy-agent.mjs"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

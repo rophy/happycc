@@ -7,7 +7,7 @@ const { releaseInput, checkManifest, checkVersionOutput, checkPackage } = requir
 
 test('stable and beta releases have explicit, distinct channels and CLI tags', () => {
   assert.deepEqual(releaseInput('1.2.4-beta.0', 'beta'), {
-    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli-1.2.4-beta.0', tarball: 'happyco-1.2.4-beta.0.tgz',
+    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli-1.2.4-beta.0', tarball: 'happycc-1.2.4-beta.0.tgz',
   });
   assert.equal(releaseInput('1.2.4', 'latest').tag, 'cli-1.2.4');
 });
@@ -21,7 +21,7 @@ test('rejects unsafe versions, wrong channels, and noncanonical semver', () => {
 });
 
 const manifest = () => ({
-  name: 'happyco', version: '1.2.4-beta.0',
+  name: 'happycc', version: '1.2.4-beta.0',
   repository: { url: 'git+https://github.com/slopus/happy.git' },
   dependencies: { zod: '^4.0.0' },
   devDependencies: { '@slopus/happy-wire': 'workspace:*' },
@@ -48,9 +48,9 @@ test('rejects the wrong package, version, and provenance repository', () => {
 });
 
 test('checks the Happy version, not the bundled Claude version or a substring', () => {
-  checkVersionOutput('happyco version: 1.2.4-beta.0\nUsing Claude Code v2.1.224\n2.1.224 (Claude Code)\n', '1.2.4-beta.0');
-  assert.throws(() => checkVersionOutput('happyco version: 1.2.3\n1.2.4-beta.0 (Claude Code)\n', '1.2.4-beta.0'));
-  assert.throws(() => checkVersionOutput('happyco version: 1.2.4-beta.01\n', '1.2.4-beta.0'));
+  checkVersionOutput('happycc version: 1.2.4-beta.0\nUsing Claude Code v2.1.224\n2.1.224 (Claude Code)\n', '1.2.4-beta.0');
+  assert.throws(() => checkVersionOutput('happycc version: 1.2.3\n1.2.4-beta.0 (Claude Code)\n', '1.2.4-beta.0'));
+  assert.throws(() => checkVersionOutput('happycc version: 1.2.4-beta.01\n', '1.2.4-beta.0'));
 });
 
 function packageFixture(t) {
@@ -58,7 +58,7 @@ function packageFixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const directory of ['bin', 'dist', 'tools/archives']) fs.mkdirSync(path.join(root, directory), { recursive: true });
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
-    ...manifest(), bin: { happyco: './bin/happy.mjs', 'happy-mcp': './bin/happy-mcp.mjs' },
+    ...manifest(), bin: { happycc: './bin/happy.mjs', 'happy-mcp': './bin/happy-mcp.mjs' },
   }));
   for (const file of ['bin/happy.mjs', 'bin/happy-mcp.mjs', 'dist/index.mjs', 'dist/index.cjs', 'dist/lib.mjs', 'dist/lib.cjs']) {
     fs.writeFileSync(path.join(root, file), '');
@@ -89,7 +89,7 @@ test('packaging gate rejects runtime wire imports but accepts the embedded manif
 test('packaging gate requires CLI entrypoints and every platform tool archive', t => {
   const root = packageFixture(t);
   fs.unlinkSync(path.join(root, 'bin/happy.mjs'));
-  assert.throws(() => checkPackage(root, '1.2.4-beta.0'), /Missing happyco entrypoint/);
+  assert.throws(() => checkPackage(root, '1.2.4-beta.0'), /Missing happycc entrypoint/);
   fs.writeFileSync(path.join(root, 'bin/happy.mjs'), '');
   fs.unlinkSync(path.join(root, 'tools/archives/ripgrep-x64-win32.tar.gz'));
   assert.throws(() => checkPackage(root, '1.2.4-beta.0'), /Missing ripgrep archive for x64-win32/);

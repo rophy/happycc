@@ -89,19 +89,19 @@ pnpm --filter happy-app tauri:build:dev
 ### Happy CLI
 
 ```bash
-pnpm --filter happyco build
-pnpm --filter happyco test
-pnpm --filter happyco cli:install   # Build + link this workspace as the global `happyco` + restart daemon
+pnpm --filter happycc build
+pnpm --filter happycc test
+pnpm --filter happycc cli:install   # Build + link this workspace as the global `happycc` + restart daemon
 ```
 
-`cli:install` replaces the `happyco` binary installed from npm with a symlink to this workspace.
-It reuses `~/.happyco/` (auth, sessions) — no separate dev home. To undo:
+`cli:install` replaces the `happycc` binary installed from npm with a symlink to this workspace.
+It reuses `~/.happycc/` (auth, sessions) — no separate dev home. To undo:
 
 ```bash
-npm unlink -g happyco && npm i -g happyco@latest
+npm unlink -g happycc && npm i -g happycc@latest
 ```
 
-To sandbox dev data, set `HAPPY_HOME_DIR=~/.happyco-dev` in your shell before running `happyco`.
+To sandbox dev data, set `HAPPY_HOME_DIR=~/.happycc-dev` in your shell before running `happycc`.
 
 ### Happy Server
 

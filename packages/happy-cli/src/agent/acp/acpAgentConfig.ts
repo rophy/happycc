@@ -16,13 +16,13 @@ export type ResolvedAcpAgentConfig = {
 
 export function resolveAcpAgentConfig(cliArgs: string[]): ResolvedAcpAgentConfig {
   if (cliArgs.length === 0) {
-    throw new Error('Usage: happyco acp <agent-name> or happyco acp -- <command> [args]');
+    throw new Error('Usage: happycc acp <agent-name> or happycc acp -- <command> [args]');
   }
 
   if (cliArgs[0] === '--') {
     const command = cliArgs[1];
     if (!command) {
-      throw new Error('Missing command after "--". Usage: happyco acp -- <command> [args]');
+      throw new Error('Missing command after "--". Usage: happycc acp -- <command> [args]');
     }
     return {
       agentName: command,

@@ -2,7 +2,7 @@
  * Doctor command implementation
  * 
  * Provides comprehensive diagnostics and troubleshooting information
- * for happyco CLI including configuration, daemon status, logs, and links
+ * for happycc CLI including configuration, daemon status, logs, and links
  */
 
 import chalk from 'chalk'
@@ -65,7 +65,7 @@ function getLogFiles(logDir: string): { file: string, path: string, modified: Da
 }
 
 /**
- * Slim daemon status output for `happyco daemon status`
+ * Slim daemon status output for `happycc daemon status`
  */
 export async function runDoctorDaemon(): Promise<void> {
     console.log(chalk.bold('\n🤖 Daemon Status'));
@@ -94,7 +94,7 @@ export async function runDoctorDaemon(): Promise<void> {
         console.log(chalk.red('❌ Error checking daemon status'));
     }
 
-    console.log(chalk.gray('\nRun `happyco doctor` for full diagnostics.\n'));
+    console.log(chalk.gray('\nRun `happycc doctor` for full diagnostics.\n'));
 }
 
 /**
@@ -144,10 +144,10 @@ export async function runDoctorCommand(): Promise<void> {
 
             if (allProcesses.length > 1) {
                 console.log(chalk.bold('\n💡 Process Management'));
-                console.log(chalk.gray('To clean up runaway processes: happyco doctor clean'));
+                console.log(chalk.gray('To clean up runaway processes: happycc doctor clean'));
             }
         } else {
-            console.log(chalk.red('❌ No happyco processes found'));
+            console.log(chalk.red('❌ No happycc processes found'));
         }
     } catch (error) {
         console.log(chalk.red('❌ Error listing processes'));

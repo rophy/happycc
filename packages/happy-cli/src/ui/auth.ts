@@ -42,8 +42,8 @@ interface DeviceTokens {
 
 const TERMINAL_ERRORS: Record<string, string> = {
     access_denied: 'Sign-in was denied in the browser.',
-    expired_token: 'The sign-in code expired. Run "happyco auth login" again.',
-    invalid_grant: 'Sign-in failed. Run "happyco auth login" again.',
+    expired_token: 'The sign-in code expired. Run "happycc auth login" again.',
+    invalid_grant: 'Sign-in failed. Run "happycc auth login" again.',
 };
 
 export async function deviceLogin(opts: {

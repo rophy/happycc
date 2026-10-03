@@ -46,7 +46,7 @@ export function buildOfflineMachineTroubleshooting(
     const happyHomeDir = choice?.happyMachine?.metadata?.happyHomeDir?.trim()
         || choice?.rigMachine?.metadata?.happyHomeDir?.trim()
         || session?.metadata?.happyHomeDir?.trim()
-        || '~/.happyco';
+        || '~/.happycc';
     const aiPrompt = `In ${happyHomeDir}, diagnose why Happy cannot reach "${machineName}" for project "${projectName}".`;
 
     return {
@@ -56,7 +56,7 @@ export function buildOfflineMachineTroubleshooting(
         aiPrompt,
         message: [
             '1. Wake the machine and check internet.',
-            '2. Run `happyco` again.',
+            '2. Run `happycc` again.',
             '3. Reopen Happy.',
             '',
             'AI prompt:',

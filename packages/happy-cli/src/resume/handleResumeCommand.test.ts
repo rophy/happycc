@@ -121,7 +121,7 @@ describe('parseResumeCommandArgs', () => {
 
     it('rejects missing session ids', () => {
         expect(() => parseResumeCommandArgs([])).toThrow(
-            'Happy session ID is required: happyco resume <session-id>',
+            'Happy session ID is required: happycc resume <session-id>',
         );
     });
 });
@@ -186,7 +186,7 @@ describe('buildResumeLaunch', () => {
 
 describe('formatResumeHelp', () => {
     it('mentions the session id command shape', () => {
-        expect(formatResumeHelp()).toContain('happyco resume <happy-session-id>');
+        expect(formatResumeHelp()).toContain('happycc resume <happy-session-id>');
     });
 });
 

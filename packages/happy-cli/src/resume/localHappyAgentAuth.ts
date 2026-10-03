@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { decodeBase64 } from '@/api/encryption';
 import { configuration } from '@/configuration';
 
-// Written by `happyco-agent auth login`. Files without a refresh token predate OIDC and count as signed out.
+// Written by `happycc-agent auth login`. Files without a refresh token predate OIDC and count as signed out.
 const AgentCredentialsSchema = z.object({
     token: z.string().min(1),
     refreshToken: z.string().min(1),

@@ -52,10 +52,10 @@ describe('resolveAcpAgentConfig', () => {
   });
 
   it('throws with helpful usage when no args are provided', () => {
-    expect(() => resolveAcpAgentConfig([])).toThrow('Usage: happyco acp <agent-name> or happyco acp -- <command> [args]');
+    expect(() => resolveAcpAgentConfig([])).toThrow('Usage: happycc acp <agent-name> or happycc acp -- <command> [args]');
   });
 
   it('throws when separator form omits command', () => {
-    expect(() => resolveAcpAgentConfig(['--'])).toThrow('Missing command after "--". Usage: happyco acp -- <command> [args]');
+    expect(() => resolveAcpAgentConfig(['--'])).toThrow('Missing command after "--". Usage: happycc acp -- <command> [args]');
   });
 });

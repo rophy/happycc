@@ -16,7 +16,7 @@ export const CREDENTIALS_LOCK_OPTIONS = { staleAfterMs: 30_000, maxAttempts: 200
 
 export class LoggedOutError extends Error {
     constructor() {
-        super('Logged out: run "happyco auth login" to sign in again');
+        super('Logged out: run "happycc auth login" to sign in again');
         this.name = 'LoggedOutError';
     }
 }

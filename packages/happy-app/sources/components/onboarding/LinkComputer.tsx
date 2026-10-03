@@ -24,11 +24,11 @@ const HELP_LINKS: readonly { label: () => string; url: string }[] = appLinks.iss
     ? [{ label: () => t('onboarding.helpIssues'), url: appLinks.issuesUrl }]
     : [];
 
-// Corporate fork: a computer links itself by signing in with `happyco auth login`
+// Corporate fork: a computer links itself by signing in with `happycc auth login`
 // (OIDC device flow). English-only copy until it goes through translation.
 const SIGN_IN_STEP_TITLE = 'Sign in on your computer';
 const SIGN_IN_STEP_BODY = 'Run this in a terminal and approve the sign-in in your browser.';
-const SIGN_IN_COMMAND = 'happyco auth login';
+const SIGN_IN_COMMAND = 'happycc auth login';
 const START_STEP_TITLE = 'Start Happy';
 const START_STEP_BODY = 'This screen updates as soon as your computer connects.';
 

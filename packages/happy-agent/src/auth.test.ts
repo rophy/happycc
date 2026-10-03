@@ -68,12 +68,12 @@ function configFor(serverUrl = 'http://127.0.0.1:9'): Config {
 }
 
 describe('authLogin', () => {
-    it('signs in as happyco-agent@<host> and reports success without printing tokens', async () => {
+    it('signs in as happycc-agent@<host> and reports success without printing tokens', async () => {
         const config = configFor();
         await authLogin(config);
         const call = vi.mocked(loopbackLogin).mock.calls[0][0];
         expect(call.config).toBe(config);
-        expect(call.deviceName).toMatch(/^happyco-agent@.+/);
+        expect(call.deviceName).toMatch(/^happycc-agent@.+/);
         expect(logs).toContain('- Status: Authenticated');
         expect(logs.join('\n')).not.toContain('access-token');
     });
@@ -295,6 +295,6 @@ describe('authStatus', () => {
         writeFileSync(config.credentialPath, JSON.stringify({ token: 't', secret: encodeBase64(getRandomBytes(32)) }));
         await authStatus(config);
         expect(logs).toContain('- Status: Not authenticated');
-        expect(logs).toContain('- Action: Run `happyco-agent auth login` to authenticate.');
+        expect(logs).toContain('- Action: Run `happycc-agent auth login` to authenticate.');
     });
 });

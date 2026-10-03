@@ -34,7 +34,7 @@ export async function authLogin(config: Config, opts?: { openBrowser?: boolean }
     const openBrowser = opts?.openBrowser ?? true;
     await loopbackLogin({
         config,
-        deviceName: `happyco-agent@${hostname()}`,
+        deviceName: `happycc-agent@${hostname()}`,
         io: {
             print: (line) => console.log(line),
             onUrl: async (url) => {
@@ -125,6 +125,6 @@ export async function authStatus(config: Config): Promise<void> {
         console.log(`- Public Key: \`${encodeBase64(creds.contentKeyPair.publicKey)}\``);
     } else {
         console.log('- Status: Not authenticated');
-        console.log('- Action: Run `happyco-agent auth login` to authenticate.');
+        console.log('- Action: Run `happycc-agent auth login` to authenticate.');
     }
 }

@@ -207,7 +207,7 @@ function SessionInfoContent({ session }: { session: Session }) {
     }, []);
 
     const handleCopyUpdateCommand = useCallback(async () => {
-        const updateCommand = 'npm install -g happyco@latest';
+        const updateCommand = 'npm install -g happycc@latest';
         try {
             await Clipboard.setStringAsync(updateCommand);
             Modal.alert(t('common.success'), updateCommand);
@@ -348,7 +348,7 @@ function SessionInfoContent({ session }: { session: Session }) {
                         />
                     )}
                     {/* Resume command — shown for disconnected sessions with a backend session ID */}
-                    {/* TODO: migrate to `happyco resume <happy-session-id>` once it works without happyco-agent auth */}
+                    {/* TODO: migrate to `happycc resume <happy-session-id>` once it works without happycc-agent auth */}
                     {!sessionStatus.isConnected && getResumeCommand(session) && (
                         <CopyableItem
                             title="Resume Command"

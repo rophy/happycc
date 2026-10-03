@@ -21,7 +21,7 @@ export function loadConfig(): Config {
     // `HAPPY_HOME_DIR=~/x` resolves to the same `agent.key` path in both.
     const homeDir = process.env.HAPPY_HOME_DIR
         ? process.env.HAPPY_HOME_DIR.replace(/^~/, homedir())
-        : join(homedir(), '.happyco');
+        : join(homedir(), '.happycc');
     const credentialPath = join(homeDir, 'agent.key');
     return { serverUrl, homeDir, credentialPath };
 }

@@ -1,7 +1,7 @@
 /**
- * Minimal persistence functions for happyco CLI
+ * Minimal persistence functions for happycc CLI
  * 
- * Handles settings and private key storage in ~/.happyco/ or local .happyco/
+ * Handles settings and private key storage in ~/.happycc/ or local .happycc/
  */
 
 import { FileHandle } from 'node:fs/promises'

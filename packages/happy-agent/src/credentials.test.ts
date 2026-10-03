@@ -73,7 +73,7 @@ describe('credentials', () => {
     });
 
     it('requireCredentials points at auth login', () => {
-        expect(() => requireCredentials(config)).toThrow('Not authenticated. Run `happyco-agent auth login` first.');
+        expect(() => requireCredentials(config)).toThrow('Not authenticated. Run `happycc-agent auth login` first.');
     });
 
     it('locks next to the credentials file', () => {

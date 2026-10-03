@@ -10,7 +10,7 @@ let happyHome: string;
 if (process.env.HAPPY_HOME_DIR) {
     happyHome = process.env.HAPPY_HOME_DIR.replace(/^~/, homedir());
 } else {
-    happyHome = join(homedir(), '.happyco');
+    happyHome = join(homedir(), '.happycc');
 }
 
 const logsDir = join(happyHome, 'app-logs');

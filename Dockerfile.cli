@@ -1,4 +1,4 @@
-# happyco CLI on a simulated client device: the CLI packed from this repo and
+# happycc CLI on a simulated client device: the CLI packed from this repo and
 # installed globally like a release, plus Claude Code and git.
 # Used by the `cli` service in docker-compose.yaml.
 
@@ -22,7 +22,7 @@ COPY packages/happy-wire/package.json packages/happy-wire/
 COPY packages/happy-cli/scripts packages/happy-cli/scripts
 COPY packages/happy-cli/tools packages/happy-cli/tools
 
-RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happyco...
+RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happycc...
 
 FROM deps AS builder
 
@@ -30,10 +30,10 @@ COPY packages/happy-wire ./packages/happy-wire
 COPY packages/happy-cli ./packages/happy-cli
 
 RUN pnpm --filter @slopus/happy-wire --fail-if-no-match build
-RUN pnpm --filter happyco --fail-if-no-match build
+RUN pnpm --filter happycc --fail-if-no-match build
 # Pack it like a release, so the device installs it the way users do.
-RUN mkdir /pack && pnpm --filter happyco --fail-if-no-match pack --pack-destination /pack \
-    && mv /pack/happyco-*.tgz /pack/happyco.tgz
+RUN mkdir /pack && pnpm --filter happycc --fail-if-no-match pack --pack-destination /pack \
+    && mv /pack/happycc-*.tgz /pack/happycc.tgz
 
 FROM node:20 AS runner
 
@@ -43,14 +43,14 @@ RUN apt-get update && apt-get install -y git ripgrep && rm -rf /var/lib/apt/list
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && npm cache clean --force
 
 RUN --mount=type=bind,from=builder,source=/pack,target=/pack \
-    npm install -g /pack/happyco.tgz --no-audit --no-fund && npm cache clean --force
+    npm install -g /pack/happycc.tgz --no-audit --no-fund && npm cache clean --force
 
-RUN mkdir -p /workspace /home/node/.happyco /home/node/.claude \
-    && chown node:node /workspace /home/node/.happyco /home/node/.claude
+RUN mkdir -p /workspace /home/node/.happycc /home/node/.claude \
+    && chown node:node /workspace /home/node/.happycc /home/node/.claude
 
 USER node
 WORKDIR /workspace
 
-# Keep the device up; use `docker compose exec cli happyco ...` to drive it.
+# Keep the device up; use `docker compose exec cli happycc ...` to drive it.
 # Once signed in, the daemon comes back on every container start.
-CMD ["sh", "-c", "if [ -f ~/.happyco/access.key ]; then happyco daemon start; fi; exec sleep infinity"]
+CMD ["sh", "-c", "if [ -f ~/.happycc/access.key ]; then happycc daemon start; fi; exec sleep infinity"]

@@ -7,7 +7,7 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-npm install -g happyco
+npm install -g happycc
 ```
 
 ## Usage
@@ -15,9 +15,9 @@ npm install -g happyco
 ### Claude Code (default)
 
 ```bash
-happyco
+happycc
 # or
-happyco claude
+happycc claude
 ```
 
 This will:
@@ -29,14 +29,14 @@ This will:
 ### More agents
 
 ```
-happyco codex
-happyco agy        # Antigravity CLI (Gemini's successor)
-happyco gemini     # deprecated — use `happyco agy`
-happyco openclaw
+happycc codex
+happycc agy        # Antigravity CLI (Gemini's successor)
+happycc gemini     # deprecated — use `happycc agy`
+happycc openclaw
 
 # or any ACP-compatible CLI
-happyco acp opencode
-happyco acp -- custom-agent --flag
+happycc acp opencode
+happycc acp -- custom-agent --flag
 ```
 
 > **Note on agy permissions:** the agy backend runs `agy --print`, which is
@@ -53,27 +53,27 @@ happyco acp -- custom-agent --flag
 The daemon is a background service that stays running on your machine. It lets you spawn and manage coding sessions remotely — from your phone or the web app — without needing an open terminal.
 
 ```bash
-happyco daemon start
-happyco daemon stop
-happyco daemon status
-happyco daemon list
+happycc daemon start
+happycc daemon stop
+happycc daemon status
+happycc daemon list
 ```
 
-The daemon starts automatically when you run `happyco`, so you usually don't need to manage it manually.
+The daemon starts automatically when you run `happycc`, so you usually don't need to manage it manually.
 
 ### Keeping the daemon running across reboots
 
-If you want the daemon to come back automatically after a reboot — without opening a `happyco` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
+If you want the daemon to come back automatically after a reboot — without opening a `happycc` session first — start it from your shell profile so it inherits your normal user session context (PATH, keychain access, OAuth credentials):
 
 ```bash
 # ~/.zshrc or ~/.bashrc
 if [[ -o interactive ]] && [[ -z "$HAPPY_DAEMON_CHECKED" ]]; then
     export HAPPY_DAEMON_CHECKED=1
     () {
-        local state=$HOME/.happyco/daemon.state.json
+        local state=$HOME/.happycc/daemon.state.json
         local pid=$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$state" 2>/dev/null | grep -oE '[0-9]+')
         if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
-            happyco daemon start >/dev/null 2>&1
+            happycc daemon start >/dev/null 2>&1
         fi
     } &!
 fi
@@ -86,33 +86,33 @@ The first interactive shell after a reboot triggers the start; subsequent shells
 ## Authentication
 
 ```bash
-happyco auth login
-happyco auth logout
+happycc auth login
+happycc auth logout
 ```
 
-`happyco auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
+`happycc auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
 
 To connect third-party agent APIs:
 
 ```bash
-happyco connect gemini
-happyco connect claude
-happyco connect codex
-happyco connect status
+happycc connect gemini
+happycc connect claude
+happycc connect codex
+happycc connect status
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `happyco` | Start Claude Code session (default) |
-| `happyco codex` | Start Codex mode |
-| `happyco agy` | Start agy (Antigravity CLI) session |
-| `happyco gemini` | Start Gemini CLI session (**deprecated** — use `happyco agy`) |
-| `happyco openclaw` | Start OpenClaw session |
-| `happyco acp` | Start any ACP-compatible agent |
-| `happyco resume <id>` | Resume a previous session |
-| `happyco doctor` | Diagnostics & troubleshooting |
+| `happycc` | Start Claude Code session (default) |
+| `happycc codex` | Start Codex mode |
+| `happycc agy` | Start agy (Antigravity CLI) session |
+| `happycc gemini` | Start Gemini CLI session (**deprecated** — use `happycc agy`) |
+| `happycc openclaw` | Start OpenClaw session |
+| `happycc acp` | Start any ACP-compatible agent |
+| `happycc resume <id>` | Resume a previous session |
+| `happycc doctor` | Diagnostics & troubleshooting |
 
 ---
 
@@ -122,9 +122,9 @@ happyco connect status
 
 | Variable | Description |
 |----------|-------------|
-| `HAPPY_SERVER_URL` | Your Happy server URL. Required: there is no default (or set `serverUrl` in `~/.happyco/settings.json`) |
+| `HAPPY_SERVER_URL` | Your Happy server URL. Required: there is no default (or set `serverUrl` in `~/.happycc/settings.json`) |
 | `HAPPY_WEBAPP_URL` | Your web app URL (no default) |
-| `HAPPY_HOME_DIR` | Custom home directory for Happy data (default: `~/.happyco`) |
+| `HAPPY_HOME_DIR` | Custom home directory for Happy data (default: `~/.happycc`) |
 | `HAPPY_DISABLE_CAFFEINATE` | Disable macOS sleep prevention |
 | `HAPPY_EXPERIMENTAL` | Enable experimental features |
 
@@ -133,9 +133,9 @@ happyco connect status
 Happy can run agents inside an OS-level sandbox to restrict file system and network access.
 
 ```bash
-happyco sandbox configure
-happyco sandbox status
-happyco sandbox disable
+happycc sandbox configure
+happycc sandbox status
+happycc sandbox disable
 ```
 
 ### Building from source
@@ -144,7 +144,7 @@ happyco sandbox disable
 git clone https://github.com/slopus/happy
 cd happy-cli
 yarn install
-yarn workspace happyco cli --help
+yarn workspace happycc cli --help
 ```
 
 ## Requirements
@@ -153,7 +153,7 @@ yarn workspace happyco cli --help
 - For Claude: `claude` CLI installed & logged in
 - For Codex: `codex` CLI installed & logged in
 - For agy: install the Antigravity CLI (`agy`) and log in
-- For Gemini (**deprecated** — use agy): `npm install -g @google/gemini-cli` + `happyco connect gemini`
+- For Gemini (**deprecated** — use agy): `npm install -g @google/gemini-cli` + `happycc connect gemini`
 
 ## License
 

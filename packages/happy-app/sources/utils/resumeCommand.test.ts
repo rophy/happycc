@@ -17,7 +17,7 @@ describe('buildResumeCommand', () => {
             os: 'darwin',
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toBe(`cd '/tmp/project' && happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`);
+        })).toBe(`cd '/tmp/project' && happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`);
     });
 
     it('builds a Windows Codex resume command using PowerShell directory navigation', () => {
@@ -26,14 +26,14 @@ describe('buildResumeCommand', () => {
             os: 'win32',
             flavor: 'codex',
             codexThreadId: '019ccca5-726b-7c61-b914-16de27dfab6e',
-        })).toBe(`Set-Location -LiteralPath 'C:\\Users\\test\\project'; happyco codex --resume 019ccca5-726b-7c61-b914-16de27dfab6e`);
+        })).toBe(`Set-Location -LiteralPath 'C:\\Users\\test\\project'; happycc codex --resume 019ccca5-726b-7c61-b914-16de27dfab6e`);
     });
 
     it('falls back to the bare resume command when no path is available', () => {
         expect(buildResumeCommand({
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toBe('happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd');
+        })).toBe('happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd');
     });
 
     it('returns null when there is no resumable session identifier', () => {
@@ -54,9 +54,9 @@ describe('buildResumeCommandBlock', () => {
         })).toEqual({
             lines: [
                 `cd '/tmp/project'`,
-                'happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+                'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
             ],
-            copyText: `cd '/tmp/project'\nhappyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
+            copyText: `cd '/tmp/project'\nhappycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
         });
     });
 
@@ -65,8 +65,8 @@ describe('buildResumeCommandBlock', () => {
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
         })).toEqual({
-            lines: ['happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd'],
-            copyText: 'happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+            lines: ['happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd'],
+            copyText: 'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
         });
     });
 
@@ -79,9 +79,9 @@ describe('buildResumeCommandBlock', () => {
         })).toEqual({
             lines: [
                 `Set-Location -LiteralPath 'C:\\Users\\test\\project'`,
-                'happyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+                'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
             ],
-            copyText: `Set-Location -LiteralPath 'C:\\Users\\test\\project'\nhappyco claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
+            copyText: `Set-Location -LiteralPath 'C:\\Users\\test\\project'\nhappycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
         });
     });
 });
