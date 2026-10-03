@@ -490,7 +490,7 @@ Guide the user to trigger the TeamCity build, or help with manual Docker builds 
 Server releases go through TeamCity (`Lab_HappyServer`). The config is in the TeamCity UI, not in the repo.
 
 Build: node:20 + python3 + ffmpeg, builds happy-wire + happy-server.
-Secrets from Vault: handy-db, handy-master, handy-github, handy-files, handy-e2b, handy-revenuecat, handy-elevenlabs.
+Secrets from Vault: handy-db, handy-master, handy-github, handy-files, handy-e2b, handy-revenuecat.
 Redis: happy-redis StatefulSet (redis:7-alpine, 1Gi persistent volume).
 
 Guide the user to trigger the TeamCity build.
