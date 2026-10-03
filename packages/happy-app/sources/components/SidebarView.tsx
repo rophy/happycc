@@ -10,6 +10,7 @@ import { t } from '@/text';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { ShortcutHintBadge, useShortcutHints } from './ShortcutHints';
+import { workstationOnly } from '@/config';
 import { useHasArchivedSessions } from '@/hooks/useVisibleSessionListViewData';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -105,18 +106,21 @@ export const SidebarView = React.memo(() => {
     return (
         <View style={[styles.container, { paddingTop: safeArea.top + headerHeight }]}>
             <View style={styles.topControls}>
-                <Pressable
-                    onPress={handleNewSession}
-                    style={({ pressed }) => [
-                        styles.newSessionButton,
-                        shortcutHintsVisible && styles.shortcutTargetActive,
-                        pressed && styles.newSessionButtonPressed,
-                    ]}
-                >
-                    <Ionicons name="create-outline" size={16} color={stylesheet.newSessionText.color} />
-                    <Text style={styles.newSessionText}>{t('sidebar.newSession')}</Text>
-                    <ShortcutHintBadge shortcutKey="N" style={styles.shortcutBadgeInline} />
-                </Pressable>
+                {/* Workstation-only: sessions start on the workstation, not here. */}
+                {!workstationOnly && (
+                    <Pressable
+                        onPress={handleNewSession}
+                        style={({ pressed }) => [
+                            styles.newSessionButton,
+                            shortcutHintsVisible && styles.shortcutTargetActive,
+                            pressed && styles.newSessionButtonPressed,
+                        ]}
+                    >
+                        <Ionicons name="create-outline" size={16} color={stylesheet.newSessionText.color} />
+                        <Text style={styles.newSessionText}>{t('sidebar.newSession')}</Text>
+                        <ShortcutHintBadge shortcutKey="N" style={styles.shortcutBadgeInline} />
+                    </Pressable>
+                )}
                 {hasArchivedSessions && (
                     <Pressable
                         onPress={handleArchiveVisibility}

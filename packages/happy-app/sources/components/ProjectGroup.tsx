@@ -15,6 +15,7 @@ import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { visibleRigGitLineChanges } from '@/utils/rigGitLineChanges';
 import { GitLineChanges } from './GitLineChanges';
 import { getRepoPath, isWorktreePath } from '@/utils/worktreePaths';
+import { workstationOnly } from '@/config';
 
 // Tall enough to span the name and branch lines together.
 const HEADER_AVATAR_SIZE = 30;
@@ -124,15 +125,18 @@ const WorkspaceSection = React.memo(({ project, workspace, selectedSessionId }: 
                         <GitLineChanges changes={changes} />
                     </View>
                 </View>
-                <Pressable
-                    onPress={handleNewSession}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('sidebar.newSession')}
-                    style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                >
-                    <Ionicons name="add" size={ADD_ICON_SIZE} color={theme.colors.text} />
-                </Pressable>
+                {/* Workstation-only: sessions start on the workstation, not here. */}
+                {!workstationOnly && (
+                    <Pressable
+                        onPress={handleNewSession}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('sidebar.newSession')}
+                        style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                    >
+                        <Ionicons name="add" size={ADD_ICON_SIZE} color={theme.colors.text} />
+                    </Pressable>
+                )}
             </View>
 
             <View style={styles.workspaceCard}>

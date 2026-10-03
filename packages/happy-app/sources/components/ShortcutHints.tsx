@@ -9,6 +9,7 @@ import {
     GlobalShortcutId,
     ShortcutModifier,
 } from '@/keyboard/shortcuts';
+import { workstationOnly } from '@/config';
 
 interface ShortcutHintsContextValue {
     modifier: ShortcutModifier | null;
@@ -135,6 +136,8 @@ export function ShortcutHintsProvider({
                 <View pointerEvents="none" style={stylesheet.overlay} testID="shortcut-hints-overlay">
                     {GLOBAL_SHORTCUTS
                         .filter((shortcut) => shortcut.id !== 'commandPalette' || commandPaletteEnabled)
+                        // Workstation-only: there is no new-session shortcut.
+                        .filter((shortcut) => shortcut.id !== 'newSession' || !workstationOnly)
                         .map((shortcut) => (
                             <View key={shortcut.id} style={stylesheet.overlayItem}>
                                 <View style={stylesheet.keycap}>

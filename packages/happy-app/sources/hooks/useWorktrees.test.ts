@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { machineBash } = vi.hoisted(() => ({ machineBash: vi.fn() }));
 vi.mock('@/sync/ops', () => ({ machineBash }));
+vi.mock('@/config', () => ({ config: {}, workstationOnly: false }));
 
 // Use the real listWorktrees utility: there is no cache hiding extra effect runs.
 import { useWorktrees } from './useWorktrees';

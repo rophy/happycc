@@ -16,6 +16,7 @@ import { machineBash } from '@/sync/ops';
 import { isWorktreePath, removeWorktree } from '@/utils/worktree';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { workstationOnly } from '@/config';
 
 /**
  * Check whether any *other* active session shares the same worktree path,
@@ -28,7 +29,8 @@ export async function maybeCleanupWorktree(
     sessionPath: string | undefined,
     machineId: string | undefined,
 ): Promise<void> {
-    if (!sessionPath || !machineId || !isWorktreePath(sessionPath)) {
+    // Workstation-only: the app runs nothing on a machine, so worktrees are left as they are.
+    if (workstationOnly || !sessionPath || !machineId || !isWorktreePath(sessionPath)) {
         return;
     }
 

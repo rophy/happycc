@@ -26,6 +26,7 @@ import { t, brandText } from '@/text';
 import { SessionShortcutHintBadge } from './ShortcutHints';
 import { ProviderIcon } from './ProviderIcon';
 import { buildSessionProjectDisplayGroups } from '@/utils/sessionDisplayOrder';
+import { workstationOnly } from '@/config';
 
 type SessionListDisplayItem = SessionListViewItem | {
     type: 'machine-header';
@@ -279,8 +280,10 @@ const MachineHeader = React.memo(({ machineId, machineName }: {
     const { theme } = useUnistyles();
     const router = useRouter();
 
+    // Workstation-only: no machine screen to open.
+    const canOpen = !!machineId && !workstationOnly;
     const handlePress = React.useCallback(() => {
-        if (machineId) {
+        if (machineId && !workstationOnly) {
             router.navigate(`/machine/${machineId}` as any);
         }
     }, [machineId, router]);
@@ -288,8 +291,8 @@ const MachineHeader = React.memo(({ machineId, machineName }: {
     return (
         <Pressable
             onPress={handlePress}
-            disabled={!machineId}
-            accessibilityRole={machineId ? 'button' : undefined}
+            disabled={!canOpen}
+            accessibilityRole={canOpen ? 'button' : undefined}
             style={styles.machineHeader}
             hitSlop={{ top: 8, bottom: 8 }}
         >

@@ -4,6 +4,8 @@
 
 import { machineBash } from '@/sync/ops';
 import { WORKTREE_DIR, WORKTREE_PATH_MARKER } from './worktreePaths';
+import { workstationOnly } from '@/config';
+import { NOT_AVAILABLE_IN_BUILD } from '@/components/workstationOnlyText';
 
 export {
     WORKTREE_DIR,
@@ -44,6 +46,10 @@ export async function createWorktree(
     branchName: string;
     error?: string;
 }> {
+    // Workstation-only: the app runs nothing on a machine.
+    if (workstationOnly) {
+        return { success: false, worktreePath: '', branchName: '', error: NOT_AVAILABLE_IN_BUILD };
+    }
     const name = generateWorktreeName();
 
     // Check if it's a git repository
@@ -124,6 +130,8 @@ export async function listWorktrees(
     machineId: string,
     basePath: string
 ): Promise<WorktreeInfo[]> {
+    // Workstation-only: the app runs nothing on a machine.
+    if (workstationOnly) return [];
     const result = await machineBash(
         machineId,
         'git worktree list --porcelain',
@@ -158,6 +166,10 @@ export async function removeWorktree(
     machineId: string,
     worktreePath: string
 ): Promise<{ success: boolean; error?: string }> {
+    // Workstation-only: the app runs nothing on a machine.
+    if (workstationOnly) {
+        return { success: false, error: NOT_AVAILABLE_IN_BUILD };
+    }
     const idx = worktreePath.indexOf(WORKTREE_PATH_MARKER);
     if (idx === -1) {
         return { success: false, error: 'Not a worktree path' };

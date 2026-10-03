@@ -18,6 +18,7 @@ import { isTauri } from '@/utils/isTauri';
 import { useVisibleSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 import { getSessionShortcutIdsInDisplayOrder } from '@/utils/sessionDisplayOrder';
 import { t } from '@/text';
+import { workstationOnly } from '@/config';
 
 const EMPTY_SESSION_IDS: readonly string[] = [];
 
@@ -43,7 +44,8 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
     const commands = useMemo((): Command[] => {
         const cmds: Command[] = [
             // Navigation commands
-            {
+            // Workstation-only: no new-session command; sessions start on the workstation.
+            ...(workstationOnly ? [] : [{
                 id: 'new-session',
                 title: 'New Session',
                 subtitle: 'Start a new chat session',
@@ -53,7 +55,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
                 action: () => {
                     router.navigate('/new');
                 }
-            },
+            } satisfies Command]),
             {
                 id: 'sessions',
                 title: 'View All Sessions',
@@ -166,7 +168,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
     const visibleModifier = useGlobalKeyboard(
         {
             commandPalette: isAuthenticated && commandPaletteEnabled ? showCommandPalette : undefined,
-            newSession: isAuthenticated ? openNewSession : undefined,
+            newSession: isAuthenticated && !workstationOnly ? openNewSession : undefined,
             settings: isAuthenticated ? openSettings : undefined,
             recentSession: isAuthenticated ? openRecentSession : undefined,
         },

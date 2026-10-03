@@ -8,6 +8,8 @@ import { useRouter } from 'expo-router';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { useOfflineMachineTroubleshooting } from '@/hooks/useOfflineMachineTroubleshooting';
 import { brandText } from '@/text';
+import { workstationOnly } from '@/config';
+import { WORKSTATION_ONLY_START_HINT } from './workstationOnlyText';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -62,8 +64,10 @@ export function EmptySessionsTablet() {
     const router = useRouter();
     const machines = useAllMachines({ includeOffline: true });
     const machineChoices = React.useMemo(() => collectMachineChoices(machines), [machines]);
-    const hasOnlineMachines = machineChoices.some((machine) => machine.online);
-    const hasOfflineMachines = machineChoices.length > 0 && !hasOnlineMachines;
+    // Workstation-only: machines are never online and the app cannot start
+    // sessions, so only the start-it-on-your-workstation hint applies.
+    const hasOnlineMachines = !workstationOnly && machineChoices.some((machine) => machine.online);
+    const hasOfflineMachines = !workstationOnly && machineChoices.length > 0 && !hasOnlineMachines;
     const troubleshoot = useOfflineMachineTroubleshooting();
     
     const handleStartNewSession = () => {
@@ -124,7 +128,9 @@ export function EmptySessionsTablet() {
                 </>
             ) : (
                 <Text style={styles.descriptionText}>
-                    {brandText('Install and run Happy on your computer to connect it.')}
+                    {workstationOnly
+                        ? WORKSTATION_ONLY_START_HINT
+                        : brandText('Install and run Happy on your computer to connect it.')}
                 </Text>
             )}
         </View>

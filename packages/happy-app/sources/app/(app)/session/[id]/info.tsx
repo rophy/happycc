@@ -27,6 +27,7 @@ import { HappyError } from '@/utils/errors';
 import { getRigIdentity, isRigMetadata } from '@/sync/rig';
 import { MOBILE_GLASS_HEADER_HEIGHT } from '@/components/navigation/headerMetrics';
 import { navigateToSession } from '@/hooks/useNavigateToSession';
+import { workstationOnly } from '@/config';
 
 function formatSandboxMetadata(sandbox: unknown, homeDir?: string): string {
     if (sandbox === null || sandbox === undefined) {
@@ -241,7 +242,8 @@ function SessionInfoContent({ session }: { session: Session }) {
                         ) : undefined}
                         onPress={() => router.push(`/session/${session.id}/changes`)}
                     />
-                    {session.metadata?.machineId && (
+                    {/* Workstation-only: no machine screen to open. */}
+                    {session.metadata?.machineId && !workstationOnly && (
                         <Item
                             title={t('sessionInfo.viewMachine')}
                             subtitle={t('sessionInfo.viewMachineSubtitle')}

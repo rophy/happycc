@@ -54,6 +54,7 @@ import { collectSessionPlaces, collectSessionWorkspaces, projectPlaceKey } from 
 import { resolveHappyAgentSpawnTarget, type HappyAgentSpawnTarget } from '@/sync/happyAgentSpawn';
 import { paintBotFace } from '@/utils/botFacePaint';
 import { describeBotNameProblem } from '@/utils/botName';
+import { workstationOnly } from '@/config';
 
 const MAX_RIG_PENDING_RESULTS = 3;
 
@@ -228,6 +229,8 @@ export function useStartSessionFromDraft() {
     }, []);
 
     const startSession = React.useCallback(async (overrides?: StartSessionOverrides): Promise<boolean> => {
+        // Workstation-only: the app never starts sessions.
+        if (workstationOnly) return false;
         if (activeRunRef.current) return false;
 
         const {

@@ -4,7 +4,8 @@ import { Drawer } from 'expo-router/drawer';
 import { useIsTablet, useHeaderHeight, useLayoutDimensions } from '@/utils/responsive';
 import { SidebarView } from './SidebarView';
 import { View, Pressable, Platform } from 'react-native';
-import { useAllMachines, useIsDataReady, useLocalSetting, useLocalSettingMutable } from '@/sync/storage';
+import { useAllMachines, useAllSessions, useIsDataReady, useLocalSetting, useLocalSettingMutable } from '@/sync/storage';
+import { workstationOnly } from '@/config';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -26,6 +27,7 @@ export const SidebarNavigator = React.memo(() => {
     const isTablet = useIsTablet();
     const isDataReady = useIsDataReady();
     const machines = useAllMachines({ includeOffline: true });
+    const sessions = useAllSessions();
     const pathname = usePathname();
     const zenMode = useLocalSetting('zenMode');
     const isWeb = Platform.OS === 'web';
@@ -36,6 +38,8 @@ export const SidebarNavigator = React.memo(() => {
         machineCount: machines.length,
         isWeb,
         isRunningOnMac: runningOnMac,
+        workstationOnly,
+        sessionCount: sessions.length,
     });
     // The onboarding screen owns the whole native canvas. Keep the permanent
     // tablet sidebar and its header out of steps 2 and 3, including the brief

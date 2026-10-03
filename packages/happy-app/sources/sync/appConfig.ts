@@ -6,6 +6,11 @@ export interface AppConfig {
     postHogKey?: string;
     postHogHost?: string;
     enableClaudeConnect?: boolean;
+    /**
+     * The app only controls sessions started with `happycc` on a workstation: it
+     * cannot start, resume, fork or duplicate sessions, or use machines.
+     */
+    workstationOnly?: boolean;
     consoleLoggingDefault?: boolean;
     serverUrl?: string;
     buildCommitSha?: string;

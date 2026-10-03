@@ -136,7 +136,7 @@ const APP_CONFIG_SCHEMA = {
     assetsDir: 'path',
     links: { github: 'link', issues: 'link', privacy: 'link', terms: 'link', help: 'link' },
     analytics: { posthogKey: 'string', posthogHost: 'posthogHost' },
-    features: { claudeConnect: 'boolean' },
+    features: { claudeConnect: 'boolean', workstationOnly: 'boolean' },
     mermaidScriptUrl: 'mermaidScriptUrl',
     logServerUrl: 'logServerUrl',
     brand: { name: 'string', fullName: 'string', logo: 'logo' },
@@ -397,6 +397,8 @@ function buildExpoConfig(env, buildMetadata = {}, options = {}) {
                 postHogKey: cfg.analytics?.posthogKey,
                 postHogHost: cfg.analytics?.posthogHost,
                 enableClaudeConnect: cfg.features?.claudeConnect === true,
+                // On unless the config turns it off: the app only controls sessions started on a workstation.
+                workstationOnly: cfg.features?.workstationOnly !== false,
                 mermaidScriptUrl: cfg.mermaidScriptUrl,
                 consoleLoggingDefault: defaults.consoleLoggingDefault,
                 githubUrl: links.github === undefined ? DEFAULT_GITHUB_URL : links.github ?? undefined,

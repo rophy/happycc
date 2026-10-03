@@ -4,16 +4,22 @@ export function shouldShowFirstRunInstall({
     machineCount,
     isWeb,
     isRunningOnMac,
+    workstationOnly = false,
+    sessionCount = 0,
 }: {
     isAuthenticated: boolean;
     isDataReady: boolean;
     machineCount: number;
     isWeb: boolean;
     isRunningOnMac: boolean;
+    /** Workstation-only build: any session also means the workstation is linked. */
+    workstationOnly?: boolean;
+    sessionCount?: number;
 }): boolean {
     return isAuthenticated
         && isDataReady
         && machineCount === 0
+        && (!workstationOnly || sessionCount === 0)
         && !isWeb
         && !isRunningOnMac;
 }
@@ -60,13 +66,20 @@ export function resolveHomeEmptyState({
     hasArchivedSessions,
     machineCount,
     onlineMachineCount,
+    workstationOnly = false,
 }: {
     visibleSessionCount: number;
     hasArchivedSessions: boolean;
     machineCount: number;
     onlineMachineCount: number;
+    /**
+     * Workstation-only build: there is no daemon, so no machine is ever online
+     * and sessions connect on their own. Only sessions decide the state.
+     */
+    workstationOnly?: boolean;
 }): HomeEmptyState {
     if (visibleSessionCount > 0) return 'list';
+    if (workstationOnly) return hasArchivedSessions ? 'list' : 'no-sessions';
     if (machineCount === 0) return 'link';
     if (onlineMachineCount === 0) return 'offline';
     return hasArchivedSessions ? 'list' : 'no-sessions';
@@ -80,9 +93,12 @@ export function resolveHomeEmptyState({
 export function shouldShowOfflineMachinesBanner({
     machineCount,
     onlineMachineCount,
+    workstationOnly = false,
 }: {
     machineCount: number;
     onlineMachineCount: number;
+    /** Workstation-only build: machines are never online, so there is nothing to warn about. */
+    workstationOnly?: boolean;
 }): boolean {
-    return machineCount > 0 && onlineMachineCount === 0;
+    return !workstationOnly && machineCount > 0 && onlineMachineCount === 0;
 }

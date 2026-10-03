@@ -55,6 +55,7 @@ import { StatusDot } from './StatusDot';
 import { ShimmerText } from './ShimmerText';
 import { HomeListHeader } from './HomeListHeader';
 import { layout } from './layout';
+import { workstationOnly } from '@/config';
 
 // Every row starts with the same avatar and name columns. Disclosure controls
 // live at the trailing edge so rows without worktrees do not reserve space for
@@ -458,7 +459,8 @@ const ProjectRow = React.memo(({ project }: {
         if (!requestHomeDockFocus()) router.navigate('/new');
     }, [router, place?.machineId, place?.projectId, place?.path]);
 
-    const canCreateWorkspace = !!place;
+    // Workstation-only: the app never starts sessions.
+    const canCreateWorkspace = !!place && !workstationOnly;
 
     const showProjectActions = React.useCallback(() => {
         if (!canCreateWorkspace) return;

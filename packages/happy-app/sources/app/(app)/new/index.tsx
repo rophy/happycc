@@ -1,3 +1,5 @@
+import { workstationOnly } from '@/config';
+import { NotAvailableInBuild } from '@/components/NotAvailableInBuild';
 import React from 'react';
 import {
     View,
@@ -3226,4 +3228,12 @@ const pickerStyles = {
     } as const,
 };
 
-export default React.memo(NewSessionScreen);
+function NewSessionRoute() {
+    // Workstation-only: the app never starts sessions.
+    if (workstationOnly) {
+        return <NotAvailableInBuild />;
+    }
+    return <NewSessionScreen />;
+}
+
+export default React.memo(NewSessionRoute);

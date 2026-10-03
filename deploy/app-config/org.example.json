@@ -22,7 +22,8 @@
         "posthogHost": "https://posthog.example.com"
     },
     "features": {
-        "claudeConnect": false
+        "claudeConnect": false,
+        "workstationOnly": true
     },
     "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js",
     "brand": {

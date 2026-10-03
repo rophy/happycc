@@ -28,6 +28,7 @@ import { Modal } from '@/modal';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { useRouter } from 'expo-router';
+import { workstationOnly } from '@/config';
 
 type ExpandedField = {
     agent: AgentKey;
@@ -177,47 +178,50 @@ export default function AgentsSettingsScreen() {
 
     return (
         <ItemList style={{ paddingTop: 0 }}>
-            <ItemGroup title="Machines">
-                {machineChoices.length === 0 ? (
-                    <Item
-                        title="No connected machines"
-                        subtitle={brandText('Run Happy on a computer to connect it')}
-                        icon={<Ionicons name="desktop-outline" size={29} color={theme.colors.textSecondary} />}
-                        disabled
-                        showChevron={false}
-                    />
-                ) : machineChoices.map((choice) => {
-                    const machine = choice.happyMachine ?? choice.rigMachine;
-                    const platform = machine?.metadata?.platform?.trim();
-                    const subtitle = [platform, choice.online ? t('status.online') : t('status.offline')]
-                        .filter(Boolean)
-                        .join(' • ');
-                    const targetMachine = [choice.happyMachine, choice.rigMachine]
-                        .find((candidate) => candidate && isMachineOnline(candidate))
-                        ?? machine;
-
-                    return (
+            {/* Workstation-only: machines are never online and have no screen to open. */}
+            {!workstationOnly && (
+                <ItemGroup title="Machines">
+                    {machineChoices.length === 0 ? (
                         <Item
-                            key={choice.id}
-                            title={choice.name}
-                            subtitle={subtitle}
-                            icon={
-                                <Ionicons
-                                    name="desktop-outline"
-                                    size={29}
-                                    color={choice.online
-                                        ? theme.colors.status.connected
-                                        : theme.colors.status.disconnected}
-                                />
-                            }
-                            style={{ opacity: choice.online ? 1 : 0.5 }}
-                            onPress={targetMachine
-                                ? () => router.push(`/machine/${targetMachine.id}`)
-                                : undefined}
+                            title="No connected machines"
+                            subtitle={brandText('Run Happy on a computer to connect it')}
+                            icon={<Ionicons name="desktop-outline" size={29} color={theme.colors.textSecondary} />}
+                            disabled
+                            showChevron={false}
                         />
-                    );
-                })}
-            </ItemGroup>
+                    ) : machineChoices.map((choice) => {
+                        const machine = choice.happyMachine ?? choice.rigMachine;
+                        const platform = machine?.metadata?.platform?.trim();
+                        const subtitle = [platform, choice.online ? t('status.online') : t('status.offline')]
+                            .filter(Boolean)
+                            .join(' • ');
+                        const targetMachine = [choice.happyMachine, choice.rigMachine]
+                            .find((candidate) => candidate && isMachineOnline(candidate))
+                            ?? machine;
+
+                        return (
+                            <Item
+                                key={choice.id}
+                                title={choice.name}
+                                subtitle={subtitle}
+                                icon={
+                                    <Ionicons
+                                        name="desktop-outline"
+                                        size={29}
+                                        color={choice.online
+                                            ? theme.colors.status.connected
+                                            : theme.colors.status.disconnected}
+                                    />
+                                }
+                                style={{ opacity: choice.online ? 1 : 0.5 }}
+                                onPress={targetMachine
+                                    ? () => router.push(`/machine/${targetMachine.id}`)
+                                    : undefined}
+                            />
+                        );
+                    })}
+                </ItemGroup>
+            )}
 
             <ItemGroup
                 title="Defaults"

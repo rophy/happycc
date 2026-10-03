@@ -74,6 +74,8 @@ import {
 } from '@/sync/rig';
 import { RigActivityBar } from '@/components/RigActivityBar';
 import { AnimatedFade } from '@/components/AnimatedOverlay';
+import { workstationOnly } from '@/config';
+import { filterModesAtOrBelow, sessionStartingPermissionMode } from '@/utils/permissionModeRank';
 
 export const SessionView = React.memo((props: { id: string }) => {
     const routeId = props.id;
@@ -239,7 +241,8 @@ export const SessionView = React.memo((props: { id: string }) => {
     // is no separate per-tab add button. Which side chat is focused lives here
     // (not in the panel) so the picker can create-and-focus a new one in one go.
     const rawSideChats = useSideChatSessions(sessionId ?? '');
-    const sideChatForkSource = session ? getSessionForkSource(session) : null;
+    // Workstation-only: a side chat is a new session spawned on the machine, so there is none.
+    const sideChatForkSource = session && !workstationOnly ? getSessionForkSource(session) : null;
     const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
     // Optimistically hide a side chat the instant it's closed. The server's
     // /archive only flips active=false (not lifecycleState), so if the CLI is
@@ -851,13 +854,20 @@ export function SessionViewLoaded({
     const flavor = composerSession?.metadata?.flavor;
     const isRig = isRigMetadata(session?.metadata);
     const {
-        availableModes,
+        availableModes: allModes,
         permissionMode,
         availableModels,
         modelMode,
         availableEffortLevels,
         effortLevel,
     } = useComposerModes(composerSession);
+    // happycc never lets the app raise a session above the mode it started in,
+    // so the picker (and Shift+Tab) only offers the modes at or below it.
+    const startingPermissionMode = sessionStartingPermissionMode(composerSession?.metadata);
+    const availableModes = React.useMemo(
+        () => filterModesAtOrBelow(allModes, startingPermissionMode),
+        [allModes, startingPermissionMode],
+    );
 
     const sessionStatus = useSessionStatus(sessionOrMissing);
     const sessionUsage = useSessionUsage(sessionId ?? '');

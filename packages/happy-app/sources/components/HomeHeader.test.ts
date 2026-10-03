@@ -8,6 +8,12 @@ const socketStatus = vi.hoisted(() => ({
     listeners: new Set<() => void>(),
 }));
 
+const buildFlags = vi.hoisted(() => ({ workstationOnly: false }));
+vi.mock('@/config', () => ({
+    config: {},
+    get workstationOnly() { return buildFlags.workstationOnly; },
+}));
+
 vi.mock('react-native', async () => {
     const ReactModule = await import('react');
     const host = (name: string) => (props: any) => ReactModule.createElement(name, props, props.children);
@@ -55,7 +61,10 @@ vi.mock('./SessionsList', () => ({ SessionsList: () => null }));
 vi.mock('./TabBar', () => ({ TabBar: () => null }));
 vi.mock('./InboxView', () => ({ InboxView: () => null }));
 vi.mock('./SettingsViewWrapper', () => ({ SettingsViewWrapper: () => null }));
-vi.mock('./HomeDock', () => ({ HomeDock: () => null, MOBILE_HOME_DOCK_CONTENT_INSET: 150 }));
+vi.mock('./HomeDock', async () => {
+    const ReactModule = await import('react');
+    return { HomeDock: () => ReactModule.createElement('HomeDock'), MOBILE_HOME_DOCK_CONTENT_INSET: 150 };
+});
 vi.mock('./HeaderLogo', () => ({ HeaderLogo: () => null }));
 vi.mock('./SessionsListWrapper', async () => {
     const ReactModule = await import('react');
@@ -145,6 +154,7 @@ afterAll(() => vi.restoreAllMocks());
 afterEach(() => {
     act(() => renderers.splice(0).forEach((renderer) => renderer.unmount()));
     socketStatus.status = 'disconnected';
+    buildFlags.workstationOnly = false;
 });
 
 function renderHomeHeaderTitle(component: React.ReactElement) {
@@ -271,5 +281,29 @@ describe('home header connection status', () => {
             expect(home.root.findByType('SessionsListWrapper' as any).props).toEqual(insets);
             expect(home.root.findByType('Header' as any)).toBe(header);
         }
+    });
+});
+
+describe('workstation-only home', () => {
+    it('offers a new-session button and the dock when the build can start sessions', () => {
+        const header = render(React.createElement(HomeHeader)).root.findByType('Header' as any);
+        expect(header.props.headerRight).toBeTypeOf('function');
+        const home = render(React.createElement(MainView, { variant: 'phone' }));
+        expect(home.root.findAllByType('HomeDock' as any)).toHaveLength(1);
+        const right = home.root.findByType('Header' as any).props.headerRight?.();
+        expect(right).toBeTruthy();
+    });
+
+    it('has no new-session button and no session-starting dock', () => {
+        buildFlags.workstationOnly = true;
+        const header = render(React.createElement(HomeHeader)).root.findByType('Header' as any);
+        expect(header.props.headerRight).toBeUndefined();
+
+        const home = render(React.createElement(MainView, { variant: 'phone' }));
+        const mainHeader = home.root.findByType('Header' as any);
+        const right = mainHeader.props.headerRight?.();
+        const icons = right ? render(right).root.findAllByType('Ionicons' as any).map((node: any) => node.props.name) : [];
+        expect(icons).not.toContain('add-outline');
+        expect(home.root.findAllByType('HomeDock' as any)).toHaveLength(0);
     });
 });

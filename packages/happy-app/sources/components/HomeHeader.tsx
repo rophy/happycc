@@ -9,6 +9,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { ShortcutHintBadge, useShortcutHints } from './ShortcutHints';
 import { HomeHeaderTitle } from './HomeHeaderTitle';
+import { workstationOnly } from '@/config';
 import { OnboardingHeader } from './onboarding/OnboardingHeader';
 
 const HEADER_LOGO_SIZE = 19;
@@ -53,7 +54,8 @@ export const HomeHeader = React.memo(() => {
     const header = (
         <Header
             title={<HomeHeaderTitle title={t('sidebar.sessionsTitle')} />}
-            headerRight={() => <HeaderRight />}
+            // Workstation-only: no new-session button; sessions start on the workstation.
+            headerRight={workstationOnly ? undefined : () => <HeaderRight />}
             headerLeft={() => <HeaderLeft />}
             headerLeftGlass={Platform.OS !== 'web'}
             headerShadowVisible={false}

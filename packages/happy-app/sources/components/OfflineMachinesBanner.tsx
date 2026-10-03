@@ -9,6 +9,7 @@ import { useAllMachines } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { shouldShowOfflineMachinesBanner } from './onboarding/firstRunOnboarding';
 import { t } from '@/text';
+import { workstationOnly } from '@/config';
 
 /**
  * A quiet plaque at the top of the session list when every linked computer
@@ -28,7 +29,7 @@ export const OfflineMachinesBanner = React.memo(({
     const choices = React.useMemo(() => collectMachineChoices(machines), [machines]);
     const onlineCount = choices.filter((choice) => choice.online).length;
 
-    if (!shouldShowOfflineMachinesBanner({ machineCount: choices.length, onlineMachineCount: onlineCount })) {
+    if (!shouldShowOfflineMachinesBanner({ machineCount: choices.length, onlineMachineCount: onlineCount, workstationOnly })) {
         return null;
     }
 

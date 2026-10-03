@@ -235,6 +235,15 @@ describe('buildExpoConfig', () => {
         });
     });
 
+    it('is workstation-only unless the config turns it off', () => {
+        expect(build(productionConfig).extra.app.workstationOnly).toBe(true);
+        expect(build({ ...productionConfig, features: {} }).extra.app.workstationOnly).toBe(true);
+        expect(build({ ...productionConfig, features: { workstationOnly: true } }).extra.app.workstationOnly).toBe(true);
+        expect(build({ ...productionConfig, features: { workstationOnly: false } }).extra.app.workstationOnly).toBe(false);
+        expect(buildExpoConfig({}).expo.extra.app.workstationOnly).toBe(true);
+        expect(() => build({ ...productionConfig, features: { workstationOnly: 'no' } })).toThrow(/features\.workstationOnly: must be true or false/);
+    });
+
     it('ignores the removed environment variables', () => {
         const { expo } = buildExpoConfig({
             APP_NAME: 'Env Name', APP_BUNDLE_ID: 'com.env.happy', HAPPY_SERVER_URL: 'https://env.example.com',

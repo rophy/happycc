@@ -10,7 +10,8 @@ import { HomeHeaderNotAuth } from "@/components/HomeHeader";
 import { MainView } from "@/components/MainView";
 import { OnboardingLinkComputer } from "@/components/onboarding/LinkComputer";
 import { shouldShowFirstRunInstall } from "@/components/onboarding/firstRunOnboarding";
-import { useAllMachines, useIsDataReady } from "@/sync/storage";
+import { useAllMachines, useAllSessions, useIsDataReady } from "@/sync/storage";
+import { workstationOnly } from "@/config";
 import { t } from '@/text';
 import { isRunningOnMac } from '@/utils/platform';
 import { signIn } from "@/auth/signIn";
@@ -31,6 +32,7 @@ export default function Home() {
 function Authenticated() {
     const isDataReady = useIsDataReady();
     const machines = useAllMachines({ includeOffline: true });
+    const sessions = useAllSessions();
     // Until a computer is linked there is nothing for the home chrome to do:
     // the dock, filters, session list, and tablet sidebar all need a machine.
     // Native phones and tablets therefore share the same link screen. Web
@@ -41,6 +43,8 @@ function Authenticated() {
         machineCount: machines.length,
         isWeb: Platform.OS === 'web',
         isRunningOnMac: isRunningOnMac(),
+        workstationOnly,
+        sessionCount: sessions.length,
     });
     if (showInstallStep) {
         return <OnboardingLinkComputer />;

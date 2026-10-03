@@ -16,9 +16,19 @@ import { sync } from '@/sync/sync';
 import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
+import { workstationOnly } from '@/config';
+import { NotAvailableInBuild } from '@/components/NotAvailableInBuild';
 import { MOBILE_GLASS_HEADER_HEIGHT } from '@/components/navigation/headerMetrics';
 
-export default function MachineDetailScreen() {
+export default function MachineDetailRoute() {
+    // Workstation-only: machine screens (daemon control, spawning) are off.
+    if (workstationOnly) {
+        return <NotAvailableInBuild />;
+    }
+    return <MachineDetailScreen />;
+}
+
+function MachineDetailScreen() {
     const { theme } = useUnistyles();
     const { id: machineId } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();

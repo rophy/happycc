@@ -9,6 +9,7 @@ import { useAllMachines, useSetting, useSettingMutable } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { LinkComputerChecklist } from './onboarding/LinkComputer';
 import { resolveHomeEmptyState } from './onboarding/firstRunOnboarding';
+import { workstationOnly } from '@/config';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -80,6 +81,7 @@ export const SessionsListWrapper = React.memo(({
         hasArchivedSessions,
         machineCount: machineChoices.length,
         onlineMachineCount,
+        workstationOnly,
     });
 
     // Every linked computer is offline and there is nothing to list: the

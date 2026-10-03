@@ -22,6 +22,7 @@ import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useRouter } from 'expo-router';
 import { SessionShortcutHintBadge } from './ShortcutHints';
 import { buildActiveSessionDisplayGroups } from '@/utils/sessionDisplayOrder';
+import { workstationOnly } from '@/config';
 
 const STATUS_CONFIG: Record<SessionState, { color: string; dotColor: string; isPulsing: boolean; isConnected: boolean }> = {
     disconnected: { color: '#999', dotColor: '#999', isPulsing: false, isConnected: false },
@@ -132,13 +133,16 @@ const SectionHeader = React.memo(({ session, displayPath }: { session: SessionRo
             </View>
 
             {/* + button — vertically centered, large hit area; desktop: hover-only */}
-            <Pressable
-                onPress={handleAdd}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                style={[styles.addButton, { opacity: Platform.OS !== 'web' || isHovered ? 1 : 0 }]}
-            >
-                <Ionicons name="add-outline" size={14} color={theme.colors.textSecondary} />
-            </Pressable>
+            {/* Workstation-only: sessions start on the workstation, not here. */}
+            {!workstationOnly && (
+                <Pressable
+                    onPress={handleAdd}
+                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                    style={[styles.addButton, { opacity: Platform.OS !== 'web' || isHovered ? 1 : 0 }]}
+                >
+                    <Ionicons name="add-outline" size={14} color={theme.colors.textSecondary} />
+                </Pressable>
+            )}
         </View>
     );
 });
@@ -154,7 +158,8 @@ const MachineSeparator = React.memo(({ machineName, machineId }: { machineName: 
     }, [router, machineId]);
 
     return (
-        <Pressable onPress={handlePress} style={styles.machineSeparator} hitSlop={{ top: 8, bottom: 8 }}>
+        // Workstation-only: no machine screen to open.
+        <Pressable onPress={workstationOnly ? undefined : handlePress} disabled={workstationOnly} style={styles.machineSeparator} hitSlop={{ top: 8, bottom: 8 }}>
             <View style={styles.machineSeparatorLine} />
             <Ionicons name="desktop-outline" size={11} color={theme.colors.textSecondary} style={{ marginHorizontal: 6 }} />
             <Text style={styles.machineSeparatorText} numberOfLines={1}>

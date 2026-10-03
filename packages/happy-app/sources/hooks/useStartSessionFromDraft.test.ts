@@ -154,6 +154,12 @@ vi.mock('@/text', () => ({
     t: (key: string) => key,
 }));
 
+const buildFlags = vi.hoisted(() => ({ workstationOnly: false }));
+vi.mock('@/config', () => ({
+    config: {},
+    get workstationOnly() { return buildFlags.workstationOnly; },
+}));
+
 import { completeSpawnRequest, releaseSpawnedSession } from '@/sync/spawnRequestId';
 import { useStartSessionFromDraft } from './useStartSessionFromDraft';
 
@@ -244,6 +250,18 @@ describe('useStartSessionFromDraft', () => {
         mocks.paintBotFace.mockResolvedValue({ mimeType: 'image/png', bytes: new Uint8Array([1, 2, 3]) });
         mocks.uploadSessionBlob.mockResolvedValue({ ref: 'sessions/session-1/attachments/face.png', size: 3 });
         mocks.sessionSetAvatar.mockResolvedValue(undefined);
+    });
+
+    it('starts nothing in the workstation-only build', async () => {
+        buildFlags.workstationOnly = true;
+        try {
+            const { startSession } = useStartSessionFromDraft();
+            await expect(startSession()).resolves.toBe(false);
+            expect(mocks.machineSpawnNewSession).not.toHaveBeenCalled();
+            expect(mocks.createWorktree).not.toHaveBeenCalled();
+        } finally {
+            buildFlags.workstationOnly = false;
+        }
     });
 
     it('creates and opens the session directly from the home draft', async () => {

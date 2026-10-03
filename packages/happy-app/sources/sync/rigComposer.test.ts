@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 // Real store and real writer; only the socket, encryption and native storage are replaced.
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } }));
 vi.mock('@react-navigation/native', () => ({ useIsFocused: () => true }));
+vi.mock('@/config', () => ({ config: {}, workstationOnly: false }));
 vi.mock('./persistence', () => ({
     loadSettings: () => ({}), loadLocalSettings: () => ({}), saveLocalSettings: vi.fn(), saveSettings: vi.fn(),
     loadProfile: () => null, saveProfile: vi.fn(),

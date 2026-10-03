@@ -106,3 +106,23 @@ describe('first-run onboarding', () => {
         expect(shouldSuppressTabletShell({ ...base, isRunningOnMac: true, showInstallStep: true })).toBe(false);
     });
 });
+describe('workstation-only build', () => {
+    it('never asks to bring a machine online: sessions decide the home state', () => {
+        const base = { visibleSessionCount: 0, hasArchivedSessions: false, machineCount: 1, onlineMachineCount: 0, workstationOnly: true };
+        expect(resolveHomeEmptyState(base)).toBe('no-sessions');
+        expect(resolveHomeEmptyState({ ...base, machineCount: 0 })).toBe('no-sessions');
+        expect(resolveHomeEmptyState({ ...base, hasArchivedSessions: true })).toBe('list');
+        expect(resolveHomeEmptyState({ ...base, visibleSessionCount: 2 })).toBe('list');
+    });
+
+    it('shows no offline-machines banner', () => {
+        expect(shouldShowOfflineMachinesBanner({ machineCount: 2, onlineMachineCount: 0, workstationOnly: true })).toBe(false);
+    });
+
+    it('shows the first-run screen only while the account has no sessions and no machines', () => {
+        const base = { isAuthenticated: true, isDataReady: true, machineCount: 0, isWeb: false, isRunningOnMac: false, workstationOnly: true };
+        expect(shouldShowFirstRunInstall({ ...base, sessionCount: 0 })).toBe(true);
+        expect(shouldShowFirstRunInstall({ ...base, sessionCount: 1 })).toBe(false);
+        expect(shouldShowFirstRunInstall({ ...base, sessionCount: 0, machineCount: 1 })).toBe(false);
+    });
+});

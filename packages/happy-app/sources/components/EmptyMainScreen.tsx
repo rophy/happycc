@@ -9,6 +9,8 @@ import { useAllMachines } from '@/sync/storage';
 import { collectMachineChoices } from '@/sync/machineChoices';
 import { useRouter } from 'expo-router';
 import { getServerUrl } from '@/sync/serverConfig';
+import { workstationOnly } from '@/config';
+import { WORKSTATION_ONLY_START_HINT } from './workstationOnlyText';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -117,7 +119,9 @@ export function EmptyMainScreen({
 
     // A linked computer with nothing on it yet. The all-offline case never
     // reaches here: the list wrapper shows the offline checklist for it.
-    if (machineChoices.length > 0) {
+    // Workstation-only: the app cannot start sessions, so the instructions
+    // for starting one on the workstation are always the empty state.
+    if (!workstationOnly && machineChoices.length > 0) {
         return (
             <View style={styles.container}>
                 <Ionicons name="terminal-outline" size={56} color={theme.colors.textSecondary} style={styles.stateIcon} />
@@ -133,8 +137,11 @@ export function EmptyMainScreen({
         <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1, flex: undefined, paddingVertical: 24 }]}>
             <Text style={styles.title}>{t('components.emptyMainScreen.connectComputer')}</Text>
             <Text style={styles.stateDescription}>
-                {brandText('Install the Happy CLI on your computer, sign in with your organization account, and start it. '
-                    + 'Your computer shows up here as soon as it connects.')}
+                {workstationOnly
+                    ? brandText('Install the Happy CLI on your workstation and sign in with your organization account. ')
+                        + WORKSTATION_ONLY_START_HINT
+                    : brandText('Install the Happy CLI on your computer, sign in with your organization account, and start it. '
+                        + 'Your computer shows up here as soon as it connects.')}
             </Text>
             <View style={styles.terminalBlock}>
                 {linkCommands.map((line, index) => (

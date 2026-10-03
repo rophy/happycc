@@ -27,6 +27,7 @@ import { MobileGlassSurface } from './MobileGlass';
 import { SessionActionsAnchor, SessionActionsPopover } from './SessionActionsPopover';
 import { ShimmerText } from './ShimmerText';
 import { StatusDot } from './StatusDot';
+import { workstationOnly } from '@/config';
 
 /**
  * The strip is a control in its own right, like the ones in the header above
@@ -190,6 +191,7 @@ export const WorktreeTabStrip = React.memo(({ sessionId }: { sessionId: string }
      * itself, and only has to retire the tab it was standing in for.
      */
     const newTab = React.useCallback(() => {
+        if (workstationOnly) return;
         const sessions = storage.getState().sessions;
         const open = sessions[selectedId] ?? sessions[anchorId];
         if (!open) return;
@@ -312,19 +314,24 @@ export const WorktreeTabStrip = React.memo(({ sessionId }: { sessionId: string }
                             />
                         ))}
                     </ScrollView>
-                    <View style={styles.divider} />
-                    <Pressable
-                        onPress={newTab}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('sidebar.newSession')}
-                        style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                    >
-                        {/* Always the plus. The tab that appears on the press is
-                            what reports it; how far along its start is belongs
-                            to that tab, which says so with its own shimmer. */}
-                        <Ionicons name="add" size={20} color={theme.colors.header.tint} />
-                    </Pressable>
+                    {/* Workstation-only: no new tab; sessions start on the workstation. */}
+                    {!workstationOnly && (
+                        <>
+                            <View style={styles.divider} />
+                            <Pressable
+                                onPress={newTab}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('sidebar.newSession')}
+                                style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                            >
+                                {/* Always the plus. The tab that appears on the press is
+                                    what reports it; how far along its start is belongs
+                                    to that tab, which says so with its own shimmer. */}
+                                <Ionicons name="add" size={20} color={theme.colors.header.tint} />
+                            </Pressable>
+                        </>
+                    )}
                 </MobileGlassSurface>
             </View>
         </View>

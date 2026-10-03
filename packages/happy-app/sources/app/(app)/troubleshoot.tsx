@@ -18,6 +18,7 @@ import { layout } from '@/components/layout';
 import { t } from '@/text';
 import { appLinks } from '@/config';
 import { openExternalUrl } from '@/utils/openExternalUrl';
+import { workstationOnly } from '@/config';
 
 /**
  * What to check when every linked computer is offline. The order is the
@@ -99,7 +100,8 @@ export default function TroubleshootScreen() {
                     )) : null}
                 </View>
 
-                {choices.length > 0 ? (
+                {/* Workstation-only: machines are never online and have no screen to open. */}
+                {choices.length > 0 && !workstationOnly ? (
                     <ItemGroup title={t('troubleshoot.machines')}>
                         {choices.map((choice) => (
                             <Item

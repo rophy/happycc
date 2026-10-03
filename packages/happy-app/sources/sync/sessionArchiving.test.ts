@@ -11,6 +11,7 @@ vi.mock('./persistence', () => ({
     loadSessionLastMessageSentAt: () => ({}), saveSessionLastMessageSentAt: vi.fn(),
 }));
 vi.mock('./sync', () => ({ sync: { encryption: null } }));
+vi.mock('@/config', () => ({ config: {}, workstationOnly: false }));
 vi.mock('./apiSocket', () => ({ apiSocket: { emitWithAck: vi.fn() } }));
 vi.mock('./apiFeatures', () => ({ serverFeaturesDefaults: { githubConnect: false, push: false } }));
 vi.mock('@/components/tools/knownTools', () => ({ isMutableTool: () => true }));

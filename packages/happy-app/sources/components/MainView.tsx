@@ -29,6 +29,7 @@ import { MOBILE_GLASS_HEADER_HEIGHT } from './navigation/headerMetrics';
 import { useNewSessionDraft } from '@/hooks/useNewSessionDraft';
 import { useStartSessionFromDraft } from '@/hooks/useStartSessionFromDraft';
 import { HomeHeaderTitle } from './HomeHeaderTitle';
+import { workstationOnly } from '@/config';
 
 interface MainViewProps {
     variant: 'phone' | 'sidebar';
@@ -205,6 +206,8 @@ const HeaderRight = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
                 </View>
             );
         }
+        // Workstation-only: no new-session button; sessions start on the workstation.
+        if (workstationOnly) return null;
         return (
             <View style={styles.headerActions}>
                 <Pressable
@@ -260,11 +263,13 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         : safeArea.top
             + MOBILE_GLASS_HEADER_HEIGHT;
     const topContentInset = topChromeInset + (Platform.OS === 'web' ? 0 : 12);
+    // Workstation-only builds have no dock to clear (it starts sessions).
     const bottomContentInset = Platform.OS === 'web'
         ? 0
-        : MOBILE_HOME_DOCK_CONTENT_INSET;
+        : workstationOnly ? safeArea.bottom + 24 : MOBILE_HOME_DOCK_CONTENT_INSET;
 
     const handleHomePromptSubmit = React.useCallback(async (): Promise<boolean> => {
+        if (workstationOnly) return false;
         const draft = useNewSessionDraft.getState();
         // A bot is made from its name, not from a prompt: the composer's text
         // is the name, and the prompt typed for a session is left as it was.
@@ -385,7 +390,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                     onTabPress={handleTabPress}
                     inboxBadgeCount={friendRequests.length}
                 />
-            ) : (
+            ) : workstationOnly ? null : (
                 <View pointerEvents="box-none" style={styles.phoneBottomDockOverlay}>
                     <HomeDock
                         prompt={homePrompt}

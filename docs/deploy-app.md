@@ -44,6 +44,7 @@ each key. Relative paths inside the file resolve against the file's own director
 | `analytics.posthogKey` | no | none | PostHog project key. Without it the app sends no analytics and hides the Analytics setting. |
 | `analytics.posthogHost` | no | `https://us.i.posthog.com` | PostHog instance, e.g. your self-hosted `https://posthog.example.com`. Only used with a key. `https://`, or `http://localhost`/`http://127.0.0.1`. |
 | `features.claudeConnect` | no | `false` | `true` shows the Claude.ai account connect screen, which talks to claude.ai directly. |
+| `features.workstationOnly` | no | `true` | When true (default), the app only controls sessions started with `happycc` on a workstation; it cannot start, resume, fork or duplicate sessions, and hides machine screens. `false` restores session creation from the app. |
 | `mermaidScriptUrl` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`). Web always uses the bundled `mermaid` package and ignores this key. |
 | `logServerUrl` | no | none | Development tooling: `http://` or `https://` receiver for the app's remote console logs (`pnpm app-logs`). Rejected in production builds. |
 | `brand.name` | no | `happycc` | Short product name. Replaces the whole word `Happy` in the app's UI text. |
@@ -86,7 +87,8 @@ Example, also committed as `deploy/app-config/org.example.json` (a test keeps it
         "posthogHost": "https://posthog.example.com"
     },
     "features": {
-        "claudeConnect": false
+        "claudeConnect": false,
+        "workstationOnly": true
     },
     "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js",
     "brand": {

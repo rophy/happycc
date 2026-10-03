@@ -16,6 +16,7 @@ import { createReducer, reducer, ReducerState, registerUserMessageServerIds } fr
 import { Message, messageSortKey } from "./typesMessage";
 import { NormalizedMessage } from "./typesRaw";
 import { isMachineOnline } from '@/utils/machineUtils';
+import { workstationOnly } from '@/config';
 import { getSessionName, getSessionSubtitle, getSessionAvatarId } from '@/utils/sessionUtils';
 import { resolveSessionState, type SessionState } from './sessionState';
 import { getSessionActivityAt } from '@/utils/sessionActivity';
@@ -238,7 +239,8 @@ function buildSessionRowData(
         archived: isSessionArchived(session, archivingSessionIds),
         machineId,
         machineName: machine?.metadata?.displayName || machine?.metadata?.host || session.metadata?.host || null,
-        machineOffline: machine ? !isMachineOnline(machine) : false,
+        // Workstation-only: no daemon ever marks a machine online; sessions connect on their own.
+        machineOffline: !workstationOnly && machine ? !isMachineOnline(machine) : false,
         path: session.metadata?.path ?? null,
         homeDir: session.metadata?.homeDir ?? null,
         completedTodosCount: session.todos?.filter(todo => todo.status === 'completed').length ?? 0,
