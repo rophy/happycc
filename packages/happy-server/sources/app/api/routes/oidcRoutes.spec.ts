@@ -183,7 +183,7 @@ describe('oidcRoutes', () => {
         const callback = await login(`client=mobile&code_challenge=${challenge}&redirect_uri=${encodeURIComponent('corpapp://auth/callback')}`, 'r-mobile-name');
         const confirmPageRes = await app.inject({ method: 'GET', url: '/v1/auth/oidc/mobile/confirm', headers: { cookie: cookieHeader(callback) } });
         expect(confirmPageRes.statusCode).toBe(200);
-        expect(confirmPageRes.body).toContain('Sign in to the Happy app on this device?');
+        expect(confirmPageRes.body).toContain('Sign in to the happycc app on this device?');
     });
 
     it('mobile: shows a configured app name, HTML-escaped', async () => {
@@ -196,7 +196,7 @@ describe('oidcRoutes', () => {
             expect(confirmPageRes.body).toContain('Sign in to Acme &amp; &lt;Co&gt; on this device?');
             expect(confirmPageRes.body).not.toContain('Acme & <Co>');
         } finally {
-            config.mobileAppName = 'the Happy app';
+            config.mobileAppName = 'the happycc app';
         }
     });
 

@@ -73,7 +73,7 @@ export function loopbackConfirmPage(opts: { port: string; csrf: string }): strin
 
 export function mobileConfirmPage(opts: { appName: string; csrf: string }): string {
     const safeName = escapeHtml(opts.appName);
-    // The configured name (default "the Happy app") is lowercase, but it opens the
+    // The configured name (default "the happycc app") is lowercase, but it opens the
     // sentence here — capitalize the sentence, not the name itself.
     const sentence = `${safeName} on this phone will get full access to your account, including all your sessions.`;
     const capitalizedSentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);

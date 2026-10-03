@@ -58,7 +58,7 @@ export function loadAuthConfig(env: NodeJS.ProcessEnv = process.env): AuthConfig
             .split(',')
             .map((uri) => uri.trim())
             .filter((uri) => uri.length > 0),
-        mobileAppName: env.MOBILE_APP_NAME?.trim() || 'the Happy app',
+        mobileAppName: env.MOBILE_APP_NAME?.trim() || 'the happycc app',
         accessTokenTtlSec: parseDuration(env.AUTH_ACCESS_TOKEN_TTL ?? '15m'),
         maxSessionAgeSec: parseDuration(env.AUTH_MAX_SESSION_AGE ?? '30d'),
         refreshReuseGraceSec: parseDuration(env.AUTH_REFRESH_REUSE_GRACE ?? '60s'),

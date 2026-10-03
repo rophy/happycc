@@ -34,7 +34,7 @@ describe('loadAuthConfig', () => {
             publicUrl: 'https://happy.corp.example',
             webappUrl: 'https://app.corp.example',
             mobileRedirectUris: [],
-            mobileAppName: 'the Happy app',
+            mobileAppName: 'the happycc app',
             accessTokenTtlSec: 900,
             maxSessionAgeSec: 2_592_000,
             refreshReuseGraceSec: 60,
@@ -64,8 +64,8 @@ describe('loadAuthConfig', () => {
     });
 
     it('falls back to a default mobile app name when unset or blank', () => {
-        expect(loadAuthConfig(base).mobileAppName).toBe('the Happy app');
-        expect(loadAuthConfig({ ...base, MOBILE_APP_NAME: '   ' }).mobileAppName).toBe('the Happy app');
+        expect(loadAuthConfig(base).mobileAppName).toBe('the happycc app');
+        expect(loadAuthConfig({ ...base, MOBILE_APP_NAME: '   ' }).mobileAppName).toBe('the happycc app');
     });
 
     it.each(['OIDC_ISSUER', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'PUBLIC_URL', 'WEBAPP_URL', 'HANDY_MASTER_SECRET'])(
