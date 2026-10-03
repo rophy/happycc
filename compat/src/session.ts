@@ -61,3 +61,9 @@ export async function cleanupAgentProcesses(): Promise<void> {
     await exec('cli', 'pkill -f "[h]appycc(/dist/index\\.mjs)? (claude |acp|--happy-starting-mode)"; pkill -f "[o]pencode acp"; pkill -f "[p]i-acp"; true',
         { allowFail: true });
 }
+
+/** Wait until the history holds at least `count` turn-end events. */
+export async function waitForTurnEnd(sessionId: string, count = 1, timeoutS = 60): Promise<void> {
+    await poll(async () => ((await historyText(sessionId)).split('"t":"turn-end"').length - 1 >= count ? true : undefined),
+        { timeoutMs: timeoutS * 1000, what: `turn-end #${count} in the history of ${sessionId}` });
+}

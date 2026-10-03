@@ -34,6 +34,13 @@ SDK dependency, not the `Dockerfile.cli` build arg.
 | resume | ✓ | N/A ([resume](#acp-sessions-cannot-be-resumed)) | N/A ([resume](#acp-sessions-cannot-be-resumed)) |
 | spawn | ✓ | N/A ([spawn](#acp-agents-cannot-be-spawned)) | N/A ([spawn](#acp-agents-cannot-be-spawned)) |
 
+Scenarios 1-3 (`tests/conversation.test.ts`) run the Claude Code cells as known-bug cells (`AGENTS.claude.knownBugs`,
+vitest `it.fails`, title suffix `known bug #n`): roundtrip and tool-allow hit [bug 1](#bugs-found), tool-deny hits
+[bug 2](#bugs-found) (and bug 1). Each was reproduced: `send --wait` exits 124 / history has the reply but no
+`turn-end` for 60 s. The tests assert the correct behaviour, so vitest reports the cell once the bug is fixed.
+Tool-allow/deny wait for the `turn-end` in the history after `approve`/`deny` (`waitForTurnEnd`) because
+`happycc-agent wait` returns immediately (see Harness findings). No agent config was changed for these scenarios.
+
 Only N/A cells are agent limitations. The other non-✓ cells are bugs in happycc / happycc-agent and should fail
 in the suite until fixed.
 

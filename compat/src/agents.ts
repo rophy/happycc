@@ -9,13 +9,24 @@ export type AgentDef = {
     start: string;
     /** Scenario → reason it is not applicable. Every entry is backed by evidence in CAPABILITIES.md. */
     unsupported: Partial<Record<Scenario, string>>;
+    /** Scenario → `#<n>: <description>` of a documented product bug (CAPABILITIES.md "Bugs found") the cell currently hits. */
+    knownBugs?: Partial<Record<Scenario, string>>;
 };
 
 const NO_ACP_SPAWN = 'The daemon cannot spawn ACP agents yet.';
 const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
 
 export const AGENTS: Record<AgentId, AgentDef> = {
-    claude: { label: 'Claude Code', start: 'happycc --happy-starting-mode remote', unsupported: {} },
+    claude: {
+        label: 'Claude Code',
+        start: 'happycc --happy-starting-mode remote',
+        unsupported: {},
+        knownBugs: {
+            roundtrip: '#1: the first turn of a session never gets turn-end',
+            'tool-allow': '#1: the first turn of a session never gets turn-end',
+            'tool-deny': '#2: denying a permission leaves the turn open (also #1)',
+        },
+    },
     opencode: {
         label: 'OpenCode',
         start: 'happycc acp opencode',
