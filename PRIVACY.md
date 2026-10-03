@@ -4,7 +4,7 @@
 
 ## Overview
 
-Happy Coder is committed to protecting your privacy. This policy explains how we handle data in our zero-knowledge encrypted synchronization features and in the optional voice feature, which has a separate data flow described below.
+Happy Coder is committed to protecting your privacy. This policy explains how we handle data in our zero-knowledge encrypted synchronization features. The app has no voice feature and does not access your microphone or camera.
 
 ## What We Collect
 
@@ -30,18 +30,10 @@ Happy Coder is committed to protecting your privacy. This policy explains how we
 - **Backend Integration**: This ID allows us to provide additional features from our backend while maintaining end-to-end encryption for your content
 - **Data Separation**: Purchase analytics sent to PostHog use the anonymized ID instead - we cannot match Revenue Cat data with PostHog analytics
 
-### Voice (Optional)
-When you turn on voice, your device connects to ElevenLabs to provide the voice agent. Native apps use the ElevenLabs SDK with a LiveKit/WebRTC media connection; the web client uses the ElevenLabs web SDK over WebSocket.
-
-- **Voice Audio**: ElevenLabs receives audio from your microphone during a voice session.
-- **Voice Context**: The Happy app sends text to the voice agent so it can assist you. This can include active-session IDs and summaries; the current session's ID, project path, summary, message history, and new messages; session focus or readiness events; and pending permission requests, including the tool name and arguments. It may also include agent tool-call details configured for the voice session.
-- **Encryption Boundary**: Voice audio and context sent to the voice agent are not covered by Happy's end-to-end encryption or zero-knowledge architecture. Happy's server does not proxy this audio or context. For Happy-managed voice, it authenticates your Happy account, checks subscription and usage limits, and obtains a voice-session token. It processes account, agent, conversation, and voice-usage metadata for that purpose.
-- **Pseudonymous Voice Identifier**: For Happy-managed voice, Happy gives ElevenLabs a stable pseudonymous identifier derived from your Happy account ID using HMAC-SHA-256. This lets ElevenLabs apply per-user voice limits without using your raw Happy account ID as the voice user ID. The identifier can still link your voice sessions to one another.
-- **Direct Connection**: If you configure your own ElevenLabs agent and choose to bypass Happy's token flow, Happy bypasses its managed token and usage-limit flow. The selected ElevenLabs agent still receives the voice audio and context described above.
-
 ## What We Don't Collect
-- Your actual code or conversation content sent through Happy's encrypted synchronization service (we can't decrypt it). This does not include voice audio or context you choose to send directly to ElevenLabs during an active voice session.
-- Personal information contained in encrypted messages, because we cannot decrypt those messages. If you use voice, ElevenLabs may receive personal information that you include in voice audio or context.
+- Your actual code or conversation content sent through Happy's encrypted synchronization service (we can't decrypt it).
+- Personal information contained in encrypted messages, because we cannot decrypt those messages.
+- Microphone audio or camera images (the app does not request these permissions)
 - Device information beyond anonymous IDs
 - Location data
 
@@ -73,14 +65,11 @@ Push notifications are sent directly from your devices to each other, not from o
 - **Open Source**: Our encryption implementation is publicly auditable
 - **No Backdoors**: The architecture makes it impossible for us to access encrypted synchronization content
 
-The optional voice feature is an exception to the encrypted synchronization model: ElevenLabs must receive the audio and text context it processes to provide the voice agent. See "Voice (Optional)" above.
-
 ## Data Retention
 
 - Encrypted messages are retained indefinitely until you delete them
 - Metadata is retained for system functionality
 - Deleted data is permanently removed from our servers within 30 days
-- Voice audio, voice-session context, and voice-usage records processed or retained by ElevenLabs are subject to ElevenLabs' own practices and privacy policy; they are not stored as Happy encrypted synchronization data.
 
 ## Your Rights
 
@@ -97,9 +86,8 @@ We share data with service providers only as needed to provide the features desc
 - **Expo**: push notification delivery
 - **PostHog**: the anonymous analytics described above
 - **RevenueCat**: subscription management
-- **ElevenLabs**: the optional voice-agent service and voice-usage measurement. On native apps, voice media uses ElevenLabs' LiveKit/WebRTC transport; the web client uses ElevenLabs' WebSocket-based SDK.
 
-We do not send encrypted synchronization content to these providers as part of ordinary synchronization. Voice audio and context are the exception described in "Voice (Optional)" above.
+We do not send encrypted synchronization content to these providers.
 
 ## Changes to This Policy
 
@@ -119,4 +107,4 @@ Happy Coder is designed with privacy by default and complies with:
 
 ---
 
-**Remember**: Your encryption keys are only shared between your own devices in encrypted form. We cannot read code or conversations transmitted through Happy's encrypted synchronization service. Content you choose to send through voice is processed by ElevenLabs as described in "Voice (Optional)" above.
+**Remember**: Your encryption keys are only shared between your own devices in encrypted form. We cannot read code or conversations transmitted through Happy's encrypted synchronization service.

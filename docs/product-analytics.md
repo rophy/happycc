@@ -42,22 +42,6 @@
   - last_active_at
   - last_updated_at
 
-## Voice
-
-- voice_permission_response
-  - allowed
-- voice_session_started
-  - session_id
-  - elevenlabs_conversation_id
-- voice_session_error
-  - session_id
-  - elevenlabs_conversation_id
-  - error
-- voice_session_stopped
-  - session_id
-  - elevenlabs_conversation_id
-  - duration_seconds
-
 ## Paywall
 
 all include flow property which customizes the upsell screen shown by revenue cat.
@@ -137,7 +121,7 @@ all include flow property which customizes the upsell screen shown by revenue ca
 ## Strong Preferences
 
 - Prefer a small number of core events with explicit properties over a growing set of overlapping events.
-- `message_sent` is the canonical outbound send event. Do not add parallel send events for specific surfaces like voice. Add or use `source` instead.
+- `message_sent` is the canonical outbound send event. Do not add parallel send events for specific surfaces. Add or use `source` instead.
 - If a new analytics question can be answered by extending an existing event, prefer adding a property over inventing a new event.
 - `session_switched` should carry stable identity, not just recency. Keep `session_id` and `session_created_at` on it.
 - OTA context is first-class and should travel with the events that matter. Keep `ota_version` and `ota_runtime_version` on `message_sent`, `ota_update_available`, and `ota_update_applied`.
@@ -147,7 +131,6 @@ all include flow property which customizes the upsell screen shown by revenue ca
 ## Notes
 
 - session_switched now includes stable identity (`session_id`, `session_created_at`) plus recency. Entry source is still merged until we add an explicit source property.
-- elevenlabs_conversation_id is the conversation id returned by the ElevenLabs voice session layer.
 - github_connected is a plain event with no GitHub profile data attached.
 
 ## Relevant Sources
@@ -155,7 +138,6 @@ all include flow property which customizes the upsell screen shown by revenue ca
 - packages/happy-app/sources/track/index.ts
 - packages/happy-app/sources/hooks/useNavigateToSession.ts
 - packages/happy-app/sources/-session/SessionView.tsx
-- packages/happy-app/sources/realtime/RealtimeSession.ts
 - packages/happy-app/sources/components/SettingsView.tsx
 - packages/happy-app/sources/sync/sync.ts
 - packages/happy-app/sources/track/useTrackScreens.ts

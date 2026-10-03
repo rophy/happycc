@@ -15,10 +15,6 @@ How a single Happy user is identified across every external service.
 ```
 Happy Account CUID (e.g. cm4x7k2...)
 │
-├─► ElevenLabs ── u_{base64url(HMAC-SHA256(CUID, MASTER_SECRET))}
-│                 Derived on every request, never stored.
-│                 voiceRoutes.ts:deriveElevenUserId()
-│
 ├─► RevenueCat ── Same CUID, passed directly as appUserID
 │                 Set once on mobile: RevenueCat.configure({ appUserID: serverID })
 │                 Server queries RevenueCat API with the same CUID
@@ -71,17 +67,6 @@ See `docs/superpowers/specs/2026-09-30-oidc-auth-design.md`.
 
 | System | ID Type | Why |
 |--------|---------|-----|
-| ElevenLabs | HMAC-derived | Privacy — raw Happy ID never sent to ElevenLabs |
 | RevenueCat | Pass-through | Direct correlation needed for subscription API calls |
 | GitHub | Stored foreign key | Enables profile linking and account recovery via OAuth |
 | AI vendors | Stored encrypted | User-owned keys, need to be retrievable |
-
-## Local Scripting
-
-To derive an ElevenLabs user ID from a Happy CUID locally:
-
-```python
-import hmac, hashlib, base64
-digest = hmac.new(MASTER_SECRET.encode(), happy_cuid.encode(), hashlib.sha256).digest()
-eleven_id = "u_" + base64.b64encode(digest).decode().replace("+","-").replace("/","_").rstrip("=")
-```
