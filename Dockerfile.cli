@@ -43,6 +43,9 @@ RUN pnpm --filter happycc-agent --fail-if-no-match pack --pack-destination /pack
 
 FROM node:22 AS runner
 
+# Standalone claude for local mode. Keep it equal to the Claude Code version bundled with the exact
+# @anthropic-ai/claude-agent-sdk pin in packages/happy-cli/package.json (see: npm view @anthropic-ai/claude-agent-sdk@<version> claudeCodeVersion),
+# which is what remote mode runs.
 ARG CLAUDE_CODE_VERSION=2.1.288
 ARG OPENCODE_VERSION=1.18.34
 ARG PI_VERSION=1.0.0

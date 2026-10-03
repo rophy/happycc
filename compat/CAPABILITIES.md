@@ -22,6 +22,10 @@ bundled binary, `/usr/local/lib/node_modules/happycc/node_modules/@anthropic-ai/
 SDK dependency, not the `Dockerfile.cli` build arg. Global setup records it as `claudeSdk` in `.versions.json`, and
 the report prints a warning line when it differs from `claude`.
 
+The SDK is pinned to an exact version (`0.3.288`) in `packages/happy-cli/package.json`, so the bundled binary
+no longer floats when the image is rebuilt; `npm install -g` of the packed happycc resolves dependency ranges
+fresh and ignores the repo's lockfile, which is why a range was not enough.
+
 ## Matrix
 
 Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #n` known product bug n

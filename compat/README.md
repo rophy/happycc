@@ -41,12 +41,17 @@ the same report to the job summary.
 
 ## Bumping a pinned version
 
-1. Edit the matching `ARG` in `Dockerfile.cli`.
-   - Claude Code: the `CLAUDE_CODE_VERSION` ARG pins only the standalone `claude` (reported as `claude`). Remote mode,
-     which every Claude scenario uses, runs the Claude Code binary bundled with happycc's `@anthropic-ai/claude-agent-sdk`
-     dependency (reported as `claudeSdk`). That follows the SDK's version range in `packages/happy-cli/package.json`,
-     resolved when the image is built (`npm install -g` of the packed happycc), so a rebuild can move it.
-     The report shows a warning line when the two differ.
+1. Edit the pin.
+   - OpenCode, Pi, pi-acp: the matching `ARG` in `Dockerfile.cli`.
+   - Claude Code has two pins that must move together:
+     - `@anthropic-ai/claude-agent-sdk` in `packages/happy-cli/package.json` (an exact version, then `pnpm install`).
+       Remote mode, which every Claude scenario uses, runs the Claude Code binary bundled with this SDK (reported as
+       `claudeSdk`). Check which Claude Code an SDK version bundles with
+       `npm view @anthropic-ai/claude-agent-sdk@<version> claudeCodeVersion`. Because the version is exact, it also
+       holds for users' `npm install -g happycc`, which does not use the repo's lockfile.
+     - `CLAUDE_CODE_VERSION` in `Dockerfile.cli`: the standalone `claude` used by local mode (reported as `claude`).
+       Set it to the version the SDK bundles.
+     The report shows a warning line if the two differ.
 2. Rebuild: `docker compose up -d --build`.
 3. Run `npm test`, then `npm run report`.
 4. If a cell changes, update `CAPABILITIES.md` (and `src/agents.ts` for N/A or known-bug entries).
