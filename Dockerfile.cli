@@ -14,27 +14,32 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY scripts ./scripts
 COPY patches ./patches
 
-RUN mkdir -p packages/happy-cli packages/happy-wire
+RUN mkdir -p packages/happy-cli packages/happy-wire packages/happy-agent
 
 COPY packages/happy-cli/package.json packages/happy-cli/
 COPY packages/happy-wire/package.json packages/happy-wire/
+COPY packages/happy-agent/package.json packages/happy-agent/
 
 # Workspace postinstall requirements
 COPY packages/happy-cli/scripts packages/happy-cli/scripts
 COPY packages/happy-cli/tools packages/happy-cli/tools
 
-RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happycc...
+RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happycc... --filter happycc-agent...
 
 FROM deps AS builder
 
 COPY packages/happy-wire ./packages/happy-wire
 COPY packages/happy-cli ./packages/happy-cli
+COPY packages/happy-agent ./packages/happy-agent
 
 RUN pnpm --filter @slopus/happy-wire --fail-if-no-match build
 RUN pnpm --filter happycc --fail-if-no-match build
 # Pack it like a release, so the device installs it the way users do.
 RUN mkdir /pack && pnpm --filter happycc --fail-if-no-match pack --pack-destination /pack \
     && mv /pack/happycc-*.tgz /pack/happycc.tgz
+RUN pnpm --filter happycc-agent --fail-if-no-match build
+RUN pnpm --filter happycc-agent pack --pack-destination /pack \
+    && mv /pack/happycc-agent-*.tgz /pack/happycc-agent.tgz
 
 FROM node:22 AS runner
 
@@ -52,7 +57,7 @@ RUN npm install -g --no-audit --no-fund \
     && npm cache clean --force
 
 RUN --mount=type=bind,from=builder,source=/pack,target=/pack \
-    npm install -g /pack/happycc.tgz --no-audit --no-fund && npm cache clean --force
+    npm install -g /pack/happycc.tgz /pack/happycc-agent.tgz --no-audit --no-fund && npm cache clean --force
 
 RUN mkdir -p /workspace /home/node/.happycc /home/node/.claude /home/node/.config/opencode /home/node/.pi/agent \
     && chown -R node:node /workspace /home/node

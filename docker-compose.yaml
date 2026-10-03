@@ -106,6 +106,7 @@ services:
       HAPPY_WEBAPP_URL: http://localhost:8080
       ANTHROPIC_BASE_URL: http://aimock:4010
       ANTHROPIC_API_KEY: aimock
+      ANTHROPIC_MODEL: compat-claude
     volumes:
       - cli-happycc:/home/node/.happycc
       - cli-claude:/home/node/.claude
@@ -115,8 +116,25 @@ services:
       - ./deploy/aimock/agents/pi-models.json:/home/node/.pi/agent/models.json:ro
       - ./deploy/aimock/agents/pi-settings.json:/home/node/.pi/agent/settings.json:ro
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+    # The "phone" for the compatibility suite: happycc-agent signed in as its own device.
+    network_mode: "service:oidc-mock"
+    depends_on:
+      server: { condition: service_started }
+    environment:
+      HAPPY_SERVER_URL: http://localhost:3005
+      HAPPY_WEBAPP_URL: http://localhost:8080
+      HEADLESS: "1"
+    volumes:
+      - app-home:/home/node
+    command: ["sleep", "infinity"]
+
 volumes:
   pgdata:
   cli-happycc:
   cli-claude:
   cli-workspace:
+  app-home:

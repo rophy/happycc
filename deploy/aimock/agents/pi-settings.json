@@ -1,1 +1,1 @@
-{ "defaultProvider": "aimock", "defaultModel": "mock-model" }
+{ "defaultProvider": "aimock", "defaultModel": "compat-pi" }

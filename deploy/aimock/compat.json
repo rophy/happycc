@@ -1,0 +1,17 @@
+{
+  "fixtures": [
+    { "match": { "userMessage": "compat:hello" }, "response": { "content": "COMPAT-HELLO-OK" } },
+
+    { "match": { "userMessage": "compat:write", "model": "compat-claude", "hasToolResult": false },
+      "response": { "toolCalls": [{ "name": "Write", "arguments": { "file_path": "/workspace/compat-write.txt", "content": "COMPAT-FILE-CONTENT" } }] } },
+    { "match": { "userMessage": "compat:write", "model": "compat-opencode", "hasToolResult": false },
+      "response": { "toolCalls": [{ "name": "write", "arguments": { "filePath": "/workspace/compat-write.txt", "content": "COMPAT-FILE-CONTENT" } }] } },
+    { "match": { "userMessage": "compat:write", "model": "compat-pi", "hasToolResult": false },
+      "response": { "toolCalls": [{ "name": "write", "arguments": { "path": "/workspace/compat-write.txt", "content": "COMPAT-FILE-CONTENT" } }] } },
+    { "match": { "userMessage": "compat:write", "hasToolResult": true }, "response": { "content": "COMPAT-WRITE-DONE" } },
+
+    { "match": { "userMessage": "compat:slow" },
+      "response": { "content": "COMPAT-SLOW-START this reply streams slowly so the test can abort it before it completes. ... COMPAT-SLOW-END" },
+      "latency": 1500, "chunkSize": 4 }
+  ]
+}
