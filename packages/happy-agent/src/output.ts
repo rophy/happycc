@@ -1,3 +1,4 @@
+import type { PermissionRequest } from './sessionRpc';
 import type { DecryptedMachine, DecryptedSession, DecryptedMessage } from './api';
 
 // --- Types ---
@@ -233,4 +234,13 @@ export function formatJson(data: unknown): string {
         }
         return value;
     }, 2);
+}
+
+export function formatPermissionRequests(sessionId: string, requests: PermissionRequest[]): string {
+    if (requests.length === 0) return 'No pending permission requests.';
+    return [
+        `## Pending permission requests for ${sessionId}`,
+        '',
+        ...requests.map(r => `- \`${r.id}\` ${r.tool}: ${JSON.stringify(r.arguments)}`),
+    ].join('\n');
 }

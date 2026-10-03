@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatSessionTable, formatSessionStatus, formatMessageHistory, formatJson } from './output';
+import { formatSessionTable, formatSessionStatus, formatMessageHistory, formatJson, formatPermissionRequests } from './output';
 import type { DecryptedSession, DecryptedMessage } from './api';
 
 function makeSession(overrides: Partial<DecryptedSession> = {}): DecryptedSession {
@@ -303,5 +303,16 @@ describe('formatJson', () => {
         const data = { a: { b: { c: 'deep' } } };
         const output = formatJson(data);
         expect(JSON.parse(output)).toEqual(data);
+    });
+});
+
+describe('formatPermissionRequests', () => {
+    it('lists requests with id, tool and arguments', () => {
+        const out = formatPermissionRequests('s1', [{ id: 'r1', tool: 'Write', arguments: { file_path: '/x' } }]);
+        expect(out).toContain('- `r1` Write: {"file_path":"/x"}');
+    });
+
+    it('says so when there are none', () => {
+        expect(formatPermissionRequests('s1', [])).toBe('No pending permission requests.');
     });
 });

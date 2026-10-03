@@ -140,6 +140,22 @@ happycc-agent history <session-id> --json
 happycc-agent stop <session-id>
 ```
 
+### Permissions and abort
+
+```bash
+# List pending permission requests (add --json for machine-readable output)
+happycc-agent permissions <session-id>
+
+# Approve a request (--for-session approves the tool for the rest of the session)
+happycc-agent approve <session-id> <request-id>
+
+# Deny a request
+happycc-agent deny <session-id> <request-id>
+
+# Abort the current turn; the session keeps running
+happycc-agent abort <session-id>
+```
+
 ### Wait for idle
 
 ```bash

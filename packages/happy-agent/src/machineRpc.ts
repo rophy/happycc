@@ -57,7 +57,7 @@ function normalizeRpcError(error: string | undefined, machineId: string): string
     return error;
 }
 
-async function connectMachineSocket(config: Config, tokens: TokenSource): Promise<Socket> {
+export async function connectRpcSocket(config: Config, tokens: TokenSource): Promise<Socket> {
     // Fail fast (LoggedOutError, refresh failure) before opening a socket.
     await tokens.getAccessToken();
     const socket = io(config.serverUrl, {
@@ -88,7 +88,7 @@ export async function spawnSessionOnMachine(
         providerToken?: string;
     },
 ): Promise<SpawnMachineSessionResult> {
-    const socket = await connectMachineSocket(config, tokens);
+    const socket = await connectRpcSocket(config, tokens);
 
     try {
         const params = encodeBase64(
@@ -150,7 +150,7 @@ export async function resumeSessionOnMachine(
     tokens: TokenSource,
     sessionId: string,
 ): Promise<SpawnMachineSessionResult> {
-    const socket = await connectMachineSocket(config, tokens);
+    const socket = await connectRpcSocket(config, tokens);
 
     try {
         const params = encodeBase64(

@@ -10,11 +10,12 @@ import type { Credentials } from './credentials';
 import { authLogin, authLogout, authStatus } from './auth';
 import { listSessions, listActiveSessions, createSession, getSessionMessages, listMachines } from './api';
 import type { DecryptedMachine, DecryptedSession } from './api';
-import { resumeSessionOnMachine, spawnSessionOnMachine, type SupportedAgent } from './machineRpc';
+import { connectRpcSocket, resumeSessionOnMachine, spawnSessionOnMachine, type SupportedAgent } from './machineRpc';
+import { ABORT_REASON, callSessionRpc, pendingPermissionRequests } from './sessionRpc';
 import { SessionClient } from './session';
 import { TokenStore } from './tokenStore';
 import type { TokenSource } from './tokenStore';
-import { formatMachineTable, formatSessionTable, formatSessionStatus, formatMessageHistory, formatJson } from './output';
+import { formatMachineTable, formatSessionTable, formatSessionStatus, formatMessageHistory, formatJson, formatPermissionRequests } from './output';
 
 // --- Helpers ---
 
@@ -506,6 +507,59 @@ program
             '',
             `- Session ID: \`${session.id}\``,
         ].join('\n'));
+    });
+
+program
+    .command('permissions')
+    .description('List pending permission requests of a session')
+    .argument('<session-id>', 'Session ID or prefix')
+    .option('--json', 'Output as JSON')
+    .action(async (sessionId: string, opts: { json?: boolean }) => {
+        const config = loadConfig();
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        const requests = pendingPermissionRequests(session.agentState);
+        console.log(opts.json ? formatJson(requests) : formatPermissionRequests(session.id, requests));
+    });
+
+for (const [name, approved] of [['approve', true], ['deny', false]] as const) {
+    const command = program
+        .command(name)
+        .description(approved ? 'Approve a pending permission request' : 'Deny a pending permission request')
+        .argument('<session-id>', 'Session ID or prefix')
+        .argument('<request-id>', 'Permission request ID or prefix');
+    if (approved) command.option('--for-session', 'Approve this tool for the rest of the session');
+    command.action(async (sessionId: string, requestId: string, opts: { forSession?: boolean }) => {
+        const config = loadConfig();
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        const request = resolveByPrefix(pendingPermissionRequests(session.agentState), requestId, 'Request ID');
+        const decision = approved ? (opts.forSession ? 'approved_for_session' : 'approved') : 'denied';
+        const socket = await connectRpcSocket(config, tokens);
+        try {
+            await callSessionRpc(socket, session, 'permission', { id: request.id, approved, decision });
+        } finally {
+            socket.close();
+        }
+        console.log(`${approved ? 'Approved' : 'Denied'} ${request.tool} (${request.id}) in session ${session.id}`);
+    });
+}
+
+program
+    .command('abort')
+    .description('Abort the current turn of a session (the session keeps running)')
+    .argument('<session-id>', 'Session ID or prefix')
+    .action(async (sessionId: string) => {
+        const config = loadConfig();
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        const socket = await connectRpcSocket(config, tokens);
+        try {
+            await callSessionRpc(socket, session, 'abort', { reason: ABORT_REASON });
+        } finally {
+            socket.close();
+        }
+        console.log(`Aborted the current turn of session ${session.id}`);
     });
 
 program

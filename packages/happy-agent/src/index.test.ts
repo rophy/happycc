@@ -67,6 +67,16 @@ describe('happy-agent CLI', () => {
         expect(stdout).toContain('history');
         expect(stdout).toContain('stop');
         expect(stdout).toContain('wait');
+        expect(stdout).toContain('permissions');
+        expect(stdout).toContain('approve');
+        expect(stdout).toContain('deny');
+        expect(stdout).toContain('abort');
+    });
+
+    it('approve without arguments exits non-zero', () => {
+        const { exitCode, stderr } = runCli('approve');
+        expect(exitCode).not.toBe(0);
+        expect(stderr).toContain('missing required argument');
     });
 
     describe('list command', () => {
