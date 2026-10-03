@@ -1,9 +1,9 @@
 import { RoundButton } from "@/components/RoundButton";
 import { useAuth } from "@/auth/AuthContext";
-import { Text, View, Image, Platform } from "react-native";
+import { Text, View, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as React from 'react';
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 import { useIsLandscape } from "@/utils/responsive";
 import { Typography } from "@/constants/Typography";
 import { HomeHeaderNotAuth } from "@/components/HomeHeader";
@@ -16,6 +16,7 @@ import { isRunningOnMac } from '@/utils/platform';
 import { signIn } from "@/auth/signIn";
 import { OidcLoginError } from "@/auth/oidcLogin";
 import { Modal } from "@/modal";
+import { BrandLogotype } from "@/components/BrandLogotype";
 
 export default function Home() {
     const auth = useAuth();
@@ -48,7 +49,6 @@ function Authenticated() {
 }
 
 function NotAuthenticated() {
-    const { theme } = useUnistyles();
     const auth = useAuth();
     const isLandscape = useIsLandscape();
     const insets = useSafeAreaInsets();
@@ -73,13 +73,7 @@ function NotAuthenticated() {
         </View>
     );
 
-    const logo = (
-        <Image
-            source={theme.dark ? require('@/assets/images/logotype-light.png') : require('@/assets/images/logotype-dark.png')}
-            resizeMode="contain"
-            style={styles.logo}
-        />
-    );
+    const logo = <BrandLogotype />;
 
     const portraitLayout = (
         <View style={styles.portraitContainer}>
@@ -128,10 +122,6 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 32,
-    },
-    logo: {
-        width: 300,
-        height: 90,
     },
     title: {
         marginTop: 16,

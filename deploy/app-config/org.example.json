@@ -24,5 +24,9 @@
     "features": {
         "claudeConnect": false
     },
-    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js"
+    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js",
+    "brand": {
+        "name": "Acme Coder",
+        "fullName": "Acme Corporate Coder"
+    }
 }

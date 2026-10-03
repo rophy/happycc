@@ -30,7 +30,7 @@ FROM deps AS builder
 
 # The organization's app config (see docs/deploy-app.md): a path in the build
 # context under deploy/app-config/, e.g. deploy/app-config/acme.json. Files the
-# config references (assetsDir) must live under deploy/app-config/ too.
+# config references (assetsDir, brand.logo) must live under deploy/app-config/ too.
 ARG APP_CONFIG=""
 ARG HAPPY_BUILD_COMMIT_SHA=""
 ARG HAPPY_BUILD_COMMIT_TIMESTAMP=""

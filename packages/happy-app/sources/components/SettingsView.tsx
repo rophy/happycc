@@ -27,6 +27,7 @@ import { useProfile } from '@/sync/storage';
 import { getDisplayName, getAvatarUrl, getBio } from '@/sync/profile';
 import { Avatar } from '@/components/Avatar';
 import { t } from '@/text';
+import { BrandLogotype } from '@/components/BrandLogotype';
 
 type BuildConfig = {
     buildCommitSha?: unknown;
@@ -199,11 +200,9 @@ export const SettingsView = React.memo(function SettingsView({
                     ) : (
                         // Logo view: Original logo + version
                         <>
-                            <Image
-                                source={theme.dark ? require('@/assets/images/logotype-light.png') : require('@/assets/images/logotype-dark.png')}
-                                contentFit="contain"
-                                style={{ width: 300, height: 90, marginBottom: 12 }}
-                            />
+                            <View style={{ marginBottom: 12 }}>
+                                <BrandLogotype />
+                            </View>
                         </>
                     )}
                 </View>

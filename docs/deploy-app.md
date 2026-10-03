@@ -26,7 +26,7 @@ each key. Relative paths inside the file resolve against the file's own director
 
 | Key | Required | Default | Purpose |
 |---|---|---|---|
-| `name` | no | `Happy (dev)` / `Happy (preview)` / `Happy` | Display name. |
+| `name` | no | `brand.name`, plus ` (dev)` / ` (preview)` outside production | Display name (home screen, web page title). |
 | `slug` | no | `happy` | Expo slug (lowercase, digits, dashes). Must match the slug of your EAS project. |
 | `bundleId` | production | `com.example.happy.dev` / `.preview` | iOS bundle id and Android package. |
 | `scheme` | production | `happy-dev` / `happy-preview` | URL scheme. Native sign-in returns to `<scheme>://auth/callback`. |
@@ -46,6 +46,14 @@ each key. Relative paths inside the file resolve against the file's own director
 | `features.claudeConnect` | no | `false` | `true` shows the Claude.ai account connect screen, which talks to claude.ai directly. |
 | `mermaidScriptUrl` | no | none | `https://` URL of a `mermaid.min.js` build, used by the native (iOS/Android) mermaid diagram renderer. Without it, native renders mermaid blocks as plain code instead of loading any script. There is no default CDN. Recommended: host an exact-version build yourself (e.g. `https://assets.example.com/mermaid@11.3.0/mermaid.min.js`). Web always uses the bundled `mermaid` package and ignores this key. |
 | `logServerUrl` | no | none | Development tooling: `http://` or `https://` receiver for the app's remote console logs (`pnpm app-logs`). Rejected in production builds. |
+| `brand.name` | no | `happycc` | Short product name. Replaces the whole word `Happy` in the app's UI text. |
+| `brand.fullName` | no | `Happy Corporate Coder` | Full product name. Replaces the whole words `Happy Coder` in the app's UI text. |
+| `brand.logo` | no | none | Path to a `.png`, `.jpg` or `.webp` wordmark (at most 256 KB) shown on the sign-in screen and in Settings, in a 300×90 box. It is embedded in the build as a data URI. Without it, `brand.name` is shown as text. Use an image that reads on both light and dark backgrounds. |
+
+The `brand` names are substituted when text is displayed, in every language,
+after any values (session or machine names) are filled in: a capitalized
+standalone `Happy` in such a value is replaced too. Lowercase `happy` (commands,
+URLs) and words that only contain `Happy` are left alone.
 
 Links (`links.*`) must be `https://` (`http://localhost`/`http://127.0.0.1` is
 accepted outside production). An absent link hides its row; there is no fallback
@@ -80,7 +88,11 @@ Example, also committed as `deploy/app-config/org.example.json` (a test keeps it
     "features": {
         "claudeConnect": false
     },
-    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js"
+    "mermaidScriptUrl": "https://assets.example.com/mermaid@11.3.0/mermaid.min.js",
+    "brand": {
+        "name": "Acme Coder",
+        "fullName": "Acme Corporate Coder"
+    }
 }
 ```
 
@@ -94,6 +106,10 @@ APP_ENV=production APP_CONFIG=../../deploy/app-config/acme.json eas build --plat
 For EAS cloud builds, the file must be part of the uploaded project, and
 `APP_CONFIG` set in the `eas.json` build profile's `env` or as an EAS environment
 variable.
+
+`eas.json` carries no submit credentials. Add your own Apple account to the
+`submit` profiles you use (`appleId`, `ascAppId`, `appleTeamId` under `ios`), or
+pass them to `eas submit`.
 
 ## What's New
 
@@ -112,7 +128,7 @@ The newest section's title marks the notes unread: when it changes, existing ins
   other redirect URI.
 - `MOBILE_APP_NAME` (optional) is the app name shown on the sign-in confirmation
   page phones see before a code is issued, e.g. `Acme Happy`. Defaults to
-  `the Happy app`.
+  `the happycc app`.
 - `WEBAPP_URL` is the origin the web app is served from, e.g.
   `https://happy.example.com`. Web sign-in returns to `${WEBAPP_URL}/auth/callback`.
 - `AUTH_ACCESS_TOKEN_TTL` must stay well above the clients' 2-minute refresh margin

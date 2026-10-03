@@ -17,6 +17,8 @@ export interface AppConfig {
     termsUrl?: string;
     helpUrl?: string;
     logServerUrl?: string;
+    /** Product names (and logo, as a data URI) shown in place of the upstream ones. */
+    brand?: { name: string; fullName: string; logo?: string };
 }
 
 /**

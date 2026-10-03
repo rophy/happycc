@@ -11,6 +11,10 @@ import { ja } from './translations/ja';
 import * as Localization from 'expo-localization';
 import { loadSettings } from '@/sync/persistence';
 import { type SupportedLanguage, SUPPORTED_LANGUAGES, SUPPORTED_LANGUAGE_CODES, DEFAULT_LANGUAGE } from './_all';
+import { applyBrand, DEFAULT_BRAND } from './brand';
+import { config } from '@/config';
+
+const brand = config.brand ?? DEFAULT_BRAND;
 
 /**
  * Extract all possible dot-notation keys from the nested translation object
@@ -189,12 +193,12 @@ export function t<K extends TranslationKey>(
         // If it's a function, call it with the provided parameters
         if (typeof value === 'function') {
             const params = args[0];
-            return value(params);
+            return applyBrand(value(params), brand);
         }
 
         // If it's a string constant, return it directly
         if (typeof value === 'string') {
-            return value;
+            return applyBrand(value, brand);
         }
 
         // Fallback for unexpected types

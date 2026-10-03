@@ -8,7 +8,7 @@ const { buildExpoConfig } = require('../expoConfig.cjs') as {
     buildExpoConfig: (
         env: Record<string, string | undefined>,
         meta?: Record<string, string>,
-        options?: { configFile?: { path: string; contents: string } | null; projectRoot?: string },
+        options?: { configFile?: { path: string; contents: string } | null; projectRoot?: string; readFile?: (file: string) => Buffer },
     ) => { expo: any };
 };
 
@@ -32,7 +32,7 @@ const UPSTREAM_IDENTIFIERS = ['com.slopus', 'com.ex3ndr', 'bulkacorp', '4558dd3d
 describe('buildExpoConfig', () => {
     it('builds development without a config file, with placeholder identities and no upstream identifiers', () => {
         const { expo } = buildExpoConfig({});
-        expect(expo.name).toBe('Happy (dev)');
+        expect(expo.name).toBe('happycc (dev)');
         expect(expo.slug).toBe('happy');
         expect(expo.scheme).toBe('happy-dev');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
@@ -53,14 +53,14 @@ describe('buildExpoConfig', () => {
 
     it('builds preview with its own placeholders', () => {
         const { expo } = buildExpoConfig({ APP_ENV: 'preview' });
-        expect(expo.name).toBe('Happy (preview)');
+        expect(expo.name).toBe('happycc (preview)');
         expect(expo.scheme).toBe('happy-preview');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.preview');
     });
 
     it('lets a development config file override only what it sets', () => {
         const expo = build({ serverUrl: 'http://localhost:3006' }, {});
-        expect(expo.name).toBe('Happy (dev)');
+        expect(expo.name).toBe('happycc (dev)');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
         expect(expo.extra.app.serverUrl).toBe('http://localhost:3006');
     });
@@ -241,7 +241,7 @@ describe('buildExpoConfig', () => {
             EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_env', EXPO_PUBLIC_ENABLE_CLAUDE_CONNECT: '1',
             EXPO_PUBLIC_LOG_SERVER_URL: 'http://localhost:8787',
         });
-        expect(expo.name).toBe('Happy (dev)');
+        expect(expo.name).toBe('happycc (dev)');
         expect(expo.ios.bundleIdentifier).toBe('com.example.happy.dev');
         expect(expo.extra.app.serverUrl).toBeUndefined();
         expect(expo.extra.app.postHogKey).toBeUndefined();
@@ -259,7 +259,39 @@ describe('buildExpoConfig', () => {
                 projectRoot,
             });
             expect(expo.extra.app.serverUrl).toMatch(/^https?:\/\//);
+            expect(expo.extra.app.brand.name).toBeTruthy();
         }
+    });
+
+    it('names the app after the brand, with the default brand when none is set', () => {
+        expect(build(productionConfig).name).toBe('happycc');
+        expect(build(productionConfig).extra.app.brand).toEqual({ name: 'happycc', fullName: 'Happy Corporate Coder' });
+        const expo = build({ ...productionConfig, brand: { name: 'Acme', fullName: 'Acme Coder Pro' } });
+        expect(expo.name).toBe('Acme');
+        expect(expo.extra.app.brand).toEqual({ name: 'Acme', fullName: 'Acme Coder Pro' });
+        expect(build({ brand: { name: 'Acme' } }, { APP_ENV: 'preview' }).name).toBe('Acme (preview)');
+        expect(build({ ...productionConfig, name: 'Acme App', brand: { name: 'Acme' } }).name).toBe('Acme App');
+    });
+
+    it('embeds the brand logo, resolved against the config file, as a data URI', () => {
+        const read: string[] = [];
+        const readFile = (file: string) => {
+            read.push(file);
+            return Buffer.from('png-bytes');
+        };
+        const contents = JSON.stringify({ ...productionConfig, brand: { logo: 'brand/logo.PNG' } });
+        const { expo } = buildExpoConfig({ APP_ENV: 'production' }, {}, { configFile: { path: CONFIG_PATH, contents }, projectRoot: PROJECT_ROOT, readFile });
+        expect(read).toEqual(['/repo/deploy/app-config/brand/logo.PNG']);
+        expect(expo.extra.app.brand.logo).toBe(`data:image/png;base64,${Buffer.from('png-bytes').toString('base64')}`);
+    });
+
+    it('rejects a logo that is not a raster image, too large or unreadable', () => {
+        expect(() => build({ ...productionConfig, brand: { logo: 'logo.svg' } })).toThrow(/brand\.logo: must be a \.png, \.jpg or \.webp image/);
+        expect(() => build({ ...productionConfig, brand: { name: '' } })).toThrow(/brand\.name: must be a non-empty string/);
+        const contents = JSON.stringify({ ...productionConfig, brand: { logo: 'logo.jpg' } });
+        const options = (readFile: () => Buffer) => ({ configFile: { path: CONFIG_PATH, contents }, projectRoot: PROJECT_ROOT, readFile });
+        expect(() => buildExpoConfig({ APP_ENV: 'production' }, {}, options(() => Buffer.alloc(256 * 1024 + 1)))).toThrow(/brand\.logo: .* the limit is 262144/);
+        expect(() => buildExpoConfig({ APP_ENV: 'production' }, {}, options(() => { throw new Error('ENOENT'); }))).toThrow(/brand\.logo: cannot read .*logo\.jpg: ENOENT/);
     });
 
     it('rejects an unknown APP_ENV', () => {

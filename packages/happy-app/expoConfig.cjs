@@ -1,20 +1,33 @@
 /**
  * Builds the Expo config from APP_ENV and the organization's app config file
- * (APP_CONFIG, a JSON path). Pure: app.config.js reads the file and passes its
- * contents in; sources/appConfig.test.ts passes fixtures.
+ * (APP_CONFIG, a JSON path). Pure apart from reading the brand logo through
+ * options.readFile: app.config.js reads the file and passes its contents in;
+ * sources/appConfig.test.ts passes fixtures.
  *
  * Every identity value is build-time configuration (spec §3 "Mobile builds").
  * Production refuses to build without its own identity; development and preview
  * fall back to placeholders under the reserved example.com namespace, never to
  * upstream identifiers.
  */
+const fs = require('node:fs');
 const path = require('node:path');
 
 const VARIANTS = {
-    development: { name: 'Happy (dev)', bundleId: 'com.example.happy.dev', scheme: 'happy-dev', consoleLoggingDefault: true },
-    preview: { name: 'Happy (preview)', bundleId: 'com.example.happy.preview', scheme: 'happy-preview', consoleLoggingDefault: true },
-    production: { name: 'Happy', bundleId: null, scheme: null, consoleLoggingDefault: false },
+    development: { nameSuffix: ' (dev)', bundleId: 'com.example.happy.dev', scheme: 'happy-dev', consoleLoggingDefault: true },
+    preview: { nameSuffix: ' (preview)', bundleId: 'com.example.happy.preview', scheme: 'happy-preview', consoleLoggingDefault: true },
+    production: { nameSuffix: '', bundleId: null, scheme: null, consoleLoggingDefault: false },
 };
+
+/** Product names the app shows in place of the upstream ones (`brand` in the config). */
+const DEFAULT_BRAND = { name: 'happycc', fullName: 'Happy Corporate Coder' };
+
+/**
+ * The brand logo is embedded in the manifest as a data URI, so native and web
+ * get it from the same `extra` without a build-time copy into the bundle.
+ * Hence raster formats React Native's Image decodes, and a size cap.
+ */
+const LOGO_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+const LOGO_MAX_BYTES = 256 * 1024;
 
 const PRODUCTION_REQUIRED = ['bundleId', 'scheme', 'serverUrl'];
 
@@ -72,6 +85,10 @@ const KINDS = {
         return v;
     },
     path: (v, ctx) => ctx.resolvePath(v),
+    logo: (v, ctx) => {
+        if (!LOGO_TYPES[path.extname(v).toLowerCase()]) throw 'must be a .png, .jpg or .webp image';
+        return ctx.resolvePath(v);
+    },
     // Plain http is for local and LAN servers; production allows it only for
     // localhost (the e2e web build), since iOS ATS blocks it elsewhere anyway.
     serverUrl: (v, ctx) => {
@@ -122,6 +139,7 @@ const APP_CONFIG_SCHEMA = {
     features: { claudeConnect: 'boolean' },
     mermaidScriptUrl: 'mermaidScriptUrl',
     logServerUrl: 'logServerUrl',
+    brand: { name: 'string', fullName: 'string', logo: 'logo' },
 };
 
 /** Keys that accept null, meaning "hide this". */
@@ -203,11 +221,27 @@ function envValue(env, name) {
     return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
 }
 
+/** Reads the brand logo (a path relative to the project root) into a data URI. */
+function logoDataUri(logo, projectRoot, readFile) {
+    const file = path.resolve(projectRoot, logo);
+    let bytes;
+    try {
+        bytes = readFile(file);
+    } catch (e) {
+        throw new Error(`APP_CONFIG brand.logo: cannot read ${file}: ${e.message}`);
+    }
+    if (bytes.length > LOGO_MAX_BYTES) {
+        throw new Error(`APP_CONFIG brand.logo: ${file} is ${bytes.length} bytes; the limit is ${LOGO_MAX_BYTES}`);
+    }
+    return `data:${LOGO_TYPES[path.extname(file).toLowerCase()]};base64,${Buffer.from(bytes).toString('base64')}`;
+}
+
 /**
  * @param env process environment; only APP_ENV is read.
  * @param buildMetadata git commit info for the Settings version row.
  * @param options.configFile `{ path, contents }` of the APP_CONFIG file, or null.
  * @param options.projectRoot directory app.config.js lives in (defaults to this file's).
+ * @param options.readFile reads the brand logo (defaults to fs.readFileSync).
  */
 function buildExpoConfig(env, buildMetadata = {}, options = {}) {
     const variant = envValue(env, 'APP_ENV') || 'development';
@@ -227,7 +261,8 @@ function buildExpoConfig(env, buildMetadata = {}, options = {}) {
         }
     }
 
-    const name = cfg.name || defaults.name;
+    const brand = { ...DEFAULT_BRAND, ...cfg.brand };
+    const name = cfg.name || `${brand.name}${defaults.nameSuffix}`;
     const slug = cfg.slug || 'happy';
     const bundleId = cfg.bundleId || defaults.bundleId;
     const scheme = cfg.scheme || defaults.scheme;
@@ -370,6 +405,11 @@ function buildExpoConfig(env, buildMetadata = {}, options = {}) {
                 termsUrl: links.terms ?? undefined,
                 helpUrl: links.help ?? undefined,
                 logServerUrl: cfg.logServerUrl,
+                brand: {
+                    name: brand.name,
+                    fullName: brand.fullName,
+                    ...(brand.logo ? { logo: logoDataUri(brand.logo, projectRoot, options.readFile || fs.readFileSync) } : {}),
+                },
                 buildCommitSha: buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,
             },
