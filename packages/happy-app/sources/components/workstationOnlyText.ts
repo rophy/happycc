@@ -3,5 +3,5 @@
 /** Shown by a route the workstation-only build disables. */
 export const NOT_AVAILABLE_IN_BUILD = 'Not available in this build';
 
-/** Sessions are only ever started from the workstation. */
-export const WORKSTATION_ONLY_START_HINT = 'Start `happycc` in a folder on your workstation; the session appears here.';
+/** Sessions are only ever started from the workstation. Plain text: it renders in a Text. */
+export const WORKSTATION_ONLY_START_HINT = 'Start happycc in a folder on your workstation; the session appears here.';
