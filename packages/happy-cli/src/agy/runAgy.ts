@@ -32,6 +32,7 @@ import { MessageBuffer } from '@/ui/ink/messageBuffer';
 import { AgyDisplay } from '@/ui/ink/AgyDisplay';
 import type { AgentMessage } from '@/agent/core';
 import { normalizeRemotePermissionMode } from '@/claude/utils/permissionMode';
+import { capPermissionMode } from '@/utils/permissionModeCeiling';
 import { AgyBackend } from './AgyBackend';
 import {
   DEFAULT_AGY_EFFORT,
@@ -120,9 +121,10 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
   let selectedEffort = DEFAULT_AGY_EFFORT;
   let displayedModel = resolveAgyModelName(selectedModel, selectedEffort);
 
+  const STARTING_PERMISSION_MODE = 'default';
   const backend = new AgyBackend({
     cwd: process.cwd(),
-    permissionMode: 'default',
+    permissionMode: STARTING_PERMISSION_MODE,
     model: selectedModel,
     effort: selectedEffort,
     log,
@@ -204,7 +206,12 @@ export async function runAgy(opts: RunAgyOptions): Promise<void> {
     if (message.meta?.permissionMode) {
       const mode = normalizeRemotePermissionMode(message.meta.permissionMode);
       if (mode) {
-        backend.setPermissionMode(mode);
+        // The backend starts in 'default'; the app may lower that, never raise it.
+        if (capPermissionMode(mode, STARTING_PERMISSION_MODE).capped) {
+          messageBuffer.addMessage(`Ignored a request from the app to raise the permission mode to ${mode}.`, 'status');
+        } else {
+          backend.setPermissionMode(mode);
+        }
       }
     }
     let selectionChanged = false;

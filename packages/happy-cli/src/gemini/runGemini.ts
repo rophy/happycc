@@ -40,6 +40,7 @@ import { GeminiReasoningProcessor } from '@/gemini/utils/reasoningProcessor';
 import { GeminiDiffProcessor } from '@/gemini/utils/diffProcessor';
 import type { GeminiMode, CodexMessagePayload } from '@/gemini/types';
 import type { PermissionMode } from '@/api/types';
+import { capPermissionMode } from '@/utils/permissionModeCeiling';
 import { GEMINI_MODEL_ENV, DEFAULT_GEMINI_MODEL, CHANGE_TITLE_INSTRUCTION } from '@/gemini/constants';
 import {
   readGeminiLocalConfig,
@@ -215,6 +216,8 @@ export async function runGemini(opts: {
   const conversationHistory = new ConversationHistory({ maxMessages: 20, maxCharacters: 50000 });
 
   // Track current overrides to apply per message
+  // The app may lower a session's permission mode but never raise it above the starting one.
+  const startingPermissionMode: PermissionMode = 'default';
   let currentPermissionMode: PermissionMode | undefined = undefined;
   let currentModel: string | undefined = undefined;
 
@@ -223,7 +226,11 @@ export async function runGemini(opts: {
     let messagePermissionMode = currentPermissionMode;
     if (message.meta?.permissionMode) {
       const validModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-      if (validModes.includes(message.meta.permissionMode as PermissionMode)) {
+      const requestedMode = message.meta.permissionMode;
+      if (validModes.includes(requestedMode as PermissionMode) && capPermissionMode(requestedMode, startingPermissionMode).capped) {
+        logger.debug(`[Gemini] Ignoring request to raise permission mode to ${requestedMode}`);
+        messageBuffer.addMessage(`Ignored a request from the app to raise the permission mode to ${requestedMode}.`, 'status');
+      } else if (validModes.includes(requestedMode as PermissionMode)) {
         messagePermissionMode = message.meta.permissionMode as PermissionMode;
         currentPermissionMode = messagePermissionMode;
         // Update permission handler with new mode

@@ -33,6 +33,7 @@ import {
     type ClaudeGoalStatusTranscriptEvent,
 } from '@/claude/claudeGoalStatus';
 import { Session } from './session';
+import { capPermissionMode } from '@/utils/permissionModeCeiling';
 import { applySandboxPermissionPolicy, normalizeRemotePermissionMode, resolveInitialClaudePermissionMode, resolveRemoteClaudePermissionMode } from './utils/permissionMode';
 import { decodeBase64, encodeBase64 } from '@/api/encryption';
 import type { Session as ApiSession } from '@/api/types';
@@ -671,9 +672,17 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         let messagePermissionMode: PermissionMode | undefined = currentPermissionMode;
         if (message.meta?.permissionMode) {
             const previousPermissionMode = currentPermissionMode;
+            // The app may lower the starting mode (sandbox-forced bypass counts as
+            // the starting mode), never raise it; a capped request is ignored.
+            const requestedPermissionMode = normalizeRemotePermissionMode(message.meta.permissionMode);
+            const capped = requestedPermissionMode !== undefined
+                && capPermissionMode(requestedPermissionMode, initialPermissionMode).capped;
+            if (capped) {
+                console.log(`Ignored a request from the app to raise the permission mode to ${requestedPermissionMode}.`);
+            }
             messagePermissionMode = resolveRemoteClaudePermissionMode(
                 currentPermissionMode,
-                normalizeRemotePermissionMode(message.meta.permissionMode),
+                capped ? undefined : requestedPermissionMode,
                 sandboxEnabled,
             );
             currentPermissionMode = messagePermissionMode;

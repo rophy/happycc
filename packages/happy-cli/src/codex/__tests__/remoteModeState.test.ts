@@ -64,7 +64,7 @@ describe('CodexRemoteModeState', () => {
 
     it('restores all app-selected values on the first message after abort', () => {
         const state = new CodexRemoteModeState({
-            permissionMode: 'safe-yolo',
+            permissionMode: 'yolo',
             model: 'gpt-5.6-sol',
             effort: 'medium',
         });
@@ -115,6 +115,26 @@ describe('CodexRemoteModeState', () => {
             effort: 'medium',
             permission: { kind: 'ignored', incoming: 'plan' },
             effortResolution: { kind: 'ignored', incoming: 'impossible' },
+        });
+    });
+
+    it('never raises the permission mode above the starting one', () => {
+        const state = new CodexRemoteModeState({ permissionMode: 'auto' });
+
+        expect(state.resolve({ permissionMode: 'yolo' })).toMatchObject({
+            permissionMode: 'auto',
+            permission: { kind: 'capped', incoming: 'yolo' },
+        });
+        expect(state.currentPermissionModeExplicitlySet).toBe(false);
+
+        expect(state.resolve({ permissionMode: 'read-only' })).toMatchObject({
+            permissionMode: 'read-only',
+            permission: { kind: 'updated' },
+        });
+        // Lowered below the ceiling: a capped request keeps the current mode.
+        expect(state.resolve({ permissionMode: 'yolo' })).toMatchObject({
+            permissionMode: 'read-only',
+            permission: { kind: 'capped', incoming: 'yolo' },
         });
     });
 });

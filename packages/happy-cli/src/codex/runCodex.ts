@@ -302,6 +302,9 @@ export async function runCodex(opts: {
         const modeResolution = remoteModeState.resolve(message.meta);
         if (modeResolution.permission.kind === 'updated') {
             logger.debug(`[Codex] Permission mode updated from user message to: ${modeResolution.permissionMode}`);
+        } else if (modeResolution.permission.kind === 'capped') {
+            logger.debug(`[Codex] Ignoring request to raise permission mode to ${modeResolution.permission.incoming}`);
+            messageBuffer.addMessage(`Ignored a request from the app to raise the permission mode to ${modeResolution.permission.incoming}.`, 'status');
         } else if (modeResolution.permission.kind === 'ignored') {
             logger.debug(`[Codex] Ignoring invalid permission mode from user message: ${String(modeResolution.permission.incoming)}`);
         } else {

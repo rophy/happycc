@@ -1,6 +1,7 @@
 import type { MessageMeta, PermissionMode } from '@/api/types';
 
 import type { ReasoningEffort } from './codexAppServerTypes';
+import { capPermissionMode } from '@/utils/permissionModeCeiling';
 import { isRemoteCodexPermissionMode } from './executionPolicy';
 
 const VALID_REMOTE_EFFORTS: readonly ReasoningEffort[] = [
@@ -10,7 +11,8 @@ const VALID_REMOTE_EFFORTS: readonly ReasoningEffort[] = [
 type Resolution<T> =
     | { kind: 'updated'; value: T }
     | { kind: 'retained'; value: T }
-    | { kind: 'ignored'; incoming: unknown; value: T };
+    | { kind: 'ignored'; incoming: unknown; value: T }
+    | { kind: 'capped'; incoming: string; value: T };
 
 export type CodexRemoteModeResolution = {
     permissionMode: PermissionMode;
@@ -50,7 +52,15 @@ export class CodexRemoteModeState {
     resolve(meta: MessageMeta | undefined): CodexRemoteModeResolution {
         let permission: Resolution<PermissionMode>;
         if (meta?.permissionMode) {
-            if (isRemoteCodexPermissionMode(meta.permissionMode)) {
+            if (isRemoteCodexPermissionMode(meta.permissionMode)
+                && capPermissionMode(meta.permissionMode, this.initialPermissionMode).capped) {
+                // The app may lower the starting mode, never raise it: keep the current mode.
+                permission = {
+                    kind: 'capped',
+                    incoming: meta.permissionMode,
+                    value: this.currentPermissionMode,
+                };
+            } else if (isRemoteCodexPermissionMode(meta.permissionMode)) {
                 this.currentPermissionMode = meta.permissionMode;
                 this.currentPermissionModeExplicitlySet = true;
                 permission = { kind: 'updated', value: this.currentPermissionMode };
