@@ -137,4 +137,17 @@ describe('CodexRemoteModeState', () => {
             permission: { kind: 'capped', incoming: 'yolo' },
         });
     });
+
+    it('lets an auto start lower to default but not raise to safe-yolo', () => {
+        const state = new CodexRemoteModeState({ permissionMode: 'auto' });
+
+        expect(state.resolve({ permissionMode: 'safe-yolo' })).toMatchObject({
+            permissionMode: 'auto',
+            permission: { kind: 'capped', incoming: 'safe-yolo' },
+        });
+        expect(state.resolve({ permissionMode: 'default' })).toMatchObject({
+            permissionMode: 'default',
+            permission: { kind: 'updated' },
+        });
+    });
 });

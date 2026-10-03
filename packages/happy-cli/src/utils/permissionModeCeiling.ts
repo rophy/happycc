@@ -1,12 +1,14 @@
 /**
  * Permission modes ranked from safest to most permissive, across agent families.
  * A session's starting mode is its ceiling: the app may lower it, never raise it.
+ * `auto` runs tools without prompting, so it ranks above `default`.
  */
 const RANK: Record<string, number> = {
     plan: 0, 'read-only': 0,
-    default: 1, auto: 1,
-    acceptEdits: 2, 'safe-yolo': 2,
-    bypassPermissions: 3, yolo: 3,
+    default: 1,
+    auto: 2,
+    acceptEdits: 3, 'safe-yolo': 3,
+    bypassPermissions: 4, yolo: 4,
 };
 
 export function permissionModeRank(mode: string): number | undefined {

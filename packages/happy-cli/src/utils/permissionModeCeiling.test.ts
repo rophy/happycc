@@ -13,12 +13,18 @@ describe('capPermissionMode', () => {
         ['turbo', 'yolo', 'yolo', true],
         ['acceptEdits', undefined, 'default', true],
         ['plan', undefined, 'plan', false],
+        ['auto', 'default', 'default', true],
+        ['default', 'auto', 'default', false],
+        ['auto', 'acceptEdits', 'auto', false],
     ])('requested %s with ceiling %s → %s (capped=%s)', (requested, ceiling, mode, capped) => {
         expect(capPermissionMode(requested, ceiling)).toMatchObject({ mode, capped });
     });
     it('ranks known modes and not unknown ones', () => {
         expect(permissionModeRank('plan')).toBe(0);
-        expect(permissionModeRank('yolo')).toBe(3);
+        expect(permissionModeRank('default')).toBe(1);
+        expect(permissionModeRank('auto')).toBe(2);
+        expect(permissionModeRank('acceptEdits')).toBe(3);
+        expect(permissionModeRank('yolo')).toBe(4);
         expect(permissionModeRank('turbo')).toBeUndefined();
     });
     it('distinguishes why a request was capped', () => {
