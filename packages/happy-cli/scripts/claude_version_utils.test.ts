@@ -279,14 +279,17 @@ describe('Claude Version Utils - Cross-Platform Detection', () => {
 
   describe('getVersion', () => {
     it('falls back to --version for native binaries without adjacent package.json', () => {
-      const testCliPath = `/tmp/test-claude-version-${process.pid}-${Date.now()}`;
+      // A directory of its own: a package.json next to the binary (e.g. a stray /tmp/package.json)
+      // would be read instead of running --version.
+      const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-claude-version-'));
+      const testCliPath = path.join(testDir, 'claude');
       fs.writeFileSync(testCliPath, '#!/bin/sh\necho "2.1.177 (Claude Code)"\n');
       fs.chmodSync(testCliPath, 0o755);
 
       try {
         expect(getVersion(testCliPath)).toBe('2.1.177');
       } finally {
-        fs.unlinkSync(testCliPath);
+        fs.rmSync(testDir, { recursive: true, force: true });
       }
     });
   });
