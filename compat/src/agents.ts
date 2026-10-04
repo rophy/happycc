@@ -1,7 +1,7 @@
 /** The agents under test, how each one is started on the cli device, and which scenarios do not apply to it. */
 
 export type AgentId = 'claude' | 'opencode' | 'pi';
-export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'blocked-spawn' | 'blocked-shell' | 'offline-start' | 'resume' | 'spawn';
+export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'blocked-spawn' | 'blocked-shell' | 'offline-start' | 'workstation-resume' | 'resume' | 'spawn';
 
 export type AgentDef = {
     label: string;
@@ -14,6 +14,7 @@ export type AgentDef = {
 };
 
 const NO_START = 'Removed in the workstation-only build: the app cannot start or resume sessions.';
+const NO_ACP_RESUME = '`happycc resume` supports Claude Code and Codex sessions only; ACP sessions cannot be resumed yet (docs/happycc-roadmap.md).';
 const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
 
 const BUG_ACP_ABORT = '#4: aborting mid-reply crashes the ACP runner';
@@ -38,6 +39,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
         unsupported: {
             spawn: NO_START,
             resume: NO_START,
+            'workstation-resume': NO_ACP_RESUME,
         },
         knownBugs: { abort: BUG_ACP_ABORT },
     },
@@ -47,6 +49,7 @@ export const AGENTS: Record<AgentId, AgentDef> = {
         unsupported: {
             spawn: NO_START,
             resume: NO_START,
+            'workstation-resume': NO_ACP_RESUME,
             'tool-allow': NO_PI_PROMPTS,
             'tool-deny': NO_PI_PROMPTS,
         },

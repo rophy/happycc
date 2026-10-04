@@ -17,8 +17,8 @@ describe('renderMatrix', () => {
 
     it('renders a header row with agent labels and scenario rows in order', () => {
         expect(md).toContain('| Scenario | Claude Code | OpenCode | Pi |');
-        const rows = md.split('\n').filter(l => /^\| (roundtrip|tool-allow|tool-deny|abort|kill|blocked-spawn|blocked-shell|offline-start|resume|spawn) /.test(l));
-        expect(rows.map(r => r.split(' ')[1])).toEqual(['roundtrip', 'tool-allow', 'tool-deny', 'abort', 'kill', 'blocked-spawn', 'blocked-shell', 'offline-start', 'resume', 'spawn']);
+        const rows = md.split('\n').filter(l => /^\| (roundtrip|tool-allow|tool-deny|abort|kill|blocked-spawn|blocked-shell|offline-start|workstation-resume|resume|spawn) /.test(l));
+        expect(rows.map(r => r.split(' ')[1])).toEqual(['roundtrip', 'tool-allow', 'tool-deny', 'abort', 'kill', 'blocked-spawn', 'blocked-shell', 'offline-start', 'workstation-resume', 'resume', 'spawn']);
     });
     it('renders each cell state', () => {
         expect(md).toContain('| roundtrip | ✅ | — | — |');

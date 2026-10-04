@@ -5,7 +5,7 @@ import {
     startSession, startDetached, newestSessionSince, sendAndWait, historyText, stopSession, killSession, cleanupAgentProcesses,
     awaitTurnEnd, warmUp, turnEndCount, runnerPid, pidAlive, sessionActive,
 } from '../src/session';
-import { compose, exec, poll, shellQuote } from '../src/stack';
+import { compose, exec, execDetached, poll, shellQuote } from '../src/stack';
 
 let sessionId: string | undefined;
 
@@ -82,5 +82,25 @@ describe('lifecycle', () => {
         sessionId = await newestSessionSince(startedAt);
         await sendAndWait(sessionId, 'compat:hello', 60);
         expect(await historyText(sessionId)).toContain('COMPAT-HELLO-OK');
+    });
+
+    // Workstation resume: the terminal process ends, `happycc resume <id>` in a terminal reattaches to the same
+    // session (history kept) and the app can talk to it again. No daemon is involved.
+    forEachAgent('workstation-resume', async (agent) => {
+        sessionId = await startSession(agent, `/tmp/compat-${agent}-workstation-resume.log`);
+        const id = sessionId;
+        await warmUp(id);
+        const pid = await runnerPid(id);
+        await exec('cli', `kill ${pid}`);
+        await poll(async () => ((await sessionActive(id)) ? undefined : true),
+            { timeoutMs: 30_000, what: `session ${id} to report inactive` });
+
+        // Claude Code resumes in its terminal mode, so it needs a TTY: `script` provides one.
+        await execDetached('cli', `cd /workspace && exec script -qfc ${shellQuote(`happycc resume ${id}`)} /tmp/compat-${agent}-resumed.log < /dev/null > /dev/null 2>&1`);
+        await poll(async () => ((await sessionActive(id)) ? true : undefined),
+            { timeoutMs: 60_000, what: `session ${id} to be active again` });
+        await exec('app', `happycc-agent send ${shellQuote(id)} 'compat:hello'`);
+        await poll(async () => ((await historyText(id)).split('COMPAT-HELLO-OK').length - 1 >= 2 ? true : undefined),
+            { timeoutMs: 90_000, what: 'a reply from the resumed session next to the earlier one' });
     });
 });

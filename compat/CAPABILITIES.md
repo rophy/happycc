@@ -41,6 +41,7 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 | blocked-spawn | ✅ | ✅ | ✅ |
 | blocked-shell | ✅ | ✅ | ✅ |
 | offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✅ | ✅ |
+| workstation-resume | ✅ | N/A (no ACP resume) | N/A (no ACP resume) |
 | resume | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
 | spawn | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
 
@@ -181,6 +182,25 @@ are refused, and neither the marker nor the written file exists afterwards; the 
 --is-inside-work-tree` still answers. The list is `packages/happy-wire/src/sessionCommands.ts`.
 
 Outcome changes from the new boundary: none to the other cells (same matrix as before apart from resume/spawn).
+
+## Workstation resume
+
+Scenario `workstation-resume` (`tests/lifecycle.test.ts`): a session answers once, its runner is killed (`kill <hostPid>`),
+the session reports inactive, then `happycc resume <id>` is started in `/workspace` under `script` (Claude Code resumes in
+its terminal mode, which needs a TTY). Pass: the same session id reports active again and a new `compat:hello` is
+answered next to the earlier reply in the same history.
+
+Two fixes were needed:
+
+- **CLI:** only the daemon wrote the local session record (`~/.happycc/sessions.json`) that `happycc resume` reads, so
+  without a daemon resume always failed with "not found". The session now writes the record itself at start
+  (`notifyDaemonSessionStarted`), and no longer retries the absent daemon for 3 s.
+- **Server:** after a session stops, its heartbeats are ignored for 60 s; only `POST /v1/sessions` lifted that, and a
+  resumed session reconnects without it. A session-scoped socket connecting now lifts it, and an inactive session's first
+  heartbeat is written at once, so a session resumed right after closing goes active within seconds instead of a minute.
+
+OpenCode and Pi: N/A. `happycc resume` supports Claude Code and Codex sessions only (it fails with
+`unsupported flavor` for ACP sessions).
 
 ## Stack fixes
 

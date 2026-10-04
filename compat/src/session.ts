@@ -63,7 +63,7 @@ export async function killSession(sessionId: string): Promise<void> {
 export async function cleanupAgentProcesses(): Promise<void> {
     // Runners show up as `node …/happycc/dist/index.mjs acp …` (or `… claude --happy-starting-mode …`), not as `happycc acp …`.
     // The `[x]` keeps each pattern from matching the `sh -lc` running pkill, which would otherwise kill itself.
-    await exec('cli', 'pkill -f "[h]appycc(/dist/index\\.mjs)? (claude |acp|--happy-starting-mode)"; pkill -f "[o]pencode acp"; pkill -f "[p]i-acp"; true',
+    await exec('cli', 'pkill -f "[h]appycc(/dist/index\\.mjs)? (claude |acp|resume |--happy-starting-mode)"; pkill -f "[s]cript -qfc happycc"; pkill -f "[o]pencode acp"; pkill -f "[p]i-acp"; true',
         { allowFail: true });
 }
 
