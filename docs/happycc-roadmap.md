@@ -1,0 +1,43 @@
+# happycc Roadmap
+
+Future work for this fork. Upstream's own roadmap is [roadmap.md](roadmap.md).
+
+## Session titles
+
+### Rename a session from the app
+
+The app can show a session's title but not change it. A user rename should stay in step with the agent:
+
+- The app sends a session RPC (`rename`) to the running session, like `abort` and `permission`. Session-scoped,
+  so it fits the server's RPC registration rules.
+- The CLI applies it with the same code as the `change_title` MCP tool (`claude/utils/startHappyServer.ts`), so
+  there is one writer of `metadata.summary`.
+- The CLI tells the agent: it prefixes the next prompt with a note such as
+  `(The user renamed this chat to "X".)`. Without it, the agent only knows the title it last set itself and may
+  retitle as if the old one were current.
+- Works for every runner (Claude Code, Codex, Gemini, ACP).
+- Tests: CLI unit (RPC handler, prompt note), compat-suite rename scenario via `happycc-agent`, e2e for the
+  Rename UI.
+
+### Use the agent's own title
+
+Claude Code and OpenCode title sessions themselves (a separate small-model request), but happycc ignores those
+titles: Claude Code's `summary` transcript entries are dropped (`claude/utils/sessionProtocolMapper.ts`), and
+nothing reads an ACP agent's title. Only Claude Code is instructed to call `change_title`, so OpenCode and Pi
+sessions usually stay "New Chat". Options: forward the agent's native title, or add the `change_title`
+instruction to ACP prompts.
+
+## Security
+
+- **Session shell scope.** The session-scoped `bash` RPC runs any command and accepts any `cwd` (including `/`).
+  Options: restrict it to the session folder and refuse starting `happycc`/agents, or accept it as requiring the
+  account's own credentials. See [deployment.md](deployment.md).
+
+## Known agent bugs
+
+Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILITIES.md)):
+
+1. Claude Code: the first turn never gets a turn-end.
+2. Claude Code: a denied permission leaves the turn open.
+4. ACP: abort crashes the runner.
+5. ACP: turn end is detected by a 500 ms idle heuristic.
