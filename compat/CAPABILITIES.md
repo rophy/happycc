@@ -36,7 +36,7 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 | roundtrip | ❌ #1 | ✅ | ✅ |
 | tool-allow | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | tool-deny | ❌ #2 | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
-| abort | ✅ | ❌ #4 | ❌ #4 |
+| abort | ✅ | ✅ | ✅ |
 | kill | ✅ | ✅ | ✅ |
 | blocked-spawn | ✅ | ✅ | ✅ |
 | blocked-shell | ✅ | ✅ | ✅ |
@@ -148,8 +148,8 @@ OpenCode and Pi: see bug 4.
 ## Scenarios 4-6 (`tests/lifecycle.test.ts`)
 
 - abort: Claude passes (`turn-end` after the abort, no `COMPAT-SLOW-END`, a following `compat:hello` is answered).
-  OpenCode and Pi are known-bug #4 cells: after `abort`, no `turn-end` within 30 s, the runner pid
-  (`metadata.hostPid`) is gone and the session is still `active`. The "started" signal is a 5 s delay after the
+  OpenCode and Pi pass too since bug 4 was fixed; before that they were known-bug #4 cells: after `abort`, no
+  `turn-end` within 30 s, the runner pid (`metadata.hostPid`) is gone and the session is still `active`. The "started" signal is a 5 s delay after the
   message reaches the session, not the reply text: Pi delivers the whole reply as one text event only when it is
   complete (seen at ~20 s), and Claude's first turn emits no new `turn-start` (bug 1).
 - kill: passes on all three agents. `happycc-agent kill S` calls the `killSession` session RPC with `{}`, as the
@@ -257,7 +257,9 @@ Harness findings (in `src/session.ts`):
    runner was still in `ps` and a following `compat:hello` was still answered. The kill scenario now uses
    `happycc-agent kill` (the `killSession` RPC), which stops the runner on all three agents, so the matrix has no
    bug-3 cells. `stop` is unchanged; the happy-agent README documents the difference.
-4. **ACP abort mid-reply crashes the runner (OpenCode, Pi).** `abort S` during `compat:slow` →
+4. **Fixed: ACP abort mid-reply crashed the runner (OpenCode, Pi).** Fixed by adopting upstream PR slopus/happy#1526
+   (issue slopus/happy#1458): a `stopped` status that follows a user abort with detail `Cancelled by user` now ends the
+   turn as `cancelled` and keeps the runner; the abort cells pass for both. Original report: `abort S` during `compat:slow` →
    `Status: stopped: Cancelled by user`, then an unhandled rejection
    `Error: opencode backend stopped: Cancelled by user at stopRunnerFromBackendStatus`; the process exits, no
    `turn-end` is sent (`send --wait` times out), and the session stays `active` on the server. Same with Pi.

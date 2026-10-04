@@ -17,8 +17,6 @@ const NO_START = 'Removed in the workstation-only build: the app cannot start or
 const NO_ACP_RESUME = '`happycc resume` supports Claude Code and Codex sessions only; ACP sessions cannot be resumed yet (docs/happycc-roadmap.md).';
 const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
 
-const BUG_ACP_ABORT = '#4: aborting mid-reply crashes the ACP runner';
-
 export const AGENTS: Record<AgentId, AgentDef> = {
     claude: {
         label: 'Claude Code',
@@ -41,7 +39,6 @@ export const AGENTS: Record<AgentId, AgentDef> = {
             resume: NO_START,
             'workstation-resume': NO_ACP_RESUME,
         },
-        knownBugs: { abort: BUG_ACP_ABORT },
     },
     pi: {
         label: 'Pi',
@@ -53,6 +50,5 @@ export const AGENTS: Record<AgentId, AgentDef> = {
             'tool-allow': NO_PI_PROMPTS,
             'tool-deny': NO_PI_PROMPTS,
         },
-        knownBugs: { abort: BUG_ACP_ABORT },
     },
 };

@@ -39,7 +39,6 @@ Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILIT
 
 1. Claude Code: the first turn never gets a turn-end.
 2. Claude Code: a denied permission leaves the turn open.
-4. ACP: abort crashes the runner.
 5. ACP: turn end is detected by a 500 ms idle heuristic.
 
 ## Declined
