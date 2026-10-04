@@ -74,6 +74,7 @@ import {
 import { RigActivityBar } from '@/components/RigActivityBar';
 import { AnimatedFade } from '@/components/AnimatedOverlay';
 import { workstationOnly } from '@/config';
+import { isSidebarPanelAvailable } from '@/utils/sessionFiles';
 import { capComposerPermissionModes } from '@/utils/permissionModeRank';
 import { getSideChatForkSource, spawnSideChatFrom } from '@/utils/sideChat';
 
@@ -203,7 +204,12 @@ export const SessionView = React.memo((props: { id: string }) => {
     // Sidebar panels are user-managed and persisted in local settings so the
     // layout (which panels are open + which is active) survives reloads and
     // long absences. State is device-local, shared across sessions.
-    const sidebarPanelsOpen = useLocalSetting('sidebarPanelsOpen') as SidebarMode[];
+    const sidebarPanelsOpenRaw = useLocalSetting('sidebarPanelsOpen') as SidebarMode[];
+    // A panel persisted by another build (e.g. All files) is not shown when this build drops it.
+    const sidebarPanelsOpen = React.useMemo(
+        () => sidebarPanelsOpenRaw.filter((panel) => isSidebarPanelAvailable(panel, workstationOnly)),
+        [sidebarPanelsOpenRaw],
+    );
     const sidebarPanelActiveRaw = useLocalSetting('sidebarPanelActive') as SidebarMode | null;
     // Guard against an inconsistent persisted value: the active panel must be
     // one of the open panels, otherwise fall back to the last opened (or none).
@@ -578,7 +584,7 @@ export const SessionView = React.memo((props: { id: string }) => {
                         />
                     </View>
                 )}
-                {fileViewPath && canShowSidebar && (
+                {fileViewPath && canShowSidebar && isSidebarPanelAvailable('allFiles', workstationOnly) && (
                     <View
                         pointerEvents="box-none"
                         style={{

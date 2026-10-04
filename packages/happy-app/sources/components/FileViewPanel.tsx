@@ -11,6 +11,8 @@ import { Typography } from '@/constants/Typography';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { DiffChunk } from '@/components/diff/DiffChunk';
 import { sessionReadFile, sessionWriteFile } from '@/sync/ops';
+import { workstationOnly } from '@/config';
+import { canEditSessionFiles } from '@/utils/sessionFiles';
 import { Modal } from '@/modal';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
@@ -134,7 +136,7 @@ export const FileViewPanel = React.memo(function FileViewPanel({
 }: FileViewPanelProps) {
     const { theme } = useUnistyles();
     const session = useSession(sessionId);
-    const canWrite = rigCanWriteFiles(session?.metadata);
+    const canWrite = canEditSessionFiles(rigCanWriteFiles(session?.metadata), workstationOnly);
     const [fileState, setFileState] = React.useState<FileState>({ kind: 'loading' });
     const [editContent, setEditContent] = React.useState('');
     const [isSaving, setIsSaving] = React.useState(false);

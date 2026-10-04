@@ -31,6 +31,8 @@ import {
     LocalBlurHalo,
 } from './AnimatedOverlay';
 import { MobileGlassSurface } from './MobileGlass';
+import { workstationOnly } from '@/config';
+import { isSidebarPanelAvailable } from '@/utils/sessionFiles';
 
 export type SidebarMode = 'changes' | 'allFiles' | 'sideChat';
 type PickableSidebarMode = Exclude<SidebarMode, 'sideChat'>;
@@ -44,7 +46,7 @@ const ALL_PANELS: { key: SidebarMode; icon: keyof typeof Octicons.glyphMap }[] =
 // Panels that are opened directly from the picker. The 'sideChat' panel is not
 // here: it isn't opened empty — it appears when you create a side chat via the
 // dedicated "New side chat" picker action, which forks a new child session.
-const PICKABLE_PANELS = ALL_PANELS.filter((p) => p.key !== 'sideChat') as Array<{
+const PICKABLE_PANELS = ALL_PANELS.filter((p) => p.key !== 'sideChat' && isSidebarPanelAvailable(p.key, workstationOnly)) as Array<{
     key: PickableSidebarMode;
     icon: keyof typeof Octicons.glyphMap;
 }>;
