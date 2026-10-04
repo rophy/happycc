@@ -66,6 +66,9 @@ RUN mkdir -p /workspace /home/node/.happycc /home/node/.claude /home/node/.confi
     && chown -R node:node /workspace /home/node
 
 USER node
+# A set-up workstation: Claude Code past its first-run screens and trusting /workspace, so `happycc`
+# in a terminal (local mode, e.g. after `happycc resume`) runs Claude's UI instead of the setup wizard.
+RUN printf '%s' '{"hasCompletedOnboarding":true,"theme":"dark","projects":{"/workspace":{"hasTrustDialogAccepted":true,"hasCompletedProjectOnboarding":true}}}' > /home/node/.claude.json
 WORKDIR /workspace
 
 # Keep the device up; use `docker compose exec cli happycc ...` to drive it.

@@ -5,7 +5,7 @@ import {
     startSession, startDetached, newestSessionSince, sendAndWait, historyText, stopSession, killSession, cleanupAgentProcesses,
     awaitTurnEnd, warmUp, turnEndCount, runnerPid, pidAlive, sessionActive,
 } from '../src/session';
-import { compose, exec, execDetached, poll, shellQuote } from '../src/stack';
+import { agentJson, compose, exec, execDetached, poll, shellQuote } from '../src/stack';
 
 let sessionId: string | undefined;
 
@@ -95,6 +95,17 @@ describe('lifecycle', () => {
         await poll(async () => ((await sessionActive(id)) ? undefined : true),
             { timeoutMs: 30_000, what: `session ${id} to report inactive` });
 
+        // Claude Code: continue the conversation outside happycc first; resume must bring these to the app (slopus/happy#1861).
+        const claudeSessionId = agent === 'claude'
+            ? (await agentJson<{ metadata?: { claudeSessionId?: string } }>(`status ${shellQuote(id)}`)).metadata?.claudeSessionId
+            : undefined;
+        if (agent === 'claude') {
+            if (!claudeSessionId) throw new Error(`Session ${id} has no metadata.claudeSessionId`);
+            for (const text of ['outside message one', 'outside message two']) {
+                await exec('cli', `cd /workspace && claude -p --resume ${shellQuote(claudeSessionId)} ${shellQuote(text)}`, { timeoutMs: 120_000 });
+            }
+        }
+
         // Claude Code resumes in its terminal mode, so it needs a TTY: `script` provides one.
         await execDetached('cli', `cd /workspace && exec script -qfc ${shellQuote(`happycc resume ${id}`)} /tmp/compat-${agent}-resumed.log < /dev/null > /dev/null 2>&1`);
         await poll(async () => ((await sessionActive(id)) ? true : undefined),
@@ -102,5 +113,14 @@ describe('lifecycle', () => {
         await exec('app', `happycc-agent send ${shellQuote(id)} 'compat:hello'`);
         await poll(async () => ((await historyText(id)).split('COMPAT-HELLO-OK').length - 1 >= 2 ? true : undefined),
             { timeoutMs: 90_000, what: 'a reply from the resumed session next to the earlier one' });
+        const history = await historyText(id);
+        const count = (needle: string) => history.split(needle).length - 1;
+        // Nothing from before the stop is sent twice.
+        expect(count('COMPAT-HELLO-OK')).toBe(2);
+        if (agent === 'claude') {
+            expect(count('"text":"outside message one"')).toBe(1);
+            expect(count('"text":"outside message two"')).toBe(1);
+            expect(count('This is a mocked reply')).toBe(2);
+        }
     });
 });

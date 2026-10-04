@@ -199,6 +199,15 @@ Two fixes were needed:
   resumed session reconnects without it. A session-scoped socket connecting now lifts it, and an inactive session's first
   heartbeat is written at once, so a session resumed right after closing goes active within seconds instead of a minute.
 
+Messages added outside happycc (slopus/happy#1861): before resuming, the scenario continues the Claude conversation
+with plain `claude -p --resume <claude session id>` twice, and passes only if both messages and both replies appear in
+the session history exactly once, with nothing from before the stop duplicated. Fixed by a reconnect backfill
+(`claude/utils/transcriptResync.ts`): while skipping the existing history on reattach, the CLI records the Claude uuids
+it holds (`claudeUuid`), and sends the JSONL entries after the last one it knows before the scanners start. Remote-mode
+messages now keep the SDK's uuid (the JSONL entry's uuid) instead of a random one, so they count as known. The cli
+image now starts with Claude Code set up (`~/.claude.json`: onboarding done, `/workspace` trusted), so a resumed
+session runs Claude's terminal UI instead of the first-run wizard.
+
 OpenCode and Pi: N/A. `happycc resume` supports Claude Code and Codex sessions only (it fails with
 `unsupported flavor` for ACP sessions).
 
