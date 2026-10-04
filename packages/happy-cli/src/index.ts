@@ -746,7 +746,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
       // Run claude --help and display its output
       // Use execFileSync directly with claude CLI for runtime-agnostic compatibility
       try {
-        const claudeHelp = execFileSync(claudeCliPath, ['--help'], { encoding: 'utf8', windowsHide: true })
+        const claudeHelp = execFileSync(process.execPath, [claudeCliPath, '--help'], { encoding: 'utf8', windowsHide: true })
         console.log(claudeHelp)
       } catch (e) {
         console.log(chalk.yellow('Could not retrieve claude help. Make sure claude is installed.'))
@@ -758,7 +758,14 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
     // Show version
     if (showVersion) {
       console.log(`happycc version: ${packageJson.version}`)
-      // Don't exit - continue to pass --version to Claude Code
+      // Ask Claude Code directly, like --help: the normal flow would sign in first, which fails
+      // before a server is configured (this build has no default server).
+      try {
+        console.log(execFileSync(process.execPath, [claudeCliPath, '--version'], { encoding: 'utf8', windowsHide: true }).trim())
+      } catch (e) {
+        console.log(chalk.yellow('Could not retrieve the claude version. Make sure claude is installed.'))
+      }
+      process.exit(0)
     }
 
     // Normal flow - auth and machine setup
