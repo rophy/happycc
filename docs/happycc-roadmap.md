@@ -27,12 +27,6 @@ nothing reads an ACP agent's title. Only Claude Code is instructed to call `chan
 sessions usually stay "New Chat". Options: forward the agent's native title, or add the `change_title`
 instruction to ACP prompts.
 
-## Security
-
-- **Session shell scope.** The session-scoped `bash` RPC runs any command and accepts any `cwd` (including `/`).
-  Options: restrict it to the session folder and refuse starting `happycc`/agents, or accept it as requiring the
-  account's own credentials. See [deployment.md](deployment.md).
-
 ## Known agent bugs
 
 Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILITIES.md)):

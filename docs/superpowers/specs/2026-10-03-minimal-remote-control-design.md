@@ -75,9 +75,17 @@ Everything inside a running session stays. The empty state tells the user to run
   live session, `happycc-agent spawn` and a machine RPC are refused, and the session keeps working.
 - **Web e2e:** the new-session and machine screens do not render; the home screen has no new-session control.
 
+## Revision 2026-10-04: session shell and files
+
+Matching Claude Code Remote Control (changes to the workstation go through the agent and its permission prompts),
+the app's direct RPCs no longer run arbitrary code: session `bash` accepts only the commands listed in
+`happy-wire/src/sessionCommands.ts` (one list for app and CLI; run without a shell, inside the session folder),
+`ripgrep` only the listed searches, and `writeFile`/`difftastic` are refused. The app hides the desktop "All files"
+browser and file editor; the git views (changes, diffs) stay. Proven by CLI unit tests and the compat
+`blocked-shell` scenario.
+
 ## Out of scope
 
-- Restricting session-scoped shell/file access (it stays scoped to the session folder as today).
 - Workspace roots/allowed folders, trusted devices, periodic re-authentication, admin on/off switch,
   permission-prompt expiry.
 - Deleting the disabled code.
