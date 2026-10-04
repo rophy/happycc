@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import packageJson from '../package.json';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { loadConfig } from './config';
@@ -150,12 +151,16 @@ function ensureMachineCanResume(machine: DecryptedMachine): void {
 
 // --- CLI ---
 
+// Starting sessions on a machine goes through its daemon, which this build disables: the
+// commands stay callable (compat's blocked-spawn scenario checks they fail) but are left out of --help.
+const MACHINE_SESSIONS_ENABLED = false;
+
 const program = new Command();
 
 program
     .name('happycc-agent')
     .description('CLI client for controlling Happy Coder agents remotely')
-    .version('0.1.0');
+    .version(packageJson.version);
 
 program
     .command('auth')
@@ -271,7 +276,7 @@ program
     });
 
 program
-    .command('spawn')
+    .command('spawn', { hidden: !MACHINE_SESSIONS_ENABLED })
     .description('Spawn a new session on a machine')
     .requiredOption('--machine <machine-id>', 'Machine ID or prefix')
     .option('--path <path>', 'Working directory path (defaults to machine home directory)')
@@ -335,7 +340,7 @@ program
     });
 
 program
-    .command('resume')
+    .command('resume', { hidden: !MACHINE_SESSIONS_ENABLED })
     .description('Resume a session on its original machine')
     .argument('<session-id>', 'Session ID or prefix')
     .option('--json', 'Output as JSON')

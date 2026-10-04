@@ -60,8 +60,8 @@ describe('happy-agent CLI', () => {
         expect(stdout).toContain('machines');
         expect(stdout).toContain('list');
         expect(stdout).toContain('status');
-        expect(stdout).toContain('spawn');
-        expect(stdout).toContain('resume');
+        expect(stdout).not.toMatch(/^\s+spawn\b/m);
+        expect(stdout).not.toMatch(/^\s+resume\b/m);
         expect(stdout).toContain('create');
         expect(stdout).toContain('send');
         expect(stdout).toContain('history');

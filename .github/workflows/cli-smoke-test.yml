@@ -41,12 +41,12 @@ jobs:
     - name: Build packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match build
-        pnpm --filter happycc --fail-if-no-match build
+        pnpm --filter @happycc/cli --fail-if-no-match build
 
     - name: Pack packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match pack --pack-destination packages/happy-wire
-        pnpm --filter happycc --fail-if-no-match pack --pack-destination packages/happy-cli
+        pnpm --filter @happycc/cli --fail-if-no-match pack --pack-destination packages/happy-cli
 
     - name: Install packed packages globally
       run: |
@@ -72,12 +72,6 @@ jobs:
         echo "Testing happycc doctor..."
         timeout 30s happycc doctor || {
           echo "Error: happycc doctor failed or timed out"
-          exit 1
-        }
-
-        echo "Testing happycc daemon status..."
-        timeout 10s happycc daemon status || {
-          echo "Error: happycc daemon status failed or timed out"
           exit 1
         }
 
@@ -108,12 +102,12 @@ jobs:
     - name: Build packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match build
-        pnpm --filter happycc --fail-if-no-match build
+        pnpm --filter @happycc/cli --fail-if-no-match build
 
     - name: Pack packages
       run: |
         pnpm --filter @slopus/happy-wire --fail-if-no-match pack --pack-destination packages/happy-wire
-        pnpm --filter happycc --fail-if-no-match pack --pack-destination packages/happy-cli
+        pnpm --filter @happycc/cli --fail-if-no-match pack --pack-destination packages/happy-cli
 
     - name: Install packed package globally
       shell: cmd
@@ -212,18 +206,6 @@ jobs:
         )
         if errorlevel 1 (
           echo Error: happycc doctor failed
-          exit /b 1
-        )
-
-        rem Test daemon status
-        echo Testing happycc daemon status...
-        if exist "%NPM_PREFIX%\happycc.cmd" (
-          "%NPM_PREFIX%\happycc.cmd" daemon status
-        ) else (
-          happycc daemon status
-        )
-        if errorlevel 1 (
-          echo Error: happycc daemon status failed
           exit /b 1
         )
 

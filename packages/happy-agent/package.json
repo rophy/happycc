@@ -1,14 +1,16 @@
 {
-  "name": "happycc-agent",
+  "name": "@happycc/agent",
   "version": "0.1.0",
-  "private": true,
   "description": "CLI client for controlling Happy Coder agents remotely",
   "author": "Kirill Dubovitskiy",
   "license": "MIT",
   "type": "module",
   "homepage": "https://github.com/rophy/happycc",
   "bugs": "https://github.com/rophy/happycc/issues",
-  "repository": "rophy/happycc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rophy/happycc"
+  },
   "bin": {
     "happycc-agent": "./bin/happy-agent.mjs"
   },
@@ -42,7 +44,6 @@
     "release": "npx --no-install release-it"
   },
   "dependencies": {
-    "@slopus/happy-wire": "workspace:*",
     "axios": "^1.13.2",
     "chalk": "^5.6.2",
     "commander": "^13.1.0",
@@ -51,6 +52,7 @@
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@slopus/happy-wire": "workspace:*",
     "@types/node": ">=20",
     "pkgroll": "^2.14.2",
     "release-it": "^19.0.6",
@@ -59,6 +61,7 @@
     "vitest": "^3.2.4"
   },
   "publishConfig": {
+    "access": "public",
     "registry": "https://registry.npmjs.org"
   },
   "packageManager": "pnpm@10.11.0"

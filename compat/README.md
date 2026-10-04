@@ -48,7 +48,7 @@ the same report to the job summary.
        Remote mode, which every Claude scenario uses, runs the Claude Code binary bundled with this SDK (reported as
        `claudeSdk`). Check which Claude Code an SDK version bundles with
        `npm view @anthropic-ai/claude-agent-sdk@<version> claudeCodeVersion`. Because the version is exact, it also
-       holds for users' `npm install -g happycc`, which does not use the repo's lockfile.
+       holds for users' `npm install -g @happycc/cli`, which does not use the repo's lockfile.
      - `CLAUDE_CODE_VERSION` in `Dockerfile.cli`: the standalone `claude` used by local mode (reported as `claude`).
        Set it to the version the SDK bundles.
      The report shows a warning line if the two differ.

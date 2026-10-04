@@ -10,7 +10,7 @@
  *   4. verify by running `happycc --version`
  *
  * Reuses ~/.happycc/ — no separate dev home dir. Auth and sessions carry over.
- * To undo: `npm unlink -g happycc && npm i -g happycc@latest`.
+ * To undo: `npm unlink -g @happycc/cli && npm i -g @happycc/cli@latest`.
  */
 
 const { spawnSync } = require('child_process');
@@ -49,4 +49,4 @@ run('npm', ['link']);
 run('happycc', ['--version']);
 
 console.log(`\n✓ Installed from ${PACKAGE_DIR}`);
-console.log('  To undo: npm unlink -g happycc && npm i -g happycc@latest');
+console.log('  To undo: npm unlink -g @happycc/cli && npm i -g @happycc/cli@latest');

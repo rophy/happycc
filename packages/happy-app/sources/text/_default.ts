@@ -422,7 +422,7 @@ export const en = {
         cliVersionOutdated: 'CLI Update Required',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `Version ${currentVersion} installed. Update to ${requiredVersion} or later`,
-        updateCliInstructions: 'Please run npm install -g happycc@latest',
+        updateCliInstructions: 'Please run npm install -g @happycc/cli@latest',
         deleteSession: 'Delete Session',
         deleteSessionSubtitle: 'Permanently remove this session',
         deleteSessionConfirm: 'Delete Session Permanently?',
@@ -877,7 +877,7 @@ export const en = {
         linkTitle: 'Link your computer',
         installStep: 'Install Happy on your computer',
         terminalComment: '# Prefer the terminal?',
-        terminalInstall: 'npm install -g happycc',
+        terminalInstall: 'npm install -g @happycc/cli',
         terminalRun: 'happycc',
         openStep: 'Open Happy and choose Connect phone',
         openBody: 'During onboarding on your computer, choose Connect phone and a QR code appears. In the terminal it shows as soon as happycc starts.',
@@ -948,7 +948,7 @@ export const en = {
     machine: {
         launchNewSessionInDirectory: 'Launch New Session in Directory',
         offlineUnableToSpawn: 'Launcher disabled while machine is offline',
-        offlineHelp: '• Run `happycc daemon start` on your computer\n• Make sure your computer is online\n• Run `happycc daemon status` to diagnose\n• Are you running the latest CLI version? Upgrade with `npm install -g happycc@latest`',
+        offlineHelp: '• Run `happycc daemon start` on your computer\n• Make sure your computer is online\n• Run `happycc daemon status` to diagnose\n• Are you running the latest CLI version? Upgrade with `npm install -g @happycc/cli@latest`',
         daemon: 'Daemon',
         status: 'Status',
         stopDaemon: 'Stop Daemon',

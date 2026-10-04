@@ -40,9 +40,6 @@ importers:
 
   packages/happy-agent:
     dependencies:
-      '@slopus/happy-wire':
-        specifier: workspace:*
-        version: link:../happy-wire
       axios:
         specifier: ^1.13.2
         version: 1.13.4
@@ -62,6 +59,9 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
     devDependencies:
+      '@slopus/happy-wire':
+        specifier: workspace:*
+        version: link:../happy-wire
       '@types/node':
         specifier: '>=20'
         version: 20.19.39

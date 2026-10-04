@@ -7,7 +7,7 @@ const { releaseInput, checkManifest, checkVersionOutput, checkPackage } = requir
 
 test('stable and beta releases have explicit, distinct channels and CLI tags', () => {
   assert.deepEqual(releaseInput('1.2.4-beta.0', 'beta'), {
-    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli-1.2.4-beta.0', tarball: 'happycc-1.2.4-beta.0.tgz',
+    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli-1.2.4-beta.0', tarball: 'happycc-cli-1.2.4-beta.0.tgz',
   });
   assert.equal(releaseInput('1.2.4', 'latest').tag, 'cli-1.2.4');
 });
@@ -21,7 +21,7 @@ test('rejects unsafe versions, wrong channels, and noncanonical semver', () => {
 });
 
 const manifest = () => ({
-  name: 'happycc', version: '1.2.4-beta.0',
+  name: '@happycc/cli', version: '1.2.4-beta.0',
   repository: { url: 'git+https://github.com/rophy/happycc.git' },
   dependencies: { zod: '^4.0.0' },
   devDependencies: { '@slopus/happy-wire': 'workspace:*' },
@@ -43,7 +43,7 @@ test('accepts bundled wire dev dependency but rejects runtime workspace dependen
 
 test('rejects the wrong package, version, and provenance repository', () => {
   for (const overrides of [
-    { name: 'happy' }, { version: '1.2.3' }, { repository: { url: 'https://github.com/other/happy' } },
+    { name: 'happycc' }, { version: '1.2.3' }, { repository: { url: 'https://github.com/other/happy' } },
   ]) assert.throws(() => checkManifest({ ...manifest(), ...overrides }, '1.2.4-beta.0'));
 });
 

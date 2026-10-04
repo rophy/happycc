@@ -6,7 +6,7 @@ the bundled web app, packaged for `happycc server`.
 ## Usage
 
 ```bash
-npm install -g happycc happy-server-self-host
+npm install -g @happycc/cli happy-server-self-host
 happycc server
 ```
 

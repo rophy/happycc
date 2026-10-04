@@ -355,7 +355,7 @@ export const ru: TranslationStructure = {
         cliVersionOutdated: 'Требуется обновление CLI',
         cliVersionOutdatedMessage: ({ currentVersion, requiredVersion }: { currentVersion: string; requiredVersion: string }) =>
             `Установлена версия ${currentVersion}. Обновите до ${requiredVersion} или новее`,
-        updateCliInstructions: 'Пожалуйста, выполните npm install -g happycc@latest',
+        updateCliInstructions: 'Пожалуйста, выполните npm install -g @happycc/cli@latest',
         deleteSession: 'Удалить сессию',
         deleteSessionSubtitle: 'Удалить эту сессию навсегда',
         deleteSessionConfirm: 'Удалить сессию навсегда?',
@@ -852,7 +852,7 @@ export const ru: TranslationStructure = {
 
     machine: {
         offlineUnableToSpawn: 'Запуск отключен: машина offline',
-        offlineHelp: '• Убедитесь, что компьютер online\n• Выполните `happycc daemon status` для диагностики\n• Используете последнюю версию CLI? Обновите командой `npm install -g happycc@latest`',
+        offlineHelp: '• Убедитесь, что компьютер online\n• Выполните `happycc daemon status` для диагностики\n• Используете последнюю версию CLI? Обновите командой `npm install -g @happycc/cli@latest`',
         launchNewSessionInDirectory: 'Запустить новую сессию в папке',
         daemon: 'Daemon',
         status: 'Статус',

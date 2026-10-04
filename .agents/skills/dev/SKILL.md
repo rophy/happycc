@@ -15,12 +15,12 @@ Happy is a pnpm monorepo. Everything uses pnpm workspaces — do not use `npm` o
 
 ```bash
 pnpm install                       # installs deps for every package
-pnpm --filter happycc cli:install  # builds happy-cli + links it as the global `happycc` binary
+pnpm --filter @happycc/cli cli:install  # builds happy-cli + links it as the global `happycc` binary
 ```
 
 `cli:install` replaces whatever `happycc` is on your PATH (npm-installed or not) with a symlink to `packages/happy-cli/`. Daemon is restarted as part of the script. Uses `~/.happycc/` — same as production.
 
-To undo: `npm unlink -g happycc && npm i -g happycc@latest`.
+To undo: `npm unlink -g @happycc/cli && npm i -g @happycc/cli@latest`.
 
 ## Packages
 
@@ -44,7 +44,7 @@ To undo: `npm unlink -g happycc && npm i -g happycc@latest`.
 Work loop:
 
 ```bash
-pnpm --filter happycc cli:install  # rebuild + relink + restart daemon
+pnpm --filter @happycc/cli cli:install  # rebuild + relink + restart daemon
 happycc daemon status              # confirm your build is running
 happycc doctor                     # list all happycc processes
 tail -f ~/.happycc/logs/$(ls -t ~/.happycc/logs/ | head -1)
@@ -53,13 +53,13 @@ tail -f ~/.happycc/logs/$(ls -t ~/.happycc/logs/ | head -1)
 Run a single test file quickly:
 
 ```bash
-pnpm --filter happycc exec vitest run src/path/to/file.test.ts
+pnpm --filter @happycc/cli exec vitest run src/path/to/file.test.ts
 ```
 
 Unit-only (fast, ~1 min):
 
 ```bash
-pnpm --filter happycc exec vitest run --project unit
+pnpm --filter @happycc/cli exec vitest run --project unit
 ```
 
 Integration tests hit real APIs and are flaky — run on demand, never in the release gate.
@@ -170,7 +170,7 @@ Do not publish by hand. Use `/release` — it handles npm publish, git tags, Git
 
 ## Troubleshooting
 
-    happycc: command not found     → pnpm --filter happycc cli:install
+    happycc: command not found     → pnpm --filter @happycc/cli cli:install
     daemon won't start             → happycc daemon stop; rm ~/.happycc/daemon.state.json.lock; happycc daemon start
     wrong `happycc` version        → which happycc && ls -la $(which happycc) — confirms where it resolves to
     tools/unpacked missing       → pnpm install (postinstall re-extracts)

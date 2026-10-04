@@ -7,7 +7,7 @@ Free. Open source. Code anywhere.
 ## Installation
 
 ```bash
-npm install -g happycc
+npm install -g @happycc/cli
 ```
 
 ## Usage
@@ -113,7 +113,7 @@ happycc sandbox disable
 git clone https://github.com/slopus/happy
 cd happy-cli
 yarn install
-yarn workspace happycc cli --help
+yarn workspace @happycc/cli cli --help
 ```
 
 ## Requirements

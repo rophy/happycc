@@ -2,19 +2,18 @@
 
 CLI client for controlling Happy Coder agents remotely.
 
-Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, spawning sessions on a machine, creating sessions, sending messages, reading history, monitoring state, and stopping or killing sessions.
+Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, creating sessions, sending messages, reading history, monitoring state, and stopping or killing sessions.
 
 ## Installation
+
+```bash
+npm install -g @happycc/agent
+```
 
 From the monorepo:
 
 ```bash
-yarn workspace happycc-agent build
-```
-
-Or link globally:
-
-```bash
+pnpm --filter @happycc/agent build
 cd packages/happy-agent && npm link
 ```
 
@@ -66,21 +65,9 @@ happycc-agent machines --active
 happycc-agent machines --json
 ```
 
-### Spawn on a machine
+### Spawn on a machine (disabled)
 
-```bash
-# Spawn a session on a specific machine
-happycc-agent spawn --machine <machine-id> --path ~/project
-
-# Let the daemon create the directory if needed
-happycc-agent spawn --machine <machine-id> --path ~/new-project --create-dir
-
-# Choose a specific agent
-happycc-agent spawn --machine <machine-id> --path ~/project --agent codex
-
-# Output as JSON
-happycc-agent spawn --machine <machine-id> --path ~/project --json
-```
+`spawn` and `resume` start a session through the machine's daemon, which this build disables: sessions start on the workstation with `happycc`. Both commands are left out of `--help`, and fail if called.
 
 ### Session status
 
@@ -215,19 +202,7 @@ All machine and session data is end-to-end encrypted. New records use AES-256-GC
 
 ## Publishing to npm
 
-Maintainers can publish a new version:
-
-```bash
-yarn release               # From repo root: choose library to release
-# or directly:
-yarn workspace happycc-agent release
-```
-
-This flow:
-- runs tests/build checks via `prepublishOnly`
-- creates a release commit and `happycc-agent-vX.Y.Z` tag
-- creates a GitHub release with generated notes
-- publishes `happycc-agent` to npm
+Releases run from the `Release @happycc/agent` GitHub Actions workflow (`.github/workflows/release-happy-agent.yml`), dispatched from `main` with the version and release notes. It builds and tests the package, smoke-tests the packed tarball, publishes it to npm with provenance (trusted publishing), and creates the `agent-X.Y.Z` tag and GitHub release.
 
 ## License
 

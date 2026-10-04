@@ -36,7 +36,7 @@ Step 2: Install CLI on your computer
 </h3>
 
 ```bash
-npm install -g happycc
+npm install -g @happycc/cli
 ```
 
 <h3 align="center">

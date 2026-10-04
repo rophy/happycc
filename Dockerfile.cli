@@ -24,7 +24,7 @@ COPY packages/happy-agent/package.json packages/happy-agent/
 COPY packages/happy-cli/scripts packages/happy-cli/scripts
 COPY packages/happy-cli/tools packages/happy-cli/tools
 
-RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter happycc... --filter happycc-agent...
+RUN SKIP_HAPPY_WIRE_BUILD=1 pnpm install --frozen-lockfile --filter @happycc/cli... --filter @happycc/agent...
 
 FROM deps AS builder
 
@@ -33,12 +33,12 @@ COPY packages/happy-cli ./packages/happy-cli
 COPY packages/happy-agent ./packages/happy-agent
 
 RUN pnpm --filter @slopus/happy-wire --fail-if-no-match build
-RUN pnpm --filter happycc --fail-if-no-match build
+RUN pnpm --filter @happycc/cli --fail-if-no-match build
 # Pack it like a release, so the device installs it the way users do.
-RUN mkdir /pack && pnpm --filter happycc --fail-if-no-match pack --pack-destination /pack \
-    && mv /pack/happycc-*.tgz /pack/happycc.tgz
-RUN pnpm --filter happycc-agent --fail-if-no-match build
-RUN pnpm --filter happycc-agent --fail-if-no-match pack --pack-destination /pack \
+RUN mkdir /pack && pnpm --filter @happycc/cli --fail-if-no-match pack --pack-destination /pack \
+    && mv /pack/happycc-cli-*.tgz /pack/happycc.tgz
+RUN pnpm --filter @happycc/agent --fail-if-no-match build
+RUN pnpm --filter @happycc/agent --fail-if-no-match pack --pack-destination /pack \
     && mv /pack/happycc-agent-*.tgz /pack/happycc-agent.tgz
 
 FROM node:22 AS runner

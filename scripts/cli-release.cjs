@@ -3,18 +3,25 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-function releaseInput(version, channel) {
+const PACKAGE_NAME = '@happycc/cli';
+
+/** Validates a release version for its npm channel; shared with agent-release.cjs. */
+function checkReleaseVersion(version, channel) {
   const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
   const beta = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.(0|[1-9]\d*)$/;
   assert(channel === 'latest' || channel === 'beta', 'Channel must be latest or beta');
   assert(typeof version === 'string' && version.length < 100, 'A release version is required');
   assert((channel === 'beta' ? beta : stable).test(version),
     `Version must be ${channel === 'beta' ? 'X.Y.Z-beta.N' : 'X.Y.Z'} for ${channel}`);
-  return { version, channel, tag: `cli-${version}`, tarball: `happycc-${version}.tgz` };
+}
+
+function releaseInput(version, channel) {
+  checkReleaseVersion(version, channel);
+  return { version, channel, tag: `cli-${version}`, tarball: `happycc-cli-${version}.tgz` };
 }
 
 function checkManifest(manifest, version) {
-  assert.equal(manifest.name, 'happycc');
+  assert.equal(manifest.name, PACKAGE_NAME);
   assert.equal(manifest.version, version);
   const repository = typeof manifest.repository === 'string'
     ? manifest.repository : manifest.repository?.url;
@@ -63,9 +70,9 @@ function checkPackage(root, version) {
 }
 
 function smoke(prefix, version) {
-  const root = path.join(prefix, 'node_modules', 'happycc');
+  const root = path.join(prefix, 'node_modules', ...PACKAGE_NAME.split('/'));
   checkPackage(root, version);
-  for (const args of [['--version'], ['--help'], ['daemon', 'status']]) {
+  for (const args of [['--version'], ['--help'], ['doctor']]) {
     const result = spawnSync(process.execPath, [path.join(root, 'bin/happy.mjs'), ...args], {
       cwd: prefix,
       encoding: 'utf8',
@@ -89,7 +96,7 @@ async function main() {
   const release = releaseInput(process.env.RELEASE_VERSION, process.env.RELEASE_CHANNEL);
   const [command, target] = process.argv.slice(2);
   if (command === 'validate') {
-    console.log(`Validated happycc@${release.version} for ${release.channel}`);
+    console.log(`Validated ${PACKAGE_NAME}@${release.version} for ${release.channel}`);
   } else if (command === 'prepare') {
     const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
     manifest.version = release.version;
@@ -104,5 +111,5 @@ async function main() {
   }
 }
 
-module.exports = { releaseInput, checkManifest, checkVersionOutput, checkPackage };
+module.exports = { checkReleaseVersion, releaseInput, checkManifest, checkVersionOutput, checkPackage };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -84,7 +84,7 @@ const stylesheet = StyleSheet.create((theme) => ({
 /** Commands that link a computer in the corporate fork (OIDC device login, no QR pairing). */
 function getLinkCommands(): string[] {
     return [
-        '$ npm install -g happycc',
+        '$ npm install -g @happycc/cli',
         `$ export HAPPY_SERVER_URL=${getServerUrl()}`,
         '$ happycc auth login',
         '$ happycc',

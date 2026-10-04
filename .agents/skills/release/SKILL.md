@@ -216,7 +216,7 @@ look like the command only reports Claude Code's version. Read the first line.
 
 ```bash
 cd packages/happy-cli
-pnpm --filter happycc run build
+pnpm --filter @happycc/cli run build
 ```
 
 Report success/failure. Stop on failure.
@@ -260,7 +260,7 @@ aborted the publish at the `prepublishOnly` test step.)
 
 ```bash
 cd packages/happy-cli
-pnpm --filter happycc exec vitest run --project unit
+pnpm --filter @happycc/cli exec vitest run --project unit
 ```
 
 Integration tests are slow and flaky — skip them for releases. Unit tests are the gate.
@@ -305,12 +305,12 @@ credentials if OIDC fails.
 ### Step 8: Verify
 
 ```bash
-npm view happycc@{version} version   # did the version actually publish?
+npm view @happycc/cli@{version} version   # did the version actually publish?
 npm view happycc dist-tags           # did the channel tag move?
 ```
 
 Watch the dispatched run to completion using the product's durable wait/monitor
-mechanism and GitHub CLI status/logs. Check `npm view happycc@X.Y.Z version` before
+mechanism and GitHub CLI status/logs. Check `npm view @happycc/cli@X.Y.Z version` before
 retrying any failed publication: npm versions are immutable. A failed publish
 must leave the release tag and GitHub Release absent. If publication succeeded
 but a later gate failed, investigate before retrying; do not overwrite the version
