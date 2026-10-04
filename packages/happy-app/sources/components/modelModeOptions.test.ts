@@ -389,8 +389,8 @@ describe('modelModeOptions', () => {
         expect(modeSupportedByCli(auto, '1.2.1-beta.2')).toBe(true);
         expect(modeSupportedByCli(auto, '1.2.1')).toBe(true);
         expect(modeSupportedByCli(auto, '1.3.0')).toBe(true);
-        expect(modeSupportedByCli(auto, '1.2.1-beta.1')).toBe(false);
-        expect(modeSupportedByCli(auto, '1.2.0')).toBe(false);
+        expect(modeSupportedByCli(auto, '0.1.0-beta.1')).toBe(false);
+        expect(modeSupportedByCli(auto, '0.0.9')).toBe(false);
         expect(modeSupportedByCli(auto, '0.11.2')).toBe(false);
         expect(modeSupportedByCli(auto, undefined)).toBe(true);
         expect(modeSupportedByCli(auto, null)).toBe(true);
@@ -408,17 +408,17 @@ describe('modelModeOptions', () => {
     // before serializing a saved key, and refuses loudly on false rather than
     // substituting a different mode.
     it('answers whether the session CLI can parse a saved mode key', () => {
-        expect(permissionModeSupportedByCli('auto', '1.2.1-beta.1')).toBe(false);
-        expect(permissionModeSupportedByCli('auto', '1.2.0')).toBe(false);
-        expect(permissionModeSupportedByCli('auto', '1.2.1-beta.2')).toBe(true);
+        expect(permissionModeSupportedByCli('auto', '0.1.0-beta.1')).toBe(false);
+        expect(permissionModeSupportedByCli('auto', '0.0.9')).toBe(false);
+        expect(permissionModeSupportedByCli('auto', '0.1.0')).toBe(true);
         expect(permissionModeSupportedByCli('auto', undefined)).toBe(true);
-        expect(permissionModeSupportedByCli('plan', '1.2.0')).toBe(true);
-        expect(permissionModeSupportedByCli(undefined, '1.2.0')).toBe(true);
-        expect(permissionModeSupportedByCli(null, '1.2.0')).toBe(true);
+        expect(permissionModeSupportedByCli('plan', '0.0.9')).toBe(true);
+        expect(permissionModeSupportedByCli(undefined, '0.0.9')).toBe(true);
+        expect(permissionModeSupportedByCli(null, '0.0.9')).toBe(true);
     });
 
     it('hides auto from session pickers when the session CLI is too old', () => {
-        const oldCli = { path: '/tmp', host: 'host', version: '1.2.0' } as any;
+        const oldCli = { path: '/tmp', host: 'host', version: '0.0.9' } as any;
         expect(getAvailablePermissionModes('claude', oldCli, translate).map((mode) => mode.key)).toEqual([
             'acceptEdits', 'plan', 'bypassPermissions', 'default',
         ]);
@@ -429,10 +429,10 @@ describe('modelModeOptions', () => {
 
     it('drops only auto when filtering for an old CLI, and nothing when new', () => {
         const modes = getClaudePermissionModes(translate);
-        expect(filterPermissionModesForCli(modes, '1.2.0').map((mode) => mode.key)).toEqual([
+        expect(filterPermissionModesForCli(modes, '0.0.9').map((mode) => mode.key)).toEqual([
             'acceptEdits', 'plan', 'bypassPermissions', 'default',
         ]);
-        expect(filterPermissionModesForCli(modes, '1.2.1-beta.2')).toEqual(modes);
+        expect(filterPermissionModesForCli(modes, '0.1.0')).toEqual(modes);
         expect(filterPermissionModesForCli(modes, undefined)).toEqual(modes);
     });
     // The chip is the only elastic thing between the add button and send, so a

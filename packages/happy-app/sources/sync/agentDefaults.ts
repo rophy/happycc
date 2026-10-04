@@ -39,10 +39,11 @@ const codeAgentDefaults: Record<AgentKey, AgentDefaultConfig> = {
     agy: { permissionMode: 'default', modelMode: 'Gemini 3.8 Flash', effortLevel: 'medium' },
 };
 
-// `auto` first shipped in happy-cli 1.2.1-beta.2, for Claude and Codex alike.
+// `auto` first shipped in happy-cli 1.2.1-beta.2, for Claude and Codex alike. Every @happycc/cli
+// release has it; this build numbers its CLI on its own, starting at 0.1.0.
 // Keep this with the code-default resolver so every spawn/send consumer uses
 // the same compatibility boundary as the picker catalog.
-export const CLI_VERSION_WITH_AUTO = '1.2.1-beta.2';
+export const CLI_VERSION_WITH_AUTO = '0.1.0';
 
 function resolveCodeDefaultPermissionMode(
     permissionMode: string,

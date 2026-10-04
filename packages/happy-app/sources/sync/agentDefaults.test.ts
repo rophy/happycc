@@ -11,14 +11,14 @@ describe('agent defaults', () => {
     });
 
     it.each(['claude', 'codex'] as const)('falls back to Default for %s on an old CLI', (flavor) => {
-        expect(getCodeAgentDefaults(flavor, '1.2.0').permissionMode).toBe('default');
-        expect(resolveAgentDefaultConfig({}, flavor, '1.2.1-beta.1').permissionMode).toBe('default');
-        expect(resolveAgentDefaultConfig({}, flavor, '1.2.0').permissionMode).toBe('default');
+        expect(getCodeAgentDefaults(flavor, '0.0.9').permissionMode).toBe('default');
+        expect(resolveAgentDefaultConfig({}, flavor, '0.1.0-beta.1').permissionMode).toBe('default');
+        expect(resolveAgentDefaultConfig({}, flavor, '0.0.9').permissionMode).toBe('default');
         expect(resolveAgentDefaultConfig({}, flavor, 'not-a-version').permissionMode).toBe('default');
     });
 
     it.each(['claude', 'codex'] as const)('keeps Auto for %s on a new or unknown-version CLI', (flavor) => {
-        expect(resolveAgentDefaultConfig({}, flavor, '1.2.1-beta.2').permissionMode).toBe('auto');
+        expect(resolveAgentDefaultConfig({}, flavor, '0.1.0').permissionMode).toBe('auto');
         expect(resolveAgentDefaultConfig({}, flavor, '1.3.0').permissionMode).toBe('auto');
         expect(resolveAgentDefaultConfig({}, flavor).permissionMode).toBe('auto');
     });
@@ -27,12 +27,12 @@ describe('agent defaults', () => {
         expect(resolveAgentDefaultConfig(
             { claude: { permissionMode: 'bypassPermissions' } },
             'claude',
-            '1.2.0',
+            '0.0.9',
         ).permissionMode).toBe('bypassPermissions');
         expect(resolveAgentDefaultConfig(
             { codex: { permissionMode: 'yolo' } },
             'codex',
-            '1.2.0',
+            '0.0.9',
         ).permissionMode).toBe('yolo');
     });
 
@@ -40,7 +40,7 @@ describe('agent defaults', () => {
         expect(resolveAgentDefaultConfig(
             { claude: { permissionMode: 'auto' } },
             'claude',
-            '1.2.0',
+            '0.0.9',
         ).permissionMode).toBe('auto');
     });
 

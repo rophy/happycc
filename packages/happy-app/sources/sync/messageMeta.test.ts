@@ -107,7 +107,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.0' },
+            metadata: { flavor: 'codex', version: '0.0.9' },
         } as any);
 
         expect(meta.permissionMode).toBe('default');
@@ -118,7 +118,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.1-beta.2', permissionModeCeiling: 'auto' },
+            metadata: { flavor: 'codex', version: '0.1.0', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta.permissionMode).toBe('auto');
@@ -129,7 +129,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.0', permissionModeCeiling: 'yolo' },
+            metadata: { flavor: 'codex', version: '0.0.9', permissionModeCeiling: 'yolo' },
         } as any, {
             agentDefaultOverrides: { codex: { permissionMode: 'yolo' } },
         } as any);
@@ -165,7 +165,7 @@ describe('resolveMessageModeMeta', () => {
     });
 
     // A session on an old CLI can still carry `auto` — saved before the gate
-    // existed, or persisted as an explicit default — and CLIs before 1.2.1-beta.2
+    // existed, or persisted as an explicit default — and CLIs before CLI_VERSION_WITH_AUTO
     // reject the whole message envelope on it. The resolver refuses loudly:
     // substituting the code default would silently change permissions (for
     // Claude it could change a previously selected mode without consent.
@@ -174,7 +174,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: 'auto',
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude', version: '1.2.1-beta.1' },
+            metadata: { flavor: 'claude', version: '0.1.0-beta.1' },
         } as any)).toThrow(UnsupportedPermissionModeError);
     });
 
@@ -183,7 +183,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'codex', version: '1.2.0' },
+            metadata: { flavor: 'codex', version: '0.0.9' },
         } as any, {
             agentDefaultOverrides: { codex: { permissionMode: 'auto' } },
         } as any)).toThrow(UnsupportedPermissionModeError);
@@ -194,7 +194,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: null,
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude', version: '1.2.0' },
+            metadata: { flavor: 'claude', version: '0.0.9' },
         } as any, {
             agentDefaultOverrides: { claude: { permissionMode: 'auto' } },
         } as any)).toThrow(UnsupportedPermissionModeError);
@@ -206,13 +206,13 @@ describe('resolveMessageModeMeta', () => {
                 permissionMode: 'auto',
                 modelMode: null,
                 effortLevel: null,
-                metadata: { flavor: 'claude', version: '1.2.0' },
+                metadata: { flavor: 'claude', version: '0.0.9' },
             } as any);
             expect.unreachable('should have thrown');
         } catch (error) {
             expect(error).toBeInstanceOf(UnsupportedPermissionModeError);
             expect((error as Error).message).toContain("'auto'");
-            expect((error as Error).message).toContain('1.2.0');
+            expect((error as Error).message).toContain('0.0.9');
         }
     });
 
@@ -221,7 +221,7 @@ describe('resolveMessageModeMeta', () => {
             permissionMode: 'auto',
             modelMode: null,
             effortLevel: null,
-            metadata: { flavor: 'claude', version: '1.2.1-beta.2', permissionModeCeiling: 'auto' },
+            metadata: { flavor: 'claude', version: '0.1.0', permissionModeCeiling: 'auto' },
         } as any);
 
         expect(meta.permissionMode).toBe('auto');

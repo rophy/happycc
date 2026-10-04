@@ -2,8 +2,9 @@
  * Utility functions for version comparison and validation
  */
 
-// Minimum required CLI version for full compatibility
-export const MINIMUM_CLI_VERSION = '0.10.0';
+// Minimum required CLI version for full compatibility. This build numbers its CLI on its own
+// (0.1.0 was the first @happycc/cli release), not on upstream's versions.
+export const MINIMUM_CLI_VERSION = '0.1.0';
 
 /**
  * Compare two semantic version strings
