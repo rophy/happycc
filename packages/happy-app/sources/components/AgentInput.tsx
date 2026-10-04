@@ -1579,7 +1579,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             styles.sendButton,
                             isSendBlocked
                                 ? styles.sendButtonLocked
-                                : (hasText || props.isSending)
+                                : ((hasText && !props.isSendDisabled) || props.isSending)
                                     ? styles.sendButtonActive
                                     : styles.sendButtonInactive,
                         ]}
