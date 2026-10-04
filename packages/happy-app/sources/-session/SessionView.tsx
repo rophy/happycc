@@ -75,6 +75,7 @@ import { RigActivityBar } from '@/components/RigActivityBar';
 import { AnimatedFade } from '@/components/AnimatedOverlay';
 import { workstationOnly } from '@/config';
 import { isSidebarPanelAvailable } from '@/utils/sessionFiles';
+import { isSendBlockedForStoppedSession } from '@/utils/sessionSend';
 import { capComposerPermissionModes } from '@/utils/permissionModeRank';
 import { getSideChatForkSource, spawnSideChatFrom } from '@/utils/sideChat';
 
@@ -1137,7 +1138,7 @@ export function SessionViewLoaded({
                 onEffortLevelChange={session && isRigReasoningSelectionEnabled(session.metadata) ? updateEffortLevel : undefined}
                 metadata={composerSession?.metadata ?? null}
                 connectionStatus={session ? connectionStatus : undefined}
-                blockSend={isRig && session?.thinking && session.metadata?.capabilities?.steering !== true}
+                blockSend={(isRig && session?.thinking && session.metadata?.capabilities?.steering !== true) || isSendBlockedForStoppedSession(session, workstationOnly)}
                 onSend={handleSend}
                 onAbort={!session || isDisconnected || !rigCanAbort(session.metadata) ? undefined : handleAbort}
                 showAbortButton={!!session && rigCanAbort(session.metadata) && (
