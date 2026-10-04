@@ -33,4 +33,24 @@ describe('boundary', () => {
         await warmUp(id);
         expect(occurrences(await historyText(id), 'COMPAT-HELLO-OK')).toBe(1);
     });
+
+    // The app's direct file/shell RPCs run only the listed git commands (happy-wire sessionCommands), never
+    // an arbitrary command, a write, or a ripgrep that runs a program.
+    forEachAgent('blocked-shell', async (agent) => {
+        const id = (sessionId = await startSession(agent, `/tmp/compat-${agent}-blocked-shell.log`));
+        const marker = `/tmp/compat-${agent}-blocked-shell-pwned`;
+        await exec('cli', `rm -f ${marker}`);
+        const rpc = async (method: string, params: unknown) =>
+            JSON.parse((await exec('app', `happycc-agent rpc ${shellQuote(id)} ${method} ${shellQuote(JSON.stringify(params))}`,
+                { timeoutMs: 60_000 })).stdout.trim());
+
+        expect(await rpc('bash', { command: `touch ${marker}`, cwd: '/workspace' })).toMatchObject({ success: false, error: 'Command not allowed' });
+        expect(await rpc('bash', { command: 'happycc --version', cwd: '/' })).toMatchObject({ success: false });
+        expect(await rpc('ripgrep', { args: [`--pre=/bin/touch`, '--files'] })).toMatchObject({ success: false });
+        expect(await rpc('writeFile', { path: '/workspace/compat-written.txt', content: 'eA==', expectedHash: null })).toMatchObject({ success: false });
+        expect((await exec('cli', `test -e ${marker} || test -e /workspace/compat-written.txt`, { allowFail: true })).code).not.toBe(0);
+
+        // A listed command still runs (the app's git badge).
+        expect(await rpc('bash', { command: 'git rev-parse --is-inside-work-tree', cwd: '/workspace' })).toHaveProperty('success');
+    });
 });

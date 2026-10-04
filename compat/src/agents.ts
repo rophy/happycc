@@ -1,7 +1,7 @@
 /** The agents under test, how each one is started on the cli device, and which scenarios do not apply to it. */
 
 export type AgentId = 'claude' | 'opencode' | 'pi';
-export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'blocked-spawn' | 'offline-start' | 'resume' | 'spawn';
+export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'blocked-spawn' | 'blocked-shell' | 'offline-start' | 'resume' | 'spawn';
 
 export type AgentDef = {
     label: string;

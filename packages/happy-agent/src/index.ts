@@ -532,6 +532,24 @@ program
     });
 
 program
+    .command('rpc')
+    .description('Call any session RPC with JSON params and print the JSON result (a test probe for the CLI boundary)')
+    .argument('<session-id>', 'Session ID or prefix')
+    .argument('<method>', 'Session RPC method, e.g. bash')
+    .argument('[params]', 'JSON params', '{}')
+    .action(async (sessionId: string, method: string, params: string) => {
+        const config = loadConfig();
+        const { creds, tokens } = openAuth(config);
+        const session = await resolveSession(config, creds, tokens, sessionId);
+        const socket = await connectRpcSocket(config, tokens);
+        try {
+            console.log(JSON.stringify(await callSessionRpc(socket, session, method, JSON.parse(params))));
+        } finally {
+            socket.close();
+        }
+    });
+
+program
     .command('permissions')
     .description('List pending permission requests of a session')
     .argument('<session-id>', 'Session ID or prefix')

@@ -146,6 +146,14 @@ happycc-agent stop <session-id>
 happycc-agent kill <session-id>
 ```
 
+### Raw session RPC (test probe)
+
+```bash
+# Call any session RPC with JSON params and print the JSON result. Used to check
+# what the CLI refuses, e.g. a command outside the app's session command list:
+happycc-agent rpc <session-id> bash '{"command":"happycc --version"}'
+```
+
 ### Permissions and abort
 
 ```bash

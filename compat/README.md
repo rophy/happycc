@@ -60,4 +60,5 @@ the same report to the job summary.
 
 `resume` and `spawn` are N/A for every agent (the app cannot start or resume sessions in this build). The
 `blocked-spawn` scenario (`tests/boundary.test.ts`) proves it: `happycc-agent spawn`/`resume` fail while a live
-session keeps working.
+session keeps working. `blocked-shell` proves the session's direct RPCs run only the app's listed git commands
+(no arbitrary command, write, or program-running search).

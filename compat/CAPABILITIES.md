@@ -39,6 +39,7 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 | abort | ✅ | ❌ #4 | ❌ #4 |
 | kill | ✅ | ✅ | ✅ |
 | blocked-spawn | ✅ | ✅ | ✅ |
+| blocked-shell | ✅ | ✅ | ✅ |
 | offline-start | N/A ([by design](#claude-offline-start-is-a-local-terminal-session)) | ✅ | ✅ |
 | resume | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
 | spawn | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) | N/A ([removed](#workstation-only-boundary)) |
@@ -172,6 +173,12 @@ New scenario `blocked-spawn` (`tests/boundary.test.ts`, all three agents): with 
 condition is non-zero exit and a message containing "not available", "not allowed" or "offline"). Afterwards
 `compat:hello` is answered by the live session (`warmUp`; no turn-end wait, because the session's first turn never
 gets one, bug 1). The task brief wrote `spawn <machine id>`; the real syntax is `spawn --machine <id>`.
+
+Scenario `blocked-shell` (`tests/boundary.test.ts`, all three agents): with a live session, `happycc-agent rpc`
+calls the session's direct RPCs the way a modified client could. `bash` with `touch <marker>` is refused with
+"Command not allowed", `happycc --version` with cwd `/` is refused, `ripgrep` with `--pre=/bin/touch` and `writeFile`
+are refused, and neither the marker nor the written file exists afterwards; the listed `git rev-parse
+--is-inside-work-tree` still answers. The list is `packages/happy-wire/src/sessionCommands.ts`.
 
 Outcome changes from the new boundary: none to the other cells (same matrix as before apart from resume/spawn).
 
