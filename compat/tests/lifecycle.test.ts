@@ -3,7 +3,7 @@ import { forEachAgent } from '../src/matrix';
 import { KnownBugSymptom } from '../src/knownBug';
 import {
     startSession, startDetached, newestSessionSince, sendAndWait, historyText, stopSession, killSession, cleanupAgentProcesses,
-    awaitTurnEnd, warmUp, turnEndCount, runnerPid, pidAlive, sessionActive,
+    warmUp, turnEndCount, runnerPid, pidAlive, sessionActive,
 } from '../src/session';
 import { agentJson, compose, exec, execDetached, poll, shellQuote } from '../src/stack';
 
@@ -28,13 +28,21 @@ describe('lifecycle', () => {
         const before = await warmUp(id);
         await exec('app', `happycc-agent send ${shellQuote(id)} 'compat:slow'`);
         // Let the slow reply stream for a few seconds. (The reply text itself is no "started" signal: Pi delivers the
-        // whole text only once the reply is complete, and Claude's first turn emits no new turn-start, bug 1.)
+        // whole text only once the reply is complete.)
         await poll(async () => ((await historyText(id)).includes('"text":"compat:slow"') ? true : undefined),
             { timeoutMs: 30_000, what: 'the slow message to reach the session' });
         await new Promise((r) => setTimeout(r, 5000));
         await exec('app', `happycc-agent abort ${shellQuote(id)}`);
+        // The abort took effect and left no turn open. OpenCode and Pi open a turn when the prompt is sent, so the
+        // abort ends it; Claude Code opens one only on its first output, so an abort before any output ends no turn
+        // and only reports "Aborted by user".
+        const count = (history: string, t: string) => history.split(`"t":"${t}"`).length - 1;
         try {
-            await awaitTurnEnd(id, before, 30);
+            await poll(async () => {
+                const history = await historyText(id);
+                const settled = count(history, 'turn-end') > before || history.includes('Aborted by user');
+                return settled && count(history, 'turn-start') === count(history, 'turn-end') ? true : undefined;
+            }, { timeoutMs: 30_000, what: `the abort to end the slow turn of ${id}` });
         } catch (error) {
             if (!(await pidAlive(pid)) && await sessionActive(id)) {
                 throw new KnownBugSymptom(4, `after abort no turn-end followed, the runner process ${pid} is dead and the session is still active`);

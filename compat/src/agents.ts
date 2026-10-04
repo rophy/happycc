@@ -26,10 +26,6 @@ export const AGENTS: Record<AgentId, AgentDef> = {
             resume: NO_START,
             'offline-start': 'By design: when the server is unreachable at start, happycc runs Claude Code as a local terminal session and only mirrors the transcript after reconnecting; app messages are not accepted in that mode.',
         },
-        knownBugs: {
-            roundtrip: '#1: the first turn of a session never gets turn-end',
-            'tool-deny': '#2: denying a permission leaves the turn open',
-        },
     },
     opencode: {
         label: 'OpenCode',

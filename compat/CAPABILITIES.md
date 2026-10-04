@@ -33,9 +33,9 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 
 | Scenario | Claude Code | OpenCode | Pi |
 |---|---|---|---|
-| roundtrip | ❌ #1 | ✅ | ✅ |
+| roundtrip | ✅ | ✅ | ✅ |
 | tool-allow | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
-| tool-deny | ❌ #2 | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
+| tool-deny | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | abort | ✅ | ✅ | ✅ |
 | kill | ✅ | ✅ | ✅ |
 | blocked-spawn | ✅ | ✅ | ✅ |
@@ -147,7 +147,11 @@ OpenCode and Pi: see bug 4.
 
 ## Scenarios 4-6 (`tests/lifecycle.test.ts`)
 
-- abort: Claude passes (`turn-end` after the abort, no `COMPAT-SLOW-END`, a following `compat:hello` is answered).
+- abort: passes on all three. Pass condition: the abort took effect (a new `turn-end`, or Claude's "Aborted by user"
+  notice) with no turn left open (as many `turn-end` as `turn-start`), no `COMPAT-SLOW-END`, and a following
+  `compat:hello` is answered. Claude Code opens a turn only on its first output, so aborting the slow reply before any
+  output ends no turn; OpenCode and Pi open a turn when the prompt is sent, so the abort ends it as `cancelled`. (Claude
+  used to pass "turn-end after the abort" only because bug 1 left the warm-up turn open for the abort to close.)
   OpenCode and Pi pass too since bug 4 was fixed; before that they were known-bug #4 cells: after `abort`, no
   `turn-end` within 30 s, the runner pid (`metadata.hostPid`) is gone and the session is still `active`. The "started" signal is a 5 s delay after the
   message reaches the session, not the reply text: Pi delivers the whole reply as one text event only when it is
@@ -238,7 +242,9 @@ Harness findings (in `src/session.ts`):
 
 ## Bugs found
 
-1. **Claude: the first turn of a session never gets `turn-end`.** Fresh session, `send --wait S 'compat:hello'` →
+1. **Fixed: Claude: the first turn of a session never got `turn-end`.** Fixed in `claudeRemoteLauncher.ts`: `onReady`
+   now flushes the outgoing queue before closing every turn (it only did for failed turns); the roundtrip cell passes.
+   Original report: Fresh session, `send --wait S 'compat:hello'` →
    reply `COMPAT-HELLO-OK` arrives, but `timeout 40` exits 124; history has `turn-start` + text, no `turn-end`.
    Later turns are fine. Reproduced on 4 sessions started on cli and 1 spawned from app (the first turn after a
    resume completed normally). Cause: in
@@ -247,7 +253,9 @@ Harness findings (in `src/session.ts`):
    delivered in one burst after `Waiting for session file to be written to disk`, so the close runs while no turn is
    open (no-op) and the assistant message then opens a turn nobody closes.
    Effect on the suite: every Claude scenario's first `sendAndWait` times out.
-2. **Claude: denying a permission leaves the turn open.** After `deny`, the log shows
+2. **Fixed: Claude: denying a permission left the turn open.** Fixed in `claudeRemoteLauncher.ts`: when `claudeRemote`
+   returns mid-turn without abort or exit (a denied tool), the launcher flushes and closes the turn as `cancelled`; the
+   tool-deny cell passes. Original report: After `deny`, the log shows
    `[claudeRemote] Tool aborted, exiting claudeRemote`; `claudeRemoteLauncher` only closes the turn when
    `abortController.signal.aborted`, so no `turn-end` is sent and `send --wait` never returns. The stale turn is
    closed (as `cancelled`) by the next abort.
