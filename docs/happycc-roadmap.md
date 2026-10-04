@@ -27,6 +27,12 @@ nothing reads an ACP agent's title. Only Claude Code is instructed to call `chan
 sessions usually stay "New Chat". Options: forward the agent's native title, or add the `change_title`
 instruction to ACP prompts.
 
+## Workstation resume for OpenCode and Pi
+
+`happycc resume <id>` reattaches Claude Code (and Codex) sessions on the workstation; ACP sessions fail with
+`unsupported flavor`. Supporting them needs the agent's own session restore (ACP `session/load`, if the agent
+offers it) wired into the resume launch, plus the compat `workstation-resume` scenario for each agent.
+
 ## Known agent bugs
 
 Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILITIES.md)):
