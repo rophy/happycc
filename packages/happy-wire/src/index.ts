@@ -4,3 +4,4 @@ export * from './sessionProtocol';
 export * from './controlMessages';
 export * from './rigMetadata';
 export * from './features';
+export * from './sessionCommands';
