@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-streams-adapter";
 import { Redis } from "ioredis";
 import { log } from "@/utils/log";
+import { activityCache } from "@/app/presence/sessionCache";
 import { deviceRoom, setSocketServer } from "@/app/auth/oidc/deviceSockets";
 import { getMetricsLabelsFromSocket, redisStreamLagMsGauge, websocketConnectionsGauge, websocketEventsCounter } from "../monitoring/metrics2";
 import { usageHandler } from "./socket/usageHandler";
@@ -87,6 +88,9 @@ export function startSocket(app: Fastify) {
         const happyClient = socket.data.happyClient as string | undefined;
         let connection: ClientConnection;
         if (metadata.clientType === 'session-scoped' && sessionId) {
+            // The session's CLI is (re)connecting, e.g. `happycc resume` reattaching without POST /v1/sessions:
+            // accept its heartbeats now instead of after the post-stop suppression window.
+            activityCache.resumeSessionUpdates(sessionId);
             connection = {
                 connectionType: 'session-scoped',
                 socket,

@@ -91,7 +91,8 @@ class ActivityCache {
                 // Cache the result
                 this.sessionCache.set(sessionId, {
                     validUntil: now + this.CACHE_TTL,
-                    lastUpdateSent: session.lastActiveAt.getTime(),
+                    // An inactive session's first heartbeat must reach the database, like queueMachineUpdate.
+                    lastUpdateSent: session.active ? session.lastActiveAt.getTime() : 0,
                     pendingUpdate: null,
                     userId
                 });
