@@ -3,6 +3,7 @@
  * Provides strictly typed functions for all session-related RPC operations
  */
 
+import { buildSessionCommand, SESSION_RIPGREP_SEARCHES, type SessionCommand, type SessionRipgrepSearch } from '@slopus/happy-wire';
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import { storage } from './storage';
@@ -60,8 +61,15 @@ interface SessionGoalActionRequest {
     objective?: string;
 }
 
-// Bash operation types
+// Bash operation types. The app may only send commands from happy-wire's session command list
+// (the CLI refuses anything else); `sessionBash` takes the command, the wire carries its string.
 interface SessionBashRequest {
+    command: SessionCommand;
+    cwd?: string;
+    timeout?: number;
+}
+
+interface SessionBashWireRequest {
     command: string;
     cwd?: string;
     timeout?: number;
@@ -991,10 +999,10 @@ export async function sessionBash(sessionId: string, request: SessionBashRequest
         if (!rigCanUseShell(metadata)) {
             throw new Error('Shell access is not available for this session');
         }
-        const response = await apiSocket.sessionRPC<SessionBashResponse, SessionBashRequest>(
+        const response = await apiSocket.sessionRPC<SessionBashResponse, SessionBashWireRequest>(
             sessionId,
             'bash',
-            request
+            { ...request, command: buildSessionCommand(request.command) }
         );
         return response;
     } catch (error) {
@@ -1118,7 +1126,7 @@ export async function sessionGetDirectoryTree(
  */
 export async function sessionRipgrep(
     sessionId: string,
-    args: string[],
+    search: SessionRipgrepSearch,
     cwd?: string
 ): Promise<SessionRipgrepResponse> {
     try {
@@ -1126,7 +1134,7 @@ export async function sessionRipgrep(
         if (!rigCanSearchFiles(metadata)) {
             throw new Error('File search is not available for this session');
         }
-        const request: SessionRipgrepRequest = { args, cwd };
+        const request: SessionRipgrepRequest = { args: [...SESSION_RIPGREP_SEARCHES[search]], cwd };
         const response = await apiSocket.sessionRPC<SessionRipgrepResponse, SessionRipgrepRequest>(
             sessionId,
             'ripgrep',

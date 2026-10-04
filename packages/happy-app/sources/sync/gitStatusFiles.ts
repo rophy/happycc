@@ -41,7 +41,7 @@ export async function getGitStatusFiles(sessionId: string): Promise<GitStatusFil
         // Get git status in porcelain v2 format (includes branch info and repo check)
         // --untracked-files=all ensures we get individual files, not directories
         const statusResult = await sessionBash(sessionId, {
-            command: 'git -c core.quotepath=false status --porcelain=v2 --branch --untracked-files=all',
+            command: { kind: 'gitStatus', showStash: false },
             cwd: session.metadata.path,
             timeout: 10000
         });
@@ -55,7 +55,7 @@ export async function getGitStatusFiles(sessionId: string): Promise<GitStatusFil
         // staged (index vs HEAD) so a file with both kinds of changes doesn't
         // double-count staged lines in its unstaged row.
         const diffStatResult = await sessionBash(sessionId, {
-            command: 'git -c core.quotepath=false diff --numstat && echo "---STAGED---" && git -c core.quotepath=false diff --cached --numstat',
+            command: { kind: 'gitDiffNumstatBoth' },
             cwd: session.metadata.path,
             timeout: 10000
         });

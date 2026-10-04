@@ -133,7 +133,7 @@ export class GitStatusSync {
 
             // First check if we're in a git repository
             const gitCheckResult = await sessionBash(sessionId, {
-                command: 'git rev-parse --is-inside-work-tree',
+                command: { kind: 'gitIsRepo' },
                 cwd: session.metadata.path,
                 timeout: 5000
             });
@@ -147,7 +147,7 @@ export class GitStatusSync {
             // Get git status in porcelain v2 format (includes branch info)
             // --untracked-files=all ensures we get individual files, not directories
             const statusResult = await sessionBash(sessionId, {
-                command: 'git -c core.quotepath=false status --porcelain=v2 --branch --show-stash --untracked-files=all',
+                command: { kind: 'gitStatus', showStash: true },
                 cwd: session.metadata.path,
                 timeout: 10000
             });
@@ -159,14 +159,14 @@ export class GitStatusSync {
 
             // Get git diff statistics for unstaged changes
             const diffStatResult = await sessionBash(sessionId, {
-                command: 'git -c core.quotepath=false diff --numstat',
+                command: { kind: 'gitDiffNumstat', cached: false },
                 cwd: session.metadata.path,
                 timeout: 10000
             });
 
             // Get git diff statistics for staged changes
             const stagedDiffStatResult = await sessionBash(sessionId, {
-                command: 'git -c core.quotepath=false diff --cached --numstat',
+                command: { kind: 'gitDiffNumstat', cached: true },
                 cwd: session.metadata.path,
                 timeout: 10000
             });

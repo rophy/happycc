@@ -90,7 +90,7 @@ class FileSearchCache {
             // Use ripgrep to get all files in the project
             const response = await sessionRipgrep(
                 sessionId,
-                ['--files', '--follow'],
+                'listFiles',
                 undefined
             );
 
