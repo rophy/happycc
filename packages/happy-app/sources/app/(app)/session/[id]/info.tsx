@@ -350,7 +350,6 @@ function SessionInfoContent({ session }: { session: Session }) {
                         />
                     )}
                     {/* Resume command — shown for disconnected sessions with a backend session ID */}
-                    {/* TODO: migrate to `happycc resume <happy-session-id>` once it works without happycc-agent auth */}
                     {!sessionStatus.isConnected && getResumeCommand(session) && (
                         <CopyableItem
                             title="Resume Command"

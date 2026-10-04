@@ -121,11 +121,11 @@ export function getSessionAvatarId(session: Session): string {
  * Uses flavor-specific commands which work without happycc-agent auth.
  */
 export function getResumeCommand(session: Session): string | null {
-    return buildResumeCommand(session.metadata ?? {});
+    return buildResumeCommand(session.metadata ?? {}, session.id);
 }
 
 export function getResumeCommandBlock(session: Session): ResumeCommandBlock | null {
-    return buildResumeCommandBlock(session.metadata ?? {});
+    return buildResumeCommandBlock(session.metadata ?? {}, session.id);
 }
 
 /**

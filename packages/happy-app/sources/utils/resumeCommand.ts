@@ -25,15 +25,17 @@ function isWindows(metadata: ResumeCommandMetadata): boolean {
     return metadata.os?.toLowerCase() === 'win32';
 }
 
-function buildResumeInvocation(metadata: ResumeCommandMetadata): string | null {
+/**
+ * `happycc resume <session id>` reattaches this same session (history kept) rather than starting a new
+ * one on the agent's conversation; it needs the agent's own resume id, so it is offered only when that exists.
+ */
+function buildResumeInvocation(metadata: ResumeCommandMetadata, sessionId: string): string | null {
     if (metadata.client?.id === 'rig' || metadata.capabilities?.resume === false) {
         return null;
     }
-    if ((metadata.flavor === 'codex' || metadata.flavor === 'openai' || metadata.flavor === 'gpt') && metadata.codexThreadId) {
-        return `happycc codex --resume ${metadata.codexThreadId}`;
-    }
-    if (metadata.claudeSessionId) {
-        return `happycc claude --resume ${metadata.claudeSessionId}`;
+    const isCodex = metadata.flavor === 'codex' || metadata.flavor === 'openai' || metadata.flavor === 'gpt';
+    if ((isCodex && metadata.codexThreadId) || metadata.claudeSessionId) {
+        return `happycc resume ${sessionId}`;
     }
     return null;
 }
@@ -49,8 +51,8 @@ function buildChangeDirectoryCommand(metadata: ResumeCommandMetadata): string | 
         : `cd ${quotePosixPath(path)}`;
 }
 
-export function buildResumeCommandBlock(metadata: ResumeCommandMetadata): ResumeCommandBlock | null {
-    const invocation = buildResumeInvocation(metadata);
+export function buildResumeCommandBlock(metadata: ResumeCommandMetadata, sessionId: string): ResumeCommandBlock | null {
+    const invocation = buildResumeInvocation(metadata, sessionId);
     if (!invocation) {
         return null;
     }
@@ -66,8 +68,8 @@ export function buildResumeCommandBlock(metadata: ResumeCommandMetadata): Resume
     };
 }
 
-export function buildResumeCommand(metadata: ResumeCommandMetadata): string | null {
-    const commandBlock = buildResumeCommandBlock(metadata);
+export function buildResumeCommand(metadata: ResumeCommandMetadata, sessionId: string): string | null {
+    const commandBlock = buildResumeCommandBlock(metadata, sessionId);
     if (!commandBlock) {
         return null;
     }

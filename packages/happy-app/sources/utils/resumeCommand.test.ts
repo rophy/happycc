@@ -9,38 +9,38 @@ describe('buildResumeCommand', () => {
             codexThreadId: 'thread-1',
             client: { id: 'rig' },
             capabilities: { resume: false },
-        })).toBeNull();
+        }, 'cmsession1')).toBeNull();
     });
-    it('builds a Claude resume command that enters the session directory first', () => {
+    it('builds a resume command for the session that enters the session directory first', () => {
         expect(buildResumeCommand({
             path: '/tmp/project',
             os: 'darwin',
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toBe(`cd '/tmp/project' && happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`);
+        }, 'cmsession1')).toBe(`cd '/tmp/project' && happycc resume cmsession1`);
     });
 
-    it('builds a Windows Codex resume command using PowerShell directory navigation', () => {
+    it('builds a Windows resume command for a Codex session using PowerShell directory navigation', () => {
         expect(buildResumeCommand({
             path: 'C:\\Users\\test\\project',
             os: 'win32',
             flavor: 'codex',
             codexThreadId: '019ccca5-726b-7c61-b914-16de27dfab6e',
-        })).toBe(`Set-Location -LiteralPath 'C:\\Users\\test\\project'; happycc codex --resume 019ccca5-726b-7c61-b914-16de27dfab6e`);
+        }, 'cmsession1')).toBe(`Set-Location -LiteralPath 'C:\\Users\\test\\project'; happycc resume cmsession1`);
     });
 
     it('falls back to the bare resume command when no path is available', () => {
         expect(buildResumeCommand({
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toBe('happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd');
+        }, 'cmsession1')).toBe('happycc resume cmsession1');
     });
 
     it('returns null when there is no resumable session identifier', () => {
         expect(buildResumeCommand({
             path: '/tmp/project',
             flavor: 'claude',
-        })).toBeNull();
+        }, 'cmsession1')).toBeNull();
     });
 });
 
@@ -51,12 +51,12 @@ describe('buildResumeCommandBlock', () => {
             os: 'darwin',
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toEqual({
+        }, 'cmsession1')).toEqual({
             lines: [
                 `cd '/tmp/project'`,
-                'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+                'happycc resume cmsession1',
             ],
-            copyText: `cd '/tmp/project'\nhappycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
+            copyText: `cd '/tmp/project'\nhappycc resume cmsession1`,
         });
     });
 
@@ -64,9 +64,9 @@ describe('buildResumeCommandBlock', () => {
         expect(buildResumeCommandBlock({
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toEqual({
-            lines: ['happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd'],
-            copyText: 'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+        }, 'cmsession1')).toEqual({
+            lines: ['happycc resume cmsession1'],
+            copyText: 'happycc resume cmsession1',
         });
     });
 
@@ -76,12 +76,12 @@ describe('buildResumeCommandBlock', () => {
             os: 'win32',
             flavor: 'claude',
             claudeSessionId: '93a9705e-bc6a-406d-8dce-8acc014dedbd',
-        })).toEqual({
+        }, 'cmsession1')).toEqual({
             lines: [
                 `Set-Location -LiteralPath 'C:\\Users\\test\\project'`,
-                'happycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd',
+                'happycc resume cmsession1',
             ],
-            copyText: `Set-Location -LiteralPath 'C:\\Users\\test\\project'\nhappycc claude --resume 93a9705e-bc6a-406d-8dce-8acc014dedbd`,
+            copyText: `Set-Location -LiteralPath 'C:\\Users\\test\\project'\nhappycc resume cmsession1`,
         });
     });
 });
