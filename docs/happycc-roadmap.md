@@ -35,3 +35,11 @@ Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILIT
 2. Claude Code: a denied permission leaves the turn open.
 4. ACP: abort crashes the runner.
 5. ACP: turn end is detected by a 500 ms idle heuristic.
+
+## Declined
+
+- **New session from the app** (including a bounded "new session in this session's folder"). happycc keeps one
+  model: one `happycc` started in a workstation terminal is one session in the app. The daemon stays disabled, so
+  nothing runs on the workstation that the user did not start there or approve through the agent's permission
+  prompt. Asking the agent to run `happycc` elsewhere remains possible, behind that prompt, as with Claude Code
+  Remote Control.
