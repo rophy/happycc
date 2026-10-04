@@ -6,10 +6,11 @@ const path = require('node:path');
 const { releaseInput, checkManifest, checkVersionOutput, checkPackage } = require('./agent-release.cjs');
 
 test('agent releases get their own tag and tarball', () => {
-  assert.deepEqual(releaseInput('0.1.0', 'latest'), {
-    version: '0.1.0', channel: 'latest', tag: 'agent-0.1.0', tarball: 'happycc-agent-0.1.0.tgz',
+  assert.deepEqual(releaseInput('0.1.0'), {
+    version: '0.1.0', channel: 'latest', tag: 'agent/0.1.0', tarball: 'happycc-agent-0.1.0.tgz',
   });
-  assert.throws(() => releaseInput('0.1.0', 'beta'));
+  assert.equal(releaseInput('0.2.0-beta.1').channel, 'beta');
+  assert.throws(() => releaseInput('0.1'));
 });
 
 const manifest = () => ({

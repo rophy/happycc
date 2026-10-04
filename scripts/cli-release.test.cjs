@@ -3,21 +3,32 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { releaseInput, checkManifest, checkVersionOutput, checkPackage } = require('./cli-release.cjs');
+const { releaseInput, checkNewer, compareVersions, checkManifest, checkVersionOutput, checkPackage } = require('./cli-release.cjs');
 
-test('stable and beta releases have explicit, distinct channels and CLI tags', () => {
-  assert.deepEqual(releaseInput('1.2.4-beta.0', 'beta'), {
-    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli-1.2.4-beta.0', tarball: 'happycc-cli-1.2.4-beta.0.tgz',
+test('the channel and tag follow from the version', () => {
+  assert.deepEqual(releaseInput('1.2.4-beta.0'), {
+    version: '1.2.4-beta.0', channel: 'beta', tag: 'cli/1.2.4-beta.0', tarball: 'happycc-cli-1.2.4-beta.0.tgz',
   });
-  assert.equal(releaseInput('1.2.4', 'latest').tag, 'cli-1.2.4');
+  assert.deepEqual(releaseInput('1.2.4'), {
+    version: '1.2.4', channel: 'latest', tag: 'cli/1.2.4', tarball: 'happycc-cli-1.2.4.tgz',
+  });
 });
 
-test('rejects unsafe versions, wrong channels, and noncanonical semver', () => {
-  for (const [version, channel] of [
-    ['1.2.4-beta.0', 'latest'], ['1.2.4', 'beta'], ['1.2.4-rc.0', 'beta'],
-    ['01.2.4', 'latest'], ['1.2.4-beta.01', 'beta'], ['v1.2.4', 'latest'],
-    ['1.2.4\n', 'latest'], ['1.2.4; echo bad', 'latest'], ['1.2.4', 'next'],
-  ]) assert.throws(() => releaseInput(version, channel), `${version} / ${channel}`);
+test('rejects unsafe and noncanonical versions', () => {
+  for (const version of [
+    '1.2.4-rc.0', '01.2.4', '1.2.4-beta.01', 'v1.2.4', '1.2.4\n', '1.2.4; echo bad', '', undefined,
+  ]) assert.throws(() => releaseInput(version), `${version}`);
+});
+
+test('a release must be newer than the latest one', () => {
+  checkNewer('0.1.0', '');
+  checkNewer('0.1.1', '0.1.0');
+  checkNewer('0.2.0-beta.0', '0.1.9');
+  for (const [version, latest] of [['0.1.0', '0.1.0'], ['0.0.9', '0.1.0'], ['0.1.0-beta.3', '0.1.0']]) {
+    assert.throws(() => checkNewer(version, latest), /not newer/);
+  }
+  assert.equal(compareVersions('1.2.1-beta.10', '1.2.1-beta.9'), 1);
+  assert.equal(compareVersions('1.10.0', '1.9.0'), 1);
 });
 
 const manifest = () => ({

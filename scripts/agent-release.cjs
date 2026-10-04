@@ -2,13 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { checkReleaseVersion, checkManifest: checkCliManifest } = require('./cli-release.cjs');
+const { releaseChannel, checkNewer, checkManifest: checkCliManifest } = require('./cli-release.cjs');
 
 const PACKAGE_NAME = '@happycc/agent';
 
-function releaseInput(version, channel) {
-  checkReleaseVersion(version, channel);
-  return { version, channel, tag: `agent-${version}`, tarball: `happycc-agent-${version}.tgz` };
+function releaseInput(version) {
+  const channel = releaseChannel(version);
+  return { version, channel, tag: `agent/${version}`, tarball: `happycc-agent-${version}.tgz` };
 }
 
 function checkManifest(manifest, version) {
@@ -56,15 +56,11 @@ function smoke(prefix, version) {
 }
 
 async function main() {
-  const release = releaseInput(process.env.RELEASE_VERSION, process.env.RELEASE_CHANNEL);
+  const release = releaseInput(process.env.RELEASE_VERSION);
   const [command, target] = process.argv.slice(2);
   if (command === 'validate') {
+    checkNewer(release.version, process.env.RELEASE_LATEST);
     console.log(`Validated ${PACKAGE_NAME}@${release.version} for ${release.channel}`);
-  } else if (command === 'prepare') {
-    const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
-    manifest.version = release.version;
-    checkManifest(manifest, release.version);
-    fs.writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`);
   } else if (command === 'check-package') {
     checkPackage(target, release.version);
   } else if (command === 'smoke') {

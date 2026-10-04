@@ -5,19 +5,39 @@ const { spawnSync } = require('node:child_process');
 
 const PACKAGE_NAME = '@happycc/cli';
 
-/** Validates a release version for its npm channel; shared with agent-release.cjs. */
-function checkReleaseVersion(version, channel) {
-  const stable = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-  const beta = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-beta\.(0|[1-9]\d*)$/;
-  assert(channel === 'latest' || channel === 'beta', 'Channel must be latest or beta');
-  assert(typeof version === 'string' && version.length < 100, 'A release version is required');
-  assert((channel === 'beta' ? beta : stable).test(version),
-    `Version must be ${channel === 'beta' ? 'X.Y.Z-beta.N' : 'X.Y.Z'} for ${channel}`);
+const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-beta\.(0|[1-9]\d*))?$/;
+
+/**
+ * The npm channel of a release version: X.Y.Z goes to `latest`, X.Y.Z-beta.N to `beta`.
+ * Shared with agent-release.cjs.
+ */
+function releaseChannel(version) {
+  assert(typeof version === 'string' && VERSION.test(version), `Version must be X.Y.Z or X.Y.Z-beta.N, got ${version}`);
+  return version.includes('-beta.') ? 'beta' : 'latest';
 }
 
-function releaseInput(version, channel) {
-  checkReleaseVersion(version, channel);
-  return { version, channel, tag: `cli-${version}`, tarball: `happycc-cli-${version}.tgz` };
+/** Orders X.Y.Z and X.Y.Z-beta.N versions; a beta ranks below its stable version. */
+function compareVersions(a, b) {
+  const parse = (version) => {
+    const [, major, minor, patch, beta] = VERSION.exec(version) ?? assert.fail(`Not a release version: ${version}`);
+    return [Number(major), Number(minor), Number(patch), beta === undefined ? Infinity : Number(beta)];
+  };
+  const [left, right] = [parse(a), parse(b)];
+  for (let i = 0; i < left.length; i++) {
+    if (left[i] !== right[i]) return left[i] < right[i] ? -1 : 1;
+  }
+  return 0;
+}
+
+/** A release must be newer than the version npm serves as `latest` (none before the first release). */
+function checkNewer(version, latest) {
+  if (!latest) return;
+  assert(compareVersions(version, latest) > 0, `${version} is not newer than the latest release ${latest}`);
+}
+
+function releaseInput(version) {
+  const channel = releaseChannel(version);
+  return { version, channel, tag: `cli/${version}`, tarball: `happycc-cli-${version}.tgz` };
 }
 
 function checkManifest(manifest, version) {
@@ -93,15 +113,11 @@ function smoke(prefix, version) {
 }
 
 async function main() {
-  const release = releaseInput(process.env.RELEASE_VERSION, process.env.RELEASE_CHANNEL);
+  const release = releaseInput(process.env.RELEASE_VERSION);
   const [command, target] = process.argv.slice(2);
   if (command === 'validate') {
+    checkNewer(release.version, process.env.RELEASE_LATEST);
     console.log(`Validated ${PACKAGE_NAME}@${release.version} for ${release.channel}`);
-  } else if (command === 'prepare') {
-    const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
-    manifest.version = release.version;
-    checkManifest(manifest, release.version);
-    fs.writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`);
   } else if (command === 'check-package') {
     checkPackage(target, release.version);
   } else if (command === 'smoke') {
@@ -111,5 +127,5 @@ async function main() {
   }
 }
 
-module.exports = { checkReleaseVersion, releaseInput, checkManifest, checkVersionOutput, checkPackage };
+module.exports = { releaseChannel, compareVersions, checkNewer, releaseInput, checkManifest, checkVersionOutput, checkPackage };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
