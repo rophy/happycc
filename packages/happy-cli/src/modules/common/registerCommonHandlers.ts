@@ -8,6 +8,8 @@ import { run as runRipgrep } from '@/modules/ripgrep/index';
 import { run as runDifftastic } from '@/modules/difftastic/index';
 import { RpcHandlerManager } from '../../api/rpc/RpcHandlerManager';
 import { validatePath, PathValidationResult } from './pathSecurity';
+import { runSessionCommand } from './sessionCommandRunner';
+import { isAllowedRipgrepArgs } from '@slopus/happy-wire';
 
 const execAsync = promisify(exec);
 
@@ -176,6 +178,12 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     rpcHandlerManager.registerHandler<BashRequest, BashResponse>('bash', async (data) => {
         logger.debug('Shell command request:', data.command);
 
+        // A session runs only the app's own listed commands (happy-wire sessionCommands): this RPC
+        // bypasses the agent's permission prompts, so it must not be a general shell.
+        if (workingDirectory !== null) {
+            return runSessionCommand(data, workingDirectory);
+        }
+
         // Validate cwd if provided
         // Special case: "/" means "use shell's default cwd" (used by CLI detection)
         // Security: Still validate all other paths to prevent directory traversal
@@ -281,6 +289,12 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     // Write file handler - with hash verification
     rpcHandlerManager.registerHandler<WriteFileRequest, WriteFileResponse>('writeFile', async (data) => {
         logger.debug('Write file request:', data.path);
+
+        // Writing from the app bypasses the agent's permission prompts (e.g. `.git/config` or agent
+        // settings can make later commands run), so sessions do not accept it.
+        if (workingDirectory !== null) {
+            return { success: false, error: 'Writing files is not available in this build' };
+        }
 
         // Validate path is within working directory
         const validation = checkPath(data.path);
@@ -493,6 +507,11 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     rpcHandlerManager.registerHandler<RipgrepRequest, RipgrepResponse>('ripgrep', async (data) => {
         logger.debug('Ripgrep request with args:', data.args, 'cwd:', data.cwd);
 
+        // Raw ripgrep arguments can run programs (`--pre`); sessions accept only the listed searches.
+        if (workingDirectory !== null && !isAllowedRipgrepArgs(data.args)) {
+            return { success: false, error: 'Search not allowed' };
+        }
+
         // Validate cwd if provided
         if (data.cwd) {
             const validation = checkPath(data.cwd);
@@ -522,6 +541,11 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     // Difftastic handler - raw interface to difftastic
     rpcHandlerManager.registerHandler<DifftasticRequest, DifftasticResponse>('difftastic', async (data) => {
         logger.debug('Difftastic request with args:', data.args, 'cwd:', data.cwd);
+
+        // Unused by the app and takes raw arguments, so sessions do not accept it.
+        if (workingDirectory !== null) {
+            return { success: false, error: 'Difftastic is not available in this build' };
+        }
 
         // Validate cwd if provided
         if (data.cwd) {
