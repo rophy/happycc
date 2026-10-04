@@ -1,7 +1,7 @@
 {
   "name": "@happycc/agent",
   "version": "0.1.0",
-  "description": "CLI client for controlling Happy Coder agents remotely",
+  "description": "Command-line client for happycc sessions, for scripts and automation",
   "author": "Kirill Dubovitskiy",
   "license": "MIT",
   "type": "module",

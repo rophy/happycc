@@ -1,7 +1,7 @@
 {
   "name": "@happycc/cli",
   "version": "0.1.0",
-  "description": "Mobile and Web client for Claude Code and Codex",
+  "description": "Run coding agents on your workstation and follow them from your organization's happycc app",
   "author": "Kirill Dubovitskiy",
   "license": "MIT",
   "type": "module",

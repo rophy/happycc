@@ -1,8 +1,7 @@
-# Happy
+# @happycc/cli
 
-Code on the go — control AI coding agents from your phone, browser, or terminal.
-
-Free. Open source. Code anywhere.
+The `happycc` command of [Happy Corporate Coder](https://github.com/rophy/happycc): run a coding agent on
+your workstation and follow it from your organization's happycc app.
 
 ## Installation
 
@@ -10,21 +9,20 @@ Free. Open source. Code anywhere.
 npm install -g @happycc/cli
 ```
 
-## Usage
-
-### Claude Code (default)
+Point it at your organization's server (there is no default):
 
 ```bash
-happycc
-# or
-happycc claude
+export HAPPY_SERVER_URL=https://happy.example.com   # or "serverUrl" in ~/.happycc/settings.json
 ```
 
-This will:
-1. Start a Claude Code session
-2. Prompt you to sign in on first run (see Authentication below) and print a link to connect from your mobile device or browser
-3. Allow real-time session control — all communication is end-to-end encrypted
-4. Start new sessions directly from your phone or web while your computer is online
+## Usage
+
+```bash
+happycc              # Claude Code (or: happycc claude)
+```
+
+The first run prints a sign-in link for your organization's identity provider. Once signed in, the
+session appears in the app.
 
 ### More agents
 
@@ -42,15 +40,17 @@ happycc acp -- custom-agent --flag
 > **Note on agy permissions:** the agy backend runs `agy --print`, which is
 > one-shot and has no interactive approval surface — tool calls proceed
 > automatically without ever prompting you. The permission mode you pick in
-> Happy only chooses which flag is passed to agy: the default modes use
+> happycc only chooses which flag is passed to agy: the default modes use
 > `--sandbox`, and the bypass/yolo-style modes (including `acceptEdits`) use
 > `--dangerously-skip-permissions`. Neither adds a per-tool approval gate
-> inside Happy, so selecting "default" for an agy session does **not** give
+> inside happycc, so selecting "default" for an agy session does **not** give
 > you an approval prompt the way it does for Claude Code.
 
-## Daemon
+## Sessions
 
-This build has no background daemon. `happycc daemon …` exits with code 1 and prints "The background daemon is not available in this build." Sessions are started from the workstation: run `happycc` in a project folder and the session appears in the app, where you can watch and control it. The app cannot start, resume or fork sessions.
+Sessions start on the workstation: run `happycc` in a project folder. There is no background daemon
+(`happycc daemon …` exits with an error). `happycc resume <session id>` continues a Claude Code or
+Codex session later.
 
 ## Authentication
 
@@ -59,7 +59,7 @@ happycc auth login
 happycc auth logout
 ```
 
-`happycc auth login` prints a short-lived sign-in link — open it in a browser, approve the device, and the CLI picks up the new credentials automatically. All session data is end-to-end encrypted before leaving your device.
+`happycc auth login` prints a short-lived sign-in link — open it in a browser, sign in with your organization's identity provider, approve the device, and the CLI picks up the new credentials automatically.
 
 To connect third-party agent APIs:
 
@@ -91,15 +91,15 @@ happycc connect status
 
 | Variable | Description |
 |----------|-------------|
-| `HAPPY_SERVER_URL` | Your Happy server URL. Required: there is no default (or set `serverUrl` in `~/.happycc/settings.json`) |
+| `HAPPY_SERVER_URL` | Your organization's server URL. Required: there is no default (or set `serverUrl` in `~/.happycc/settings.json`) |
 | `HAPPY_WEBAPP_URL` | Your web app URL (no default) |
-| `HAPPY_HOME_DIR` | Custom home directory for Happy data (default: `~/.happycc`) |
+| `HAPPY_HOME_DIR` | Custom home directory for happycc data (default: `~/.happycc`) |
 | `HAPPY_DISABLE_CAFFEINATE` | Disable macOS sleep prevention |
 | `HAPPY_EXPERIMENTAL` | Enable experimental features |
 
 ### Sandbox (experimental)
 
-Happy can run agents inside an OS-level sandbox to restrict file system and network access.
+happycc can run agents inside an OS-level sandbox to restrict file system and network access.
 
 ```bash
 happycc sandbox configure
@@ -110,10 +110,10 @@ happycc sandbox disable
 ### Building from source
 
 ```bash
-git clone https://github.com/slopus/happy
-cd happy-cli
-yarn install
-yarn workspace @happycc/cli cli --help
+git clone https://github.com/rophy/happycc
+cd happycc
+pnpm install
+pnpm --filter @happycc/cli cli --help
 ```
 
 ## Requirements
@@ -126,4 +126,4 @@ yarn workspace @happycc/cli cli --help
 
 ## License
 
-MIT
+MIT. A fork of [Happy Coder](https://github.com/slopus/happy).

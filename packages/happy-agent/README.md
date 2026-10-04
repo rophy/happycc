@@ -1,8 +1,9 @@
-# Happy Agent
+# @happycc/agent
 
-CLI client for controlling Happy Coder agents remotely.
+`happycc-agent`, a command-line client for [Happy Corporate Coder](https://github.com/rophy/happycc)
+sessions, for scripts and automation.
 
-Unlike `happy-cli` which both runs and controls agents, `happycc-agent` only controls them — listing machines, creating sessions, sending messages, reading history, monitoring state, and stopping or killing sessions.
+Unlike `happycc` (`@happycc/cli`), which runs agents, `happycc-agent` only controls them — listing machines, creating sessions, sending messages, reading history, monitoring state, and stopping or killing sessions.
 
 ## Installation
 
@@ -19,7 +20,7 @@ cd packages/happy-agent && npm link
 
 ## Authentication
 
-Happy Agent signs in with your organization's identity provider through the Happy server (OIDC, loopback redirect). It receives the account key, so it can read sessions created on any of your machines.
+`happycc-agent` signs in with your organization's identity provider through the happycc server (OIDC, loopback redirect). It receives the account key, so it can read sessions created on any of your machines.
 
 ```bash
 # Opens the sign-in URL in your default browser (and prints it too). Waits up to 5 minutes.
@@ -182,7 +183,7 @@ Exit code 0 when agent becomes idle, 1 on timeout.
 
 ## Environment Variables
 
-- `HAPPY_SERVER_URL` - Your Happy server URL. Required: there is no default.
+- `HAPPY_SERVER_URL` - Your organization's server URL. Required: there is no default.
 - `HAPPY_HOME_DIR` - Home directory for credential storage (default: `~/.happycc`)
 
 ## Session ID Matching
@@ -193,7 +194,8 @@ Machine-aware commands such as `spawn --machine <machine-id>` also support ID pr
 
 ## Encryption
 
-All machine and session data is end-to-end encrypted. New records use AES-256-GCM with per-record keys. Existing records created by other clients are decrypted using the appropriate key scheme (AES-256-GCM or legacy NaCl secretbox).
+Session data is encrypted with the account's keys (AES-256-GCM with per-record keys; older records may use NaCl
+secretbox). The organization's server manages the keys; `happycc-agent` receives them when it signs in.
 
 ## Requirements
 
