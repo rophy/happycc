@@ -4,7 +4,8 @@
  */
 
 import { logger } from '@/ui/logger';
-import { clearDaemonState, readDaemonState } from '@/persistence';
+import { clearDaemonState, persistSession, readDaemonState } from '@/persistence';
+import { DAEMON_ENABLED } from './ensureDaemonRunning';
 import { Metadata } from '@/api/types';
 import { configuration } from '@/configuration';
 
@@ -70,6 +71,15 @@ export async function notifyDaemonSessionStarted(
     agentStateVersion: number;
   }
 ): Promise<{ error?: string } | any> {
+  // The session keeps its own record of the encryption data, so `happycc resume <id>` can reattach to it on
+  // this workstation without a daemon (the daemon also writes the same record when it receives the webhook).
+  if (encryption) {
+    persistSession(sessionId, { ...encryption, metadata, savedAt: Date.now(), lastAliveAt: Date.now() });
+  }
+  if (!DAEMON_ENABLED) {
+    return { error: 'The background daemon is not available in this build' };
+  }
+
   // Retry briefly — ensureDaemonRunning already waits for readiness, but we may
   // race a daemon that is mid-restart (version upgrade, crash recovery). Without
   // this, the session's encryption data never reaches the daemon and the mobile
