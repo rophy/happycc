@@ -96,3 +96,44 @@ describe('claudeRemoteLauncher provider auth', () => {
         expect(claudeRemote).toHaveBeenCalledTimes(2);
     });
 });
+
+describe('claudeRemoteLauncher turn end', () => {
+    beforeEach(() => { vi.mocked(claudeRemote).mockReset(); });
+
+    const reply = (text: string) => ({
+        type: 'assistant', parent_tool_use_id: null,
+        message: { role: 'assistant', content: [{ type: 'text', text }] },
+    } as any);
+
+    it('ends a turn whose reply arrives right before the result (a session\'s first turn)', async () => {
+        const { session, envelopes, stop } = fixture();
+        let eventsAtReady: unknown[] = [];
+        vi.mocked(claudeRemote).mockImplementation(async opts => {
+            opts.onMessage(reply('Hi'));
+            await opts.onReady();
+            eventsAtReady = envelopes.map(envelope => envelope.ev);
+            stop();
+        });
+        await claudeRemoteLauncher(session as any);
+        expect(eventsAtReady).toEqual([
+            { t: 'turn-start' },
+            { t: 'text', text: 'Hi' },
+            { t: 'turn-end', status: 'completed' },
+        ]);
+    });
+
+    it('ends the turn as cancelled when claudeRemote returns mid-turn (a denied tool)', async () => {
+        const { session, state, envelopes, stop } = fixture();
+        let eventsAfterReturn: unknown[] = [];
+        vi.mocked(claudeRemote)
+            .mockImplementationOnce(async opts => { opts.onMessage(reply('Writing the file')); })
+            .mockImplementationOnce(async () => {
+                eventsAfterReturn = envelopes.map(envelope => envelope.ev);
+                stop();
+            });
+        await claudeRemoteLauncher(session as any);
+        expect(eventsAfterReturn.at(-1)).toEqual({ t: 'turn-end', status: 'cancelled' });
+        expect(state.currentTurnId).toBeNull();
+        expect(envelopes.filter(envelope => envelope.ev.t === 'turn-end')).toHaveLength(1);
+    });
+});

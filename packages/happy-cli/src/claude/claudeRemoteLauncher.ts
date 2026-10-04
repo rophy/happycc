@@ -421,9 +421,10 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                     },
                     onReady: async (status) => {
                         // Assistant messages are queued until the next tick. Deliver
-                        // them before closing an auth-failed turn, or the close can
-                        // run before the mapper has even opened that turn.
-                        if (status === 'failed') await messageQueue.flush();
+                        // them before closing the turn, or the close can run before
+                        // the mapper has even opened that turn (a session's first turn
+                        // arrives in one burst, after the session file is written).
+                        await messageQueue.flush();
                         session.client.closeClaudeSessionTurn(status ?? 'completed');
                         if (status !== 'failed' && !pending && session.queue.size() === 0) {
                             session.api.push().sendSessionNotification({ kind: 'done', sessionId: session.client.sessionId });
@@ -438,6 +439,11 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                 if (!exitReason && abortController.signal.aborted) {
                     session.client.closeClaudeSessionTurn('cancelled');
                     session.client.sendSessionEvent({ type: 'message', message: 'Aborted by user' });
+                } else if (!exitReason) {
+                    // claudeRemote also returns mid-turn without a result, e.g. after a denied
+                    // tool (Claude stops the turn there). Close it; a no-op if onReady already did.
+                    await messageQueue.flush();
+                    session.client.closeClaudeSessionTurn('cancelled');
                 }
             } catch (e) {
                 logger.debug('[remote]: launch error', e);
