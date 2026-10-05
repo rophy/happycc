@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { isAuthzEnabled } from '@/app/auth/authz/authz';
 import { filterIdpClaims } from '@/app/auth/authz/idpClaims';
 import { db } from '@/storage/db';
 import { log } from '@/utils/log';
@@ -61,15 +62,18 @@ export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: 
             log({ module: 'auth', level: 'warn' }, `IdP unavailable while checking account ${accountId}`);
             return true;
         }
+        const claimFields = result.claims && isAuthzEnabled()
+            ? { idpClaims: filterIdpClaims(result.claims) as Prisma.InputJsonValue }
+            : {};
         if (result.refreshToken) {
-            // Only replace the token we used: a concurrent login may have stored a fresher one.
+            // Only replace the token we used: a concurrent login may have stored a fresher one
+            // (and its own claims), so the claims go in the same guarded write.
             await db.account.updateMany({
                 where: { id: accountId, idpRefreshToken: account.idpRefreshToken },
-                data: { idpRefreshToken: sealIdpRefreshToken(result.refreshToken) },
+                data: { idpRefreshToken: sealIdpRefreshToken(result.refreshToken), ...claimFields },
             });
-        }
-        if (result.claims) {
-            await db.account.update({ where: { id: accountId }, data: { idpClaims: filterIdpClaims(result.claims) as Prisma.InputJsonValue } });
+        } else if (Object.keys(claimFields).length > 0) {
+            await db.account.update({ where: { id: accountId }, data: claimFields });
         }
         return true;
     };

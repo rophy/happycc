@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { db } from '@/storage/db';
 import { log } from '@/utils/log';
 import { separateName } from '@/utils/separateName';
+import { isAuthzEnabled } from '@/app/auth/authz/authz';
 import { filterIdpClaims } from '@/app/auth/authz/idpClaims';
 import { deriveAccountPublicKeyHex, generateRootSecret } from './accountKeys';
 import { keyVault, sealIdpRefreshToken } from './keyVault';
@@ -30,7 +31,8 @@ async function upsertAccount(identity: OidcIdentity, now: Date): Promise<{ accou
     const idpFields = identity.refreshToken
         ? { idpRefreshToken: sealIdpRefreshToken(identity.refreshToken), idpCheckedAt: now }
         : {};
-    const claimFields = identity.claims ? { idpClaims: filterIdpClaims(identity.claims) as Prisma.InputJsonValue } : {};
+    // Claims are only needed (and only kept) when the authorization webhook is enabled.
+    const claimFields = identity.claims && isAuthzEnabled() ? { idpClaims: filterIdpClaims(identity.claims) as Prisma.InputJsonValue } : {};
 
     const existing = await db.account.findUnique({ where });
     if (existing) {

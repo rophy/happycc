@@ -1,9 +1,10 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
 import { createTestDb } from '@/testing/testDb';
 import type { IdpRefreshResult } from './oidcClient';
 
 let db: PrismaClient;
+let authz: typeof import('@/app/auth/authz/authz');
 let idp: typeof import('./idpCheck');
 let provisioning: typeof import('./provisioning');
 let devices: typeof import('./devices');
@@ -12,6 +13,7 @@ let vault: typeof import('./keyVault');
 beforeAll(async () => {
     process.env.HANDY_MASTER_SECRET = 'test-master-secret-that-is-long-enough-000';
     db = await createTestDb();
+    authz = await import('@/app/auth/authz/authz');
     await (await import('@/modules/encrypt')).initEncrypt();
     (await import('./accessTokens')).initAccessTokens({ masterSecret: process.env.HANDY_MASTER_SECRET, ttlSec: 900 });
     idp = await import('./idpCheck');
@@ -61,7 +63,17 @@ describe('createIdpCheck', () => {
         expect(account.idpCheckedAt?.toISOString()).toBe(now.toISOString());
     });
 
+    afterEach(() => { authz.resetAuthzForTests(); });
+
+    it('stores no claims of a refreshed ID token when the webhook is disabled', async () => {
+        const accountId = await accountWithIdpToken('i-noclaims', stale);
+        const { oidc } = fakeOidc({ status: 'ok', refreshToken: 'idp-rt-3', claims: { groups: ['new'] } });
+        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
+        expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toBeNull();
+    });
+
     it('stores the claims of a refreshed ID token', async () => {
+        authz.initAuthz({ AUTHZ_WEBHOOK_URL: 'http://localhost:1/x', AUTHZ_WEBHOOK_SECRET: 's', AUTHZ_WEBHOOK_ALLOW_INSECURE: 'true' } as NodeJS.ProcessEnv);
         const accountId = await accountWithIdpToken('i-claims', stale);
         const { oidc } = fakeOidc({ status: 'ok', refreshToken: null, claims: { groups: ['new'], exp: 1 } });
         expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);

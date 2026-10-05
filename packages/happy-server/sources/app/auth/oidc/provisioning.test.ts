@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
 import { createTestDb } from '@/testing/testDb';
 
 let db: PrismaClient;
+let authz: typeof import('@/app/auth/authz/authz');
 let provisioning: typeof import('./provisioning');
 let keys: typeof import('./accountKeys');
 let vault: typeof import('./keyVault');
@@ -10,6 +11,7 @@ let vault: typeof import('./keyVault');
 beforeAll(async () => {
     process.env.HANDY_MASTER_SECRET = 'test-master-secret-that-is-long-enough-000';
     db = await createTestDb();
+    authz = await import('@/app/auth/authz/authz');
     await (await import('@/modules/encrypt')).initEncrypt();
     provisioning = await import('./provisioning');
     keys = await import('./accountKeys');
@@ -21,6 +23,8 @@ const identity = (subject: string, extra: Partial<import('./oidcClient').OidcIde
 });
 
 describe('provisionAccount', () => {
+    afterEach(() => { authz.resetAuthzForTests(); });
+
     it('creates an account with a wrapped root secret on first login', async () => {
         const { accountId } = await provisioning.provisionAccount(identity('p-alice'));
         const account = await db.account.findUniqueOrThrow({ where: { id: accountId } });
@@ -40,7 +44,13 @@ describe('provisionAccount', () => {
         expect(after.email).toBe('bob.new@example.com');
     });
 
+    it('stores no claims when the authorization webhook is disabled', async () => {
+        const { accountId } = await provisioning.provisionAccount({ ...identity('p-noclaims'), claims: { groups: ['a'] } });
+        expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toBeNull();
+    });
+
     it('stores the filtered ID token claims at each sign-in', async () => {
+        authz.initAuthz({ AUTHZ_WEBHOOK_URL: 'http://localhost:1/x', AUTHZ_WEBHOOK_SECRET: 's', AUTHZ_WEBHOOK_ALLOW_INSECURE: 'true' } as NodeJS.ProcessEnv);
         const id = identity('p-claims');
         const { accountId } = await provisioning.provisionAccount({ ...id, claims: { groups: ['a'], nonce: 'x' } });
         expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toEqual({ groups: ['a'] });
