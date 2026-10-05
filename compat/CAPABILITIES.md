@@ -36,6 +36,7 @@ Same legend as the report (`src/report.ts`, `src/agents.ts`): ✅ passes, `❌ #
 | roundtrip | ✅ | ✅ | ✅ |
 | tool-allow | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
 | tool-deny | ✅ | ✅ | N/A ([Pi permissions](#pi-has-no-permission-prompts)) |
+| pause | N/A (runs through its SDK, not the ACP backend) | ✅ | ✅ |
 | abort | ✅ | ✅ | ✅ |
 | kill | ✅ | ✅ | ✅ |
 | blocked-spawn | ✅ | ✅ | ✅ |
@@ -224,8 +225,9 @@ Made during this investigation (config of our stack, not product code):
    sessions as alive and `resume` returned success without spawning anything.
 2. **`compat:slow` streams at 200 ms per chunk** (`deploy/aimock/compat.json`, was 1500 ms). happycc's ACP backend
    ends a turn after 500 ms without a chunk (`DEFAULT_IDLE_TIMEOUT_MS`,
-   `packages/happy-cli/src/agent/acp/sessionUpdateHandlers.ts:19`), so at 1500 ms OpenCode/Pi got a `turn-end`
-   after the first 4 characters and there was nothing left to abort. The reply is longer now (~20 s total).
+   `packages/happy-cli/src/agent/acp/sessionUpdateHandlers.ts:19`), so at 1500 ms OpenCode/Pi reported idle after
+   the first 4 characters and there was nothing left to abort. The reply is longer now (~20 s total). Bug 5 is
+   fixed since; `compat:pause` now covers long pauses.
 
 Historical notes (the daemon is gone from this build; `init: true` is kept so killed runners are reaped and `pidAlive` is accurate).
 
@@ -274,8 +276,12 @@ Harness findings (in `src/session.ts`):
    Cause: `AcpBackend.cancel()` emits `status: 'stopped'` (`packages/happy-cli/src/agent/acp/AcpBackend.ts:1247`),
    which `runAcp` treats as "backend gone" and stops the runner. Aborting after the ACP idle heuristic already ended
    the turn also archives the session (seen with the old 1500 ms fixture).
-5. **ACP turn end is a 500 ms silence heuristic** (`DEFAULT_IDLE_TIMEOUT_MS`), not the ACP prompt response. A reply
-   that pauses for over 500 ms is split into two turns. Worked around in the fixture (stack fix 2), not fixed.
+5. **Fixed: ACP reported idle at every pause in a reply (OpenCode, Pi).** The turn itself was never split: `runAcp`
+   ends it after the ACP `session/prompt` response. But `AcpBackend` emitted `status: idle` after 500 ms without a
+   chunk (`DEFAULT_IDLE_TIMEOUT_MS`) and after each tool call finished, so the runner's keep-alive told the app the
+   agent had stopped thinking mid-reply. A turn with no output emitted no idle at all. Now `idle` is emitted only
+   when the prompt response arrives; the silence timer applies only outside a prompt. Scenario `pause`
+   (`compat:pause`, 1.5 s between chunks) checks one `Status: idle` per turn: it failed with 4 before the fix.
 
 ## Claude offline-start is a local terminal session
 

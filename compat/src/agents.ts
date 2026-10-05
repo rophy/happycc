@@ -1,7 +1,7 @@
 /** The agents under test, how each one is started on the cli device, and which scenarios do not apply to it. */
 
 export type AgentId = 'claude' | 'opencode' | 'pi';
-export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'abort' | 'kill' | 'blocked-spawn' | 'blocked-shell' | 'offline-start' | 'workstation-resume' | 'resume' | 'spawn';
+export type Scenario = 'roundtrip' | 'tool-allow' | 'tool-deny' | 'pause' | 'abort' | 'kill' | 'blocked-spawn' | 'blocked-shell' | 'offline-start' | 'workstation-resume' | 'resume' | 'spawn';
 
 export type AgentDef = {
     label: string;
@@ -16,12 +16,14 @@ export type AgentDef = {
 const NO_START = 'Removed in the workstation-only build: the app cannot start or resume sessions.';
 const NO_ACP_RESUME = '`happycc resume` supports Claude Code and Codex sessions only; ACP sessions cannot be resumed yet (docs/happycc-roadmap.md).';
 const NO_PI_PROMPTS = 'Pi has no permission prompts; it runs tools without asking.';
+const NO_ACP_TURNS = 'Claude Code runs through its SDK, not the ACP backend whose turn end this scenario checks.';
 
 export const AGENTS: Record<AgentId, AgentDef> = {
     claude: {
         label: 'Claude Code',
         start: 'happycc --happy-starting-mode remote',
         unsupported: {
+            pause: NO_ACP_TURNS,
             spawn: NO_START,
             resume: NO_START,
             'offline-start': 'By design: when the server is unreachable at start, happycc runs Claude Code as a local terminal session and only mirrors the transcript after reconnecting; app messages are not accepted in that mode.',

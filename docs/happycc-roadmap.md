@@ -49,12 +49,6 @@ The remote surface is locked down at build time today. To let each organization 
   workstation and its machine-wide RPCs, and move the app's `workstationOnly` checks (about 100) from build time
   to a server value.
 
-## Known agent bugs
-
-Tracked by the compatibility suite ([compat/CAPABILITIES.md](../compat/CAPABILITIES.md)):
-
-5. ACP: turn end is detected by a 500 ms idle heuristic.
-
 ## Declined
 
 - **New session from the app** (including a bounded "new session in this session's folder"). happycc keeps one

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect } from 'vitest';
 import { forEachAgent } from '../src/matrix';
-import { startSession, sendAndWait, historyText, stopSession, cleanupAgentProcesses, awaitTurnEnd, warmUp } from '../src/session';
+import { startSession, sendAndWait, historyText, stopSession, cleanupAgentProcesses, awaitTurnEnd, turnEndCount, warmUp } from '../src/session';
 import { agentJson, exec, poll, shellQuote } from '../src/stack';
 
 type Request = { id: string; tool: string };
@@ -26,6 +26,20 @@ describe('conversation', () => {
         await exec('app', `happycc-agent send ${shellQuote(sessionId)} 'compat:hello'`);
         await awaitTurnEnd(sessionId, 0, 60, { bug: 1, evidence: 'COMPAT-HELLO-OK' });
         expect(await historyText(sessionId)).toContain('COMPAT-HELLO-OK');
+    });
+
+    // A reply that pauses longer than 500 ms stays one turn, and the runner reports idle only when the
+    // ACP prompt completes, not at each pause (bug 5): the app's thinking state follows that status.
+    forEachAgent('pause', async (agent) => {
+        const logFile = `/tmp/compat-${agent}-pause.log`;
+        sessionId = await startSession(agent, logFile);
+        const before = await warmUp(sessionId);
+        await exec('app', `happycc-agent send ${shellQuote(sessionId)} 'compat:pause'`);
+        await awaitTurnEnd(sessionId, before, 60);
+        expect(await historyText(sessionId)).toContain('PAUSE-D');
+        const turnLog = (await exec('cli', `sed -n '/Incoming prompt: compat:pause/,$p' ${shellQuote(logFile)}`)).stdout;
+        expect(turnLog.match(/Status: idle/g)).toHaveLength(1);
+        expect(await turnEndCount(sessionId)).toBe(before + 1);
     });
 
     forEachAgent('tool-allow', async (agent) => {

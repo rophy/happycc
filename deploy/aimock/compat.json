@@ -12,6 +12,10 @@
 
     { "match": { "userMessage": "compat:slow" },
       "response": { "content": "COMPAT-SLOW-START this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. this reply streams slowly so the test can abort it before it completes. ... COMPAT-SLOW-END" },
-      "latency": 200, "chunkSize": 4 }
+      "latency": 200, "chunkSize": 4 },
+
+    { "match": { "userMessage": "compat:pause" },
+      "response": { "content": "PAUSE-A PAUSE-B PAUSE-C PAUSE-D" },
+      "latency": 1500, "chunkSize": 8 }
   ]
 }
