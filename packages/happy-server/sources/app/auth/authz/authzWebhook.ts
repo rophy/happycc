@@ -36,6 +36,8 @@ export async function callAuthzWebhook(
     try {
         response = await fetch(config.url, {
             method: 'POST',
+            // A redirect would re-post the body and secret elsewhere: fail closed instead.
+            redirect: 'error',
             headers: { 'content-type': 'application/json', authorization: `Bearer ${config.secret}` },
             body: JSON.stringify(request),
             // @types/node 20 has two conflicting AbortSignal declarations; see push/pushSend.ts.

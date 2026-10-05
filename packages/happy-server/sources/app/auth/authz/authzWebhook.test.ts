@@ -57,6 +57,17 @@ describe('callAuthzWebhook', () => {
         expect(await callAuthzWebhook(config(), request)).toEqual({ decision: { allowed: false, reason: UNAVAILABLE_REASON }, failed: true });
     });
 
+    it.each([302, 307])('fails closed on a %i redirect instead of following it', async (status) => {
+        let hits = 0;
+        handler = (_q, _b, res) => {
+            hits++;
+            if (hits === 1) res.writeHead(status, { location: `${base}/elsewhere` }).end();
+            else json(res, 200, { allowed: true });
+        };
+        expect(await callAuthzWebhook(config(), request)).toEqual({ decision: { allowed: false, reason: UNAVAILABLE_REASON }, failed: true });
+        expect(hits).toBe(1);
+    });
+
     it('fails closed when the webhook cannot be reached', async () => {
         const unreachable = { ...config(), url: 'http://127.0.0.1:1/check' };
         expect((await callAuthzWebhook(unreachable, request)).failed).toBe(true);
