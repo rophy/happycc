@@ -8,6 +8,7 @@ import { decryptBox } from '@/encryption/libsodium';
 import { decodeBase64, encodeBase64 } from '@/encryption/base64';
 import { generatePKCE } from '@/utils/oauth';
 import type { StoredCredentials } from './tokenStore';
+import { forbiddenReason } from './authorization';
 
 export interface PendingLogin {
     codeVerifier: string;
@@ -97,6 +98,17 @@ export async function exchangeCode(opts: {
         });
     } catch {
         throw new OidcLoginError('Could not reach the server. Check your connection and try again.');
+    }
+    if (response.status === 403) {
+        let reason: string | null | undefined;
+        try {
+            reason = forbiddenReason(await response.json());
+        } catch {
+            reason = undefined;
+        }
+        if (reason !== undefined) {
+            throw new OidcLoginError(`Not authorized: ${reason ?? 'your organization has not given you access to this app.'}`);
+        }
     }
     if (response.status === 400) {
         throw new OidcLoginError('This sign-in link has expired or was already used. Please sign in again.');

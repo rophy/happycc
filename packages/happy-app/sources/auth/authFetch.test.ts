@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { authFetch, getAccessToken, headersToRecord, setAccessTokenProvider, setServerUrlAccessor, staticAccessTokenProvider } from './authFetch';
+import { clearForbidden, getForbidden } from './authorization';
 import { LoggedOutError, type AccessTokenProvider } from './tokenStore';
 
 const SERVER = 'https://happy.test';
@@ -17,6 +18,15 @@ function stubFetch(...statuses: number[]) {
 }
 
 describe('authFetch', () => {
+    it('reports a forbidden 403 from the server', async () => {
+        setAccessTokenProvider(staticAccessTokenProvider('tok-1', SERVER));
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'forbidden', reason: 'Ask IT' }), { status: 403 })));
+        const response = await authFetch(`${SERVER}/v1/sessions`);
+        expect(response.status).toBe(403);
+        expect(getForbidden()).toEqual({ reason: 'Ask IT' });
+        clearForbidden();
+    });
+
     it('attaches the current access token to server requests and keeps other headers', async () => {
         setAccessTokenProvider(staticAccessTokenProvider('tok-1', SERVER));
         const fetchMock = stubFetch(200);

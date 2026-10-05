@@ -848,6 +848,11 @@ export const en: TranslationStructure = {
         loginWithMobileApp: 'Login with mobile app',
     },
 
+    notAuthorized: {
+        title: 'Not authorized',
+        defaultReason: 'Your organization has not given you access to this app.',
+    },
+
     onboarding: {
         // First run on phones: create an account, then link a computer from
         // one checklist. The same checklist is the home empty state whenever

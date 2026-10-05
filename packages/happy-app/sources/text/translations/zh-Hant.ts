@@ -839,6 +839,11 @@ export const zhHant: TranslationStructure = {
         loginWithMobileApp: '使用行動應用程式登入',
     },
 
+    notAuthorized: {
+        title: '未授權',
+        defaultReason: '你的組織尚未授予你使用此應用程式的權限。',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} 已複製到剪貼簿`

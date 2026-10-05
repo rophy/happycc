@@ -838,6 +838,11 @@ export const pt: TranslationStructure = {
         loginWithMobileApp: 'Fazer login com aplicativo móvel',
     },
 
+    notAuthorized: {
+        title: 'Não autorizado',
+        defaultReason: 'Sua organização não concedeu a você acesso a este app.',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiado para a área de transferência`

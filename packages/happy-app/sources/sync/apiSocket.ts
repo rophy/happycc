@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { authFetch, getAccessToken, headersToRecord } from '@/auth/authFetch';
+import { forbiddenReason, reportForbidden } from '@/auth/authorization';
 import { LoggedOutError } from '@/auth/tokenStore';
 import { Encryption } from './encryption/encryption';
 import { storage } from './storage';
@@ -388,6 +389,10 @@ class ApiSocket {
 
         // Error events
         socket.on('connect_error', (error) => {
+            const reason = forbiddenReason((error as Error & { data?: unknown }).data);
+            if (reason !== undefined) {
+                reportForbidden(reason);
+            }
             if (this.isVerboseLogging()) {
                 console.error('🔌 SyncSocket: Connection error', error);
             }
@@ -396,6 +401,10 @@ class ApiSocket {
                 // Handshake refused by the server middleware: socket.io gave up.
                 this.scheduleReconnect(socket);
             }
+        });
+
+        socket.on('forbidden', (data: unknown) => {
+            reportForbidden(forbiddenReason(data) ?? null);
         });
 
         socket.on('error', (error) => {

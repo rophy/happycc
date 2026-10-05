@@ -855,6 +855,11 @@ export const pl: TranslationStructure = {
         loginWithMobileApp: 'Zaloguj się przez aplikację mobilną',
     },
 
+    notAuthorized: {
+        title: 'Brak uprawnień',
+        defaultReason: 'Twoja organizacja nie przyznała Ci dostępu do tej aplikacji.',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} skopiowano do schowka`

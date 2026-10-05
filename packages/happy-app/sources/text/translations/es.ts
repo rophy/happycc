@@ -839,6 +839,11 @@ export const es: TranslationStructure = {
         loginWithMobileApp: 'Iniciar sesión con aplicación móvil',
     },
 
+    notAuthorized: {
+        title: 'No autorizado',
+        defaultReason: 'Tu organización no te ha dado acceso a esta aplicación.',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiado al portapapeles`

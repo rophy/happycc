@@ -845,6 +845,11 @@ export const ru: TranslationStructure = {
         loginWithMobileApp: 'Войти через мобильное приложение',
     },
 
+    notAuthorized: {
+        title: 'Нет доступа',
+        defaultReason: 'Ваша организация не предоставила вам доступ к этому приложению.',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} скопировано в буфер обмена`

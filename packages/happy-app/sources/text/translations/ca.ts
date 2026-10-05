@@ -839,6 +839,11 @@ export const ca: TranslationStructure = {
         loginWithMobileApp: 'Inicia sessió amb l\'aplicació mòbil',
     },
 
+    notAuthorized: {
+        title: 'No autoritzat',
+        defaultReason: "La teva organització no t'ha donat accés a aquesta aplicació.",
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label} copiat al porta-retalls`

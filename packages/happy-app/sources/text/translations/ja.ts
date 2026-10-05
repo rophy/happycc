@@ -840,6 +840,11 @@ export const ja: TranslationStructure = {
         loginWithMobileApp: 'モバイルアプリでログイン',
     },
 
+    notAuthorized: {
+        title: '権限がありません',
+        defaultReason: '組織からこのアプリへのアクセスが許可されていません。',
+    },
+
     items: {
         // Used by Item component for copy toast
         copiedToClipboard: ({ label }: { label: string }) => `${label}がクリップボードにコピーされました`

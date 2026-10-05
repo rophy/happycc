@@ -2,6 +2,7 @@
  * The one place that attaches the access token to HTTP requests. Pure (no React
  * Native imports): the runtime registers the TokenStore via setAccessTokenProvider.
  */
+import { forbiddenReason, reportForbidden } from './authorization';
 import { LoggedOutError, type AccessTokenProvider } from './tokenStore';
 
 let provider: AccessTokenProvider | null = null;
@@ -79,6 +80,21 @@ function isReadableStreamBody(body: BodyInit | null | undefined): boolean {
     return typeof ReadableStream !== 'undefined' && body instanceof ReadableStream;
 }
 
+/** A server 403 `{ error: 'forbidden' }` means this device is not authorized: tell the gate. */
+async function noteForbidden(response: Response): Promise<Response> {
+    if (response.status === 403) {
+        try {
+            const reason = forbiddenReason(await response.clone().json());
+            if (reason !== undefined) {
+                reportForbidden(reason);
+            }
+        } catch {
+            // not a JSON body: an ordinary 403
+        }
+    }
+    return response;
+}
+
 /**
  * fetch() for the Happy server: attaches `Authorization: Bearer <access token>` and
  * retries once after a 401 with a refreshed token. Other origins (presigned storage
@@ -99,10 +115,10 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
     const token = await current.getAccessToken();
     const response = await fetch(url, withBearer(init, token));
     if (response.status !== 401 || isReadableStreamBody(init?.body)) {
-        return response;
+        return noteForbidden(response);
     }
     const fresh = await current.refresh(token);
-    return fetch(url, withBearer(init, fresh));
+    return noteForbidden(await fetch(url, withBearer(init, fresh)));
 }
 
 /** A provider with a fixed token, for tests. */

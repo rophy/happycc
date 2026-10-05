@@ -14,6 +14,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { NotAuthorizedGate } from '@/components/NotAuthorizedGate';
 import { SidebarNavigator } from '@/components/SidebarNavigator';
 import sodium from '@/encryption/libsodium.lib';
 import { View, Platform, AppState } from 'react-native';
@@ -351,7 +352,9 @@ export default function RootLayout() {
                                 <BrowserNavigationShortcuts />
                                 <CommandPaletteProvider>
                                     <HorizontalSafeAreaWrapper>
-                                        <SidebarNavigator />
+                                        <NotAuthorizedGate>
+                                            <SidebarNavigator />
+                                        </NotAuthorizedGate>
                                     </HorizontalSafeAreaWrapper>
                                 </CommandPaletteProvider>
                             </ModalProvider>
