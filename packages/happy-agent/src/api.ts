@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import type { SessionMessage as WireSessionMessage } from '@slopus/happy-wire';
 import type { Config } from './config';
 import type { Credentials } from './credentials';
+import { forbiddenReason, notAuthorizedMessage } from './forbidden';
 import { withAuthRetry, type TokenSource } from './tokenStore';
 import {
     decodeBase64,
@@ -188,6 +189,10 @@ function handleApiError(err: unknown, context: string): never {
             throw new Error('Authentication expired. Run `happycc-agent auth login` to re-authenticate.');
         }
         if (status === 403) {
+            const reason = forbiddenReason(err.response?.data);
+            if (reason !== undefined) {
+                throw new Error(notAuthorizedMessage(reason));
+            }
             throw new Error(`Forbidden: ${context}. Check your account permissions.`);
         }
         if (status === 404) {

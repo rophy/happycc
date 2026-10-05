@@ -12,6 +12,7 @@ import {
     type StoredCredentials,
 } from './credentials';
 import { decodeBase64, decryptBoxBundle, encodeBase64 } from './encryption';
+import { forbiddenReason, notAuthorizedMessage } from './forbidden';
 import { withFileLock } from './fileLock';
 
 export const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -156,6 +157,10 @@ export async function loopbackLogin(opts: {
         });
         tokens = response.data as ExchangeResponse;
     } catch (error) {
+        const reason = axios.isAxiosError(error) && error.response?.status === 403 ? forbiddenReason(error.response.data) : undefined;
+        if (reason !== undefined) {
+            throw new LoginError(notAuthorizedMessage(reason));
+        }
         // Only status and the server's error code; never the request config (it holds the code verifier).
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;
         const serverError = axios.isAxiosError(error) ? (error.response?.data as { error?: unknown } | undefined)?.error : undefined;

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { io, Socket } from 'socket.io-client';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
 import type { EncryptionVariant } from './api';
+import { forbiddenReason, notAuthorizedMessage } from './forbidden';
 import { LoggedOutError, socketAuth, type TokenSource } from './tokenStore';
 
 // --- Types ---
@@ -211,6 +212,11 @@ export class SessionClient extends EventEmitter {
         });
 
         this.socket.on('connect_error', (error: Error) => {
+            const reason = forbiddenReason((error as Error & { data?: unknown }).data);
+            if (reason !== undefined) {
+                this.stopForbidden(reason);
+                return;
+            }
             this.emit('connect_error', error);
             if (this.closed || this.loggedOut) return;
             this.hasDisconnectedOnce = true;
@@ -218,6 +224,10 @@ export class SessionClient extends EventEmitter {
             if (!this.socket.active) {
                 this.scheduleReconnect();
             }
+        });
+
+        this.socket.on('forbidden', (data: unknown) => {
+            this.stopForbidden(forbiddenReason(data) ?? null);
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -517,6 +527,15 @@ export class SessionClient extends EventEmitter {
                 this.socket.connect();
             }
         }, delay);
+    }
+
+    /** The server refused this device: stop reconnecting and surface why. */
+    private stopForbidden(reason: string | null): void {
+        this.loggedOut = true;
+        this.clearReconnectTimer();
+        this.clearDisconnectGrace();
+        this.emit('connect_error', new Error(notAuthorizedMessage(reason)));
+        this.socket.close();
     }
 
     private clearReconnectTimer(): void {
