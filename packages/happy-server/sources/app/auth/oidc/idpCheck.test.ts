@@ -61,6 +61,13 @@ describe('createIdpCheck', () => {
         expect(account.idpCheckedAt?.toISOString()).toBe(now.toISOString());
     });
 
+    it('stores the claims of a refreshed ID token', async () => {
+        const accountId = await accountWithIdpToken('i-claims', stale);
+        const { oidc } = fakeOidc({ status: 'ok', refreshToken: null, claims: { groups: ['new'], exp: 1 } });
+        expect(await idp.createIdpCheck({ oidc, now: () => now })(accountId)).toBe(true);
+        expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toEqual({ groups: ['new'] });
+    });
+
     it('does not overwrite a fresher IdP token stored by a concurrent login', async () => {
         const accountId = await accountWithIdpToken('i-concurrent-login', stale);
         const oidc = {

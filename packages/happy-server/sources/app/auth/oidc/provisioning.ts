@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { db } from '@/storage/db';
 import { log } from '@/utils/log';
 import { separateName } from '@/utils/separateName';
+import { filterIdpClaims } from '@/app/auth/authz/idpClaims';
 import { deriveAccountPublicKeyHex, generateRootSecret } from './accountKeys';
 import { keyVault, sealIdpRefreshToken } from './keyVault';
 import type { OidcIdentity } from './oidcClient';
@@ -29,13 +30,14 @@ async function upsertAccount(identity: OidcIdentity, now: Date): Promise<{ accou
     const idpFields = identity.refreshToken
         ? { idpRefreshToken: sealIdpRefreshToken(identity.refreshToken), idpCheckedAt: now }
         : {};
+    const claimFields = identity.claims ? { idpClaims: filterIdpClaims(identity.claims) as Prisma.InputJsonValue } : {};
 
     const existing = await db.account.findUnique({ where });
     if (existing) {
         if (existing.disabledAt) {
             throw new AccountDisabledError();
         }
-        await db.account.update({ where: { id: existing.id }, data: { email: identity.email, ...idpFields } });
+        await db.account.update({ where: { id: existing.id }, data: { email: identity.email, ...idpFields, ...claimFields } });
         return { accountId: existing.id };
     }
 
@@ -52,6 +54,7 @@ async function upsertAccount(identity: OidcIdentity, now: Date): Promise<{ accou
                 firstName,
                 lastName,
                 ...idpFields,
+                ...claimFields,
             },
         });
         return { accountId: created.id };

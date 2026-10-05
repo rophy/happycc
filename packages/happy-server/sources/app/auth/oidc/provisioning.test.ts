@@ -40,6 +40,14 @@ describe('provisionAccount', () => {
         expect(after.email).toBe('bob.new@example.com');
     });
 
+    it('stores the filtered ID token claims at each sign-in', async () => {
+        const id = identity('p-claims');
+        const { accountId } = await provisioning.provisionAccount({ ...id, claims: { groups: ['a'], nonce: 'x' } });
+        expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toEqual({ groups: ['a'] });
+        await provisioning.provisionAccount({ ...id, claims: { groups: ['b'] } });
+        expect((await db.account.findUniqueOrThrow({ where: { id: accountId } })).idpClaims).toEqual({ groups: ['b'] });
+    });
+
     it('stores the IdP refresh token sealed', async () => {
         const { accountId } = await provisioning.provisionAccount(identity('p-carol', { refreshToken: 'idp-rt' }));
         const account = await db.account.findUniqueOrThrow({ where: { id: accountId } });

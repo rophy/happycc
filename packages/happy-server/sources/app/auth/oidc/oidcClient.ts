@@ -13,10 +13,12 @@ export interface OidcIdentity {
     email: string | null;
     name: string | null;
     refreshToken: string | null;
+    /** All ID token claims; filtered before they are stored. */
+    claims?: Record<string, unknown>;
 }
 
 export type IdpRefreshResult =
-    | { status: 'ok'; refreshToken: string | null }
+    | { status: 'ok'; refreshToken: string | null; claims?: Record<string, unknown> }
     | { status: 'rejected' }
     | { status: 'unavailable' };
 
@@ -89,13 +91,15 @@ export async function createOidcClient(
                 email: typeof claims.email === 'string' ? claims.email : null,
                 name: typeof claims.name === 'string' ? claims.name : null,
                 refreshToken: tokens.refresh_token ?? null,
+                claims: { ...claims },
             };
         },
 
         async refresh(refreshToken) {
             try {
                 const tokens = await client.refreshTokenGrant(config, refreshToken);
-                return { status: 'ok', refreshToken: tokens.refresh_token ?? null };
+                const claims = tokens.claims();
+                return { status: 'ok', refreshToken: tokens.refresh_token ?? null, ...(claims ? { claims: { ...claims } } : {}) };
             } catch (error) {
                 if (error instanceof client.ResponseBodyError && error.error === 'invalid_grant') {
                     return { status: 'rejected' };

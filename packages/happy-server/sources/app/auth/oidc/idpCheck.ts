@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+import { filterIdpClaims } from '@/app/auth/authz/idpClaims';
 import { db } from '@/storage/db';
 import { log } from '@/utils/log';
 import { revokeAccountDevices } from './devices';
@@ -65,6 +67,9 @@ export function createIdpCheck(deps: { oidc: Pick<OidcClient, 'refresh'>; now?: 
                 where: { id: accountId, idpRefreshToken: account.idpRefreshToken },
                 data: { idpRefreshToken: sealIdpRefreshToken(result.refreshToken) },
             });
+        }
+        if (result.claims) {
+            await db.account.update({ where: { id: accountId }, data: { idpClaims: filterIdpClaims(result.claims) as Prisma.InputJsonValue } });
         }
         return true;
     };

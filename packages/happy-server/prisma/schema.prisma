@@ -48,6 +48,8 @@ model Account {
     /// Latest IdP refresh token, KeyTree-encrypted (base64)
     idpRefreshToken   String?
     idpCheckedAt      DateTime?
+    /// Latest ID token claims (filterIdpClaims), forwarded to the authorization webhook
+    idpClaims         Json?
 
     Session             Session[]
     AccountPushToken    AccountPushToken[]
