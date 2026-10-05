@@ -511,38 +511,21 @@ describe('ApiSessionClient v3 messages API migration', () => {
         expect(typeof (sessionUser as any).content.time).toBe('number');
     });
 
-    it('uploads local Claude transcript image blocks and sends file before user text', async () => {
+    it('does not upload local Claude transcript images and sends only the text', async () => {
         const client = new ApiSessionClient('fake-token', session);
         const pngBytes = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x01, 0x02, 0x03]);
 
-        mockAxiosPost.mockImplementation(async (url: string, payload: any) => {
-            if (url.endsWith('/attachments/request-upload')) {
-                expect(payload).toMatchObject({
-                    filename: 'claude-image-1.png',
-                });
-                expect(payload.size).toBeGreaterThan(pngBytes.length);
-                return {
-                    data: {
-                        ref: 'sessions/test-session-id/attachments/image.enc',
-                        uploadUrl: 'https://server.test/v1/sessions/test-session-id/attachments/image.enc',
-                        method: 'PUT',
-                    },
-                };
-            }
-
-            return {
-                data: {
-                    messages: payload.messages.map((_message: unknown, index: number) => ({
-                        id: `msg-${index + 1}`,
-                        seq: index + 1,
-                        localId: `local-${index + 1}`,
-                        createdAt: 1,
-                        updatedAt: 1,
-                    })),
-                },
-            };
-        });
-        mockAxiosPut.mockResolvedValueOnce({ data: { ok: true } });
+        mockAxiosPost.mockImplementation(async (_url: string, payload: any) => ({
+            data: {
+                messages: payload.messages.map((_message: unknown, index: number) => ({
+                    id: `msg-${index + 1}`,
+                    seq: index + 1,
+                    localId: `local-${index + 1}`,
+                    createdAt: 1,
+                    updatedAt: 1,
+                })),
+            },
+        }));
 
         await client.sendClaudeSessionMessageFromLocalTranscript({
             type: 'user',
@@ -566,117 +549,52 @@ describe('ApiSessionClient v3 messages API migration', () => {
         } as any);
 
         await waitForCheck(() => {
-            expect(mockAxiosPut).toHaveBeenCalledTimes(1);
             expect(mockAxiosPost.mock.calls.some(([url]) => url === 'https://server.test/v3/sessions/test-session-id/messages')).toBe(true);
         });
 
-        const uploadBody = mockAxiosPut.mock.calls[0][1];
-        const blobKey = await client.getBlobKey();
-        expect(decryptBlob(new Uint8Array(uploadBody), blobKey)).toEqual(pngBytes);
+        expect(mockAxiosPost.mock.calls.some(([url]) => String(url).includes('/attachments/'))).toBe(false);
+        expect(mockAxiosPut).not.toHaveBeenCalled();
 
-        const messagesPost = mockAxiosPost.mock.calls.find(([url]) => {
-            return url === 'https://server.test/v3/sessions/test-session-id/messages';
-        });
-        expect(messagesPost).toBeDefined();
-        const sentMessages = messagesPost![1].messages;
-        expect(sentMessages).toHaveLength(2);
-
-        const decrypted = sentMessages.map((message: { content: string }) => {
-            return decrypt(
+        const sent = mockAxiosPost.mock.calls
+            .filter(([url]) => url === 'https://server.test/v3/sessions/test-session-id/messages')
+            .flatMap(([, payload]) => payload.messages)
+            .map((message: { content: string }) => decrypt(
                 session.encryptionKey,
                 session.encryptionVariant,
                 decodeBase64(message.content),
-            );
-        });
-
-        expect(decrypted[0]).toMatchObject({
-            role: 'session',
-            content: {
-                role: 'user',
-                claudeUuid: 'u-image-1',
-                ev: {
-                    t: 'file',
-                    ref: 'sessions/test-session-id/attachments/image.enc',
-                    name: 'claude-image-1.png',
-                    size: pngBytes.length,
-                    mimeType: 'image/png',
-                },
-            },
-            meta: {
-                sentFrom: 'cli',
-            },
-        });
-        expect(decrypted[1]).toMatchObject({
-            role: 'session',
-            content: {
-                role: 'user',
-                claudeUuid: 'u-image-1',
-                ev: {
-                    t: 'text',
-                    text: 'please inspect this',
-                },
-            },
-            meta: {
-                sentFrom: 'cli',
-            },
-        });
+            ));
+        expect(sent.some((message: any) => message.content?.ev?.t === 'file')).toBe(false);
+        expect(sent).toContainEqual(expect.objectContaining({
+            content: expect.objectContaining({
+                ev: expect.objectContaining({ t: 'text', text: 'please inspect this' }),
+            }),
+        }));
     });
 
-    it('uploads local Codex image files with codex item ids', async () => {
+    it('refuses to upload local Codex image files', async () => {
         const client = new ApiSessionClient('fake-token', session);
         const pngBytes = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
-        mockAxiosPost.mockImplementation(async (url: string, payload: any) => {
-            if (url.endsWith('/attachments/request-upload')) {
-                expect(payload).toMatchObject({
-                    filename: 'codex-image-1.png',
-                });
-                return {
-                    data: {
-                        ref: 'sessions/test-session-id/attachments/codex-image.enc',
-                        uploadUrl: 'https://server.test/v1/sessions/test-session-id/attachments/codex-image.enc',
-                        method: 'PUT',
-                    },
-                };
-            }
-
-            return {
-                data: {
-                    messages: payload.messages.map((_message: unknown, index: number) => ({
-                        id: `msg-${index + 1}`,
-                        seq: index + 1,
-                        localId: `local-${index + 1}`,
-                        createdAt: 1,
-                        updatedAt: 1,
-                    })),
-                },
-            };
-        });
-        mockAxiosPut.mockResolvedValueOnce({ data: { ok: true } });
-
-        const envelope = await client.uploadLocalImageAttachmentEnvelope({
+        await expect(client.uploadLocalImageAttachmentEnvelope({
             data: pngBytes,
             mimeType: 'image/png',
             name: 'codex-image-1.png',
         }, {
             codexItemId: 'codex-user-item-1',
-        });
+        })).rejects.toThrow('Image attachments are not available in this build');
 
-        expect(envelope).toMatchObject({
-            role: 'user',
-            codexItemId: 'codex-user-item-1',
-            ev: {
-                t: 'file',
-                ref: 'sessions/test-session-id/attachments/codex-image.enc',
-                name: 'codex-image-1.png',
-                size: pngBytes.length,
-                mimeType: 'image/png',
-            },
-        });
+        expect(mockAxiosPost).not.toHaveBeenCalled();
+        expect(mockAxiosPut).not.toHaveBeenCalled();
+    });
 
-        const uploadBody = mockAxiosPut.mock.calls[0][1];
-        const blobKey = await client.getBlobKey();
-        expect(decryptBlob(new Uint8Array(uploadBody), blobKey)).toEqual(pngBytes);
+    it('refuses to download attachments', async () => {
+        const client = new ApiSessionClient('fake-token', session);
+
+        await expect(client.downloadAndDecryptAttachment('sessions/test-session-id/attachments/image.enc'))
+            .rejects.toThrow('Image attachments are not available in this build');
+
+        expect(mockAxiosPost).not.toHaveBeenCalled();
+        expect(mockAxiosGet).not.toHaveBeenCalled();
     });
 
     it('sends session protocol messages through enqueueMessage with session envelope', async () => {
@@ -1075,7 +993,7 @@ describe('ApiSessionClient v3 messages API migration', () => {
         expect(onMessage).toHaveBeenCalledWith(agentMessage);
     });
 
-    it('routes file events without logging sensitive names or refs', async () => {
+    it('drops file events from the app without logging sensitive names or refs', async () => {
         const client = new ApiSessionClient('fake-token', session);
         const onFileEvent = vi.fn();
         const sensitiveName = 'https://upload.example.test/image.png?token=secret';
@@ -1119,14 +1037,14 @@ describe('ApiSessionClient v3 messages API migration', () => {
 
         await (client as any).fetchMessages();
 
-        expect(onFileEvent).toHaveBeenCalledWith(fileMessage);
+        expect(onFileEvent).not.toHaveBeenCalled();
         const debugOutput = JSON.stringify(vi.mocked(logger.debug).mock.calls);
         expect(debugOutput).not.toContain(sensitiveName);
         expect(debugOutput).not.toContain(sensitiveRef);
         expect(debugOutput).not.toContain('signature=secret');
     });
 
-    it('applies file event socket updates directly without logging sensitive names or refs', () => {
+    it('drops file event socket updates without logging sensitive names or refs', () => {
         const client = new ApiSessionClient('fake-token', session);
         const onFileEvent = vi.fn();
         const sensitiveName = 'https://upload.example.test/image.png?token=socket-secret';
@@ -1155,7 +1073,7 @@ describe('ApiSessionClient v3 messages API migration', () => {
 
         emitSocketEvent('update', createNewMessageUpdate(2, encryptContent(session, fileMessage)));
 
-        expect(onFileEvent).toHaveBeenCalledWith(fileMessage);
+        expect(onFileEvent).not.toHaveBeenCalled();
         expect((client as any).lastReceivedSeq).toBe(2);
         const debugOutput = JSON.stringify([
             ...vi.mocked(logger.debug).mock.calls,

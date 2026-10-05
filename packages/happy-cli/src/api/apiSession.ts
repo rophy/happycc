@@ -88,6 +88,12 @@ type AttachmentUploadResult = {
     formFields?: Record<string, string>;
 };
 
+// Images are not transferred between the app and the workstation in this build: images from the app
+// would reach the agent without its permission prompts, and images pasted on the workstation would be
+// stored on the server. Only the text of a message is sent.
+const imageAttachmentsEnabled = false;
+const IMAGE_ATTACHMENTS_UNAVAILABLE = 'Image attachments are not available in this build';
+
 export type LocalImageAttachment = {
     data: Uint8Array;
     mimeType: string;
@@ -505,6 +511,9 @@ export class ApiSessionClient extends EventEmitter {
         attachment: LocalImageAttachment,
         opts: Pick<CreateEnvelopeOptions, 'id' | 'time' | 'claudeUuid' | 'codexItemId'> = {},
     ): Promise<SessionEnvelope> {
+        if (!imageAttachmentsEnabled) {
+            throw new Error(IMAGE_ATTACHMENTS_UNAVAILABLE);
+        }
         const blobKey = await this.getBlobKey();
         const encrypted = encryptBlob(attachment.data, blobKey);
         const upload = await this.requestAttachmentUpload(attachment.name, encrypted.length);
@@ -560,6 +569,9 @@ export class ApiSessionClient extends EventEmitter {
      * Returns the decrypted binary data or null if decryption fails.
      */
     async downloadAndDecryptAttachment(ref: string): Promise<Uint8Array | null> {
+        if (!imageAttachmentsEnabled) {
+            throw new Error(IMAGE_ATTACHMENTS_UNAVAILABLE);
+        }
         const encrypted = await this.downloadAttachment(ref);
         const key = await this.getBlobKey();
         const decrypted = decryptBlob(encrypted, key);
@@ -613,6 +625,10 @@ export class ApiSessionClient extends EventEmitter {
         const fileResult = FileEventMessageSchema.safeParse(message);
         if (fileResult.success) {
             const ev = fileResult.data.content.data.ev;
+            if (!imageAttachmentsEnabled) {
+                logger.debug('[API] Ignoring file event: ' + IMAGE_ATTACHMENTS_UNAVAILABLE, { size: ev.size });
+                return;
+            }
             logger.debug('[API] Received file event', {
                 size: ev.size,
                 hasMimeType: Boolean(ev.mimeType),
@@ -780,7 +796,7 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     async sendClaudeSessionMessageFromLocalTranscript(body: RawJSONLines): Promise<void> {
-        const attachments = extractLocalTranscriptImageAttachments(body);
+        const attachments = imageAttachmentsEnabled ? extractLocalTranscriptImageAttachments(body) : [];
         if (attachments.length === 0) {
             this.sendClaudeSessionMessage(body);
             return;
