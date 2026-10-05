@@ -18,8 +18,9 @@ export function tokenRoutes(app: Fastify, deps: AuthRouteDeps) {
         return reply.send(result.tokens);
     });
 
+    // Token check only: a denied device must still be able to sign out.
     app.post('/v1/auth/logout', {
-        preHandler: app.authenticate,
+        preHandler: app.authenticateToken,
     }, async (request, reply) => {
         await revokeDevice(request.deviceId);
         return reply.send({ success: true });

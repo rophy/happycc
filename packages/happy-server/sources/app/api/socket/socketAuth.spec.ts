@@ -48,7 +48,9 @@ describe('authenticateSocket', () => {
         authorizeDevice.mockRejectedValue(new Error('db down'));
         const next = vi.fn();
         await authenticateSocket(userSocket(), next);
-        expect(next.mock.calls[0][0].message).toBe('forbidden');
+        const error = next.mock.calls[0][0];
+        expect(error.message).toBe('forbidden');
+        expect(error.data).toEqual({ error: 'forbidden', reason: 'Authorization is unavailable. Try again later.' });
     });
 
     it('rejects a session-scoped socket when the ownership check fails, without throwing', async () => {

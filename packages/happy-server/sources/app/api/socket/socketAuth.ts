@@ -2,6 +2,7 @@ import type { Socket } from "socket.io";
 import { log } from "@/utils/log";
 import { auth } from "@/app/auth/auth";
 import { authorizeDevice, forbiddenBody } from "@/app/auth/authz/authz";
+import { UNAVAILABLE_REASON } from "@/app/auth/authz/authzWebhook";
 import { isDeviceActive } from "@/app/auth/oidc/devices";
 import { getOidcRuntime } from "@/app/auth/oidc/oidcRuntime";
 import { sessionBelongsToUser } from "./sessionOwnership";
@@ -64,7 +65,7 @@ export async function authenticateSocket(socket: Socket, next: (err?: Error) => 
         decision = await authorizeDevice(verified.deviceId);
     } catch (error) {
         log({ module: 'websocket', level: 'error' }, `Authorization check failed: ${error}`);
-        decision = { allowed: false, reason: null };
+        decision = { allowed: false, reason: UNAVAILABLE_REASON };
     }
     if (!decision.allowed) {
         log({ module: 'websocket' }, `Forbidden device for token`);

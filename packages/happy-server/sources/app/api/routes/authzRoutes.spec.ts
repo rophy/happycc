@@ -33,8 +33,10 @@ beforeAll(async () => {
         AUTHZ_WEBHOOK_SECRET: 's', AUTHZ_WEBHOOK_ALLOW_INSECURE: 'true', AUTHZ_WEBHOOK_CACHE_TTL: '1s',
     });
     const { oidcRoutes } = await import('./oidcRoutes');
+    const { tokenRoutes } = await import('./tokenRoutes');
     app = await buildTestApp((a) => {
         a.get('/whoami', { preHandler: a.authenticate }, async (request) => ({ userId: request.userId }));
+        tokenRoutes(a, { config, oidc: fake.client, checkIdp: async () => true });
         oidcRoutes(a, { config, oidc: fake.client, checkIdp: async () => true });
     });
 });
@@ -70,6 +72,17 @@ describe('authenticated routes', () => {
         const d = await device('cli');
         allowed = false;
         expect((await whoami(d.accessToken)).statusCode).toBe(200);
+        expect(calls).toBe(0);
+    });
+});
+
+describe('logout', () => {
+    it('still works for a denied device and revokes it', async () => {
+        const d = await device('web');
+        allowed = false;
+        const res = await app.inject({ method: 'POST', url: '/v1/auth/logout', headers: { authorization: `Bearer ${d.accessToken}` } });
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ success: true });
         expect(calls).toBe(0);
     });
 });

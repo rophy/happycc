@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-streams-adapter";
 import { Redis } from "ioredis";
 import { log } from "@/utils/log";
+import { UNAVAILABLE_REASON } from "@/app/auth/authz/authzWebhook";
 import { authorizeDevice, authzCacheTtlMs, forbiddenBody, isAuthzEnabled } from "@/app/auth/authz/authz";
 import { activityCache } from "@/app/presence/sessionCache";
 import { deviceRoom, setSocketServer } from "@/app/auth/oidc/deviceSockets";
@@ -87,6 +88,9 @@ export function startSocket(app: Fastify) {
                     }
                 } catch (error) {
                     log({ module: 'websocket', level: 'error' }, `Authorization re-check failed: ${error}`);
+                    // A failed check must never leave the socket open.
+                    socket.emit('forbidden', forbiddenBody({ allowed: false, reason: UNAVAILABLE_REASON }));
+                    socket.disconnect(true);
                 }
             }, Math.max(authzCacheTtlMs(), 1_000))
             : null;

@@ -58,5 +58,6 @@ declare module 'fastify' {
     }
     interface FastifyInstance {
         authenticate: any;
+        authenticateToken: any;
     }
 }
