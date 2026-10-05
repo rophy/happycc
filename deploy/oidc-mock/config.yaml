@@ -13,3 +13,6 @@ users:
   - sub: bob
     email: bob@example.com
     name: Bob Example
+  - sub: carol
+    email: carol@example.com
+    name: Carol Example

@@ -15,7 +15,8 @@
 #   docker compose exec -it cli happycc acp opencode     # OpenCode
 #   docker compose exec -it cli happycc acp -- pi-acp    # Pi
 #
-# Users (no password, pick in the UI): alice, bob.
+# Users (no password, pick in the UI): alice, bob, carol.
+# authz-mock answers the server's authorization webhook (allow all; the e2e suite denies carol).
 # AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
 # retry window, so the e2e suite can prove that tabs never replay a refresh token.
 # AUTH_ACCESS_TOKEN_TTL=3m in the shell shortens access tokens so the e2e suite can
@@ -31,6 +32,18 @@ services:
     ports:
       - "8180:8180"   # oidc-mock
       - "3005:3005"   # happy-server (shares this network namespace)
+      - "8190:8190"   # authz-mock (shares this network namespace)
+
+  authz-mock:
+    image: node:22-alpine
+    network_mode: "service:oidc-mock"
+    depends_on:
+      oidc-mock: { condition: service_started }
+    environment:
+      AUTHZ_WEBHOOK_SECRET: local-authz-secret
+    volumes:
+      - ./deploy/authz-mock/server.mjs:/server.mjs:ro
+    command: ["node", "/server.mjs"]
 
   postgres:
     image: postgres:16
@@ -53,9 +66,14 @@ services:
     network_mode: "service:oidc-mock"
     depends_on:
       oidc-mock: { condition: service_started }
+      authz-mock: { condition: service_started }
       postgres: { condition: service_healthy }
     environment:
       PORT: "3005"
+      AUTHZ_WEBHOOK_URL: http://localhost:8190/check
+      AUTHZ_WEBHOOK_SECRET: local-authz-secret
+      AUTHZ_WEBHOOK_ALLOW_INSECURE: "true"
+      AUTHZ_WEBHOOK_CACHE_TTL: 1s
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/happy
       HANDY_MASTER_SECRET: local-dev-master-secret-change-me-0000000000
       PUBLIC_URL: http://localhost:3005
