@@ -1,6 +1,6 @@
 # Minimal Remote Control — Design
 
-Status: approved in brainstorming (revised 2026-10-03: session features kept; only session creation removed)
+Status: approved in brainstorming (revised 2026-10-03: session features kept; only session creation removed; revised 2026-10-05: `happycc-agent` published)
 Scope: the app can control sessions started on a workstation, but can never start sessions by itself.
 
 ## Goal
@@ -26,7 +26,7 @@ remote clients act only on sessions started on the workstation.
 | Removal method | Disable at the boundary with small targeted edits; dead code stays in tree so upstream merges stay easy. Removed paths must be unreachable and proven so by tests. |
 | Permission mode | The app may lower a session's permission mode but never raise it above the mode the session started with. |
 | Server RPC registration | Bound to the registering socket: only a session-scoped socket (a CLI session) may register, and only methods prefixed with its own session id. Machine-scoped and user-scoped sockets may not register. |
-| `happycc-agent` | Internal test tool only: `"private": true`, never published. Commands unchanged; `spawn`/`resume`/`machines` serve as refusal probes. Session creation by non-CLI clients (`create`) stays allowed — a session with no agent is inert. |
+| `happycc-agent` | Published as `@happycc/agent` (2026-10-05; was an internal test tool). `spawn`/`resume` are hidden from `--help` but still callable, and with `machines` serve as refusal probes. Session creation by non-CLI clients (`create`) stays allowed — a session with no agent is inert. |
 
 ## Workstation (CLI)
 
