@@ -37,3 +37,15 @@ test('the home screen offers no way to start a session', async ({ page }) => {
         await deleteSession(page, sessionId);
     }
 });
+
+test('the session composer offers no image attachment', async ({ page }) => {
+    const sessionId = await createSession(page);
+    try {
+        await page.goto(`/session/${sessionId}`);
+        await expect(page.getByPlaceholder('Type a message ...').first()).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Add photo' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Add image' })).toHaveCount(0);
+    } finally {
+        await deleteSession(page, sessionId);
+    }
+});

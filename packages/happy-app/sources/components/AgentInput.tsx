@@ -1551,6 +1551,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         {props.onPickImages && (
                             <Pressable
                                 onPress={props.onPickImages}
+                                accessibilityRole="button"
+                                accessibilityLabel="Add image"
                                 hitSlop={{ top: 5, bottom: 10, left: 0, right: 0 }}
                                 style={(p) => ({
                                     flexDirection: 'row',
