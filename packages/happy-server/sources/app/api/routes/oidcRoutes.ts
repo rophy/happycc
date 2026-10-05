@@ -12,6 +12,7 @@ import { keyVault } from '@/app/auth/oidc/keyVault';
 import { createDevice } from '@/app/auth/oidc/devices';
 import { createExchangeCode, redeemExchangeCode } from '@/app/auth/oidc/exchangeCodes';
 import { parseLoopbackRedirectUri } from '@/app/auth/oidc/loopbackRedirect';
+import { authorizeAccount, forbiddenBody } from '@/app/auth/authz/authz';
 import {
     CONFIRM_COOKIE, LOGIN_COOKIE, SESSION_COOKIE,
     clearCookieHeader, readCookie, setCookieHeader, signValue, verifyValue,
@@ -268,6 +269,13 @@ export function oidcRoutes(app: Fastify, deps: AuthRouteDeps) {
         const account = await db.account.findUniqueOrThrow({ where: { id: redeemed.accountId } });
         if (account.disabledAt) {
             return reply.code(400).send({ error: 'invalid_grant' });
+        }
+        const decision = await authorizeAccount(account.id, {
+            kind: redeemed.clientKind,
+            deviceName: request.body.deviceName ?? redeemed.clientKind,
+        });
+        if (!decision.allowed) {
+            return reply.code(403).send(forbiddenBody(decision));
         }
         let rootSecret: Uint8Array;
         try {

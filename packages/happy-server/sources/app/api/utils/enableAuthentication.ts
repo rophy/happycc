@@ -1,6 +1,7 @@
 import { Fastify } from "../types";
 import { debug } from "@/utils/log";
 import { auth } from "@/app/auth/auth";
+import { authorizeDevice, forbiddenBody } from "@/app/auth/authz/authz";
 
 export function enableAuthentication(app: Fastify) {
     app.decorate('authenticate', async function (request: any, reply: any) {
@@ -23,6 +24,11 @@ export function enableAuthentication(app: Fastify) {
             debug({ module: 'auth' }, `auth:success userId=${verified.userId}`);
             request.userId = verified.userId;
             request.deviceId = verified.deviceId;
+            const decision = await authorizeDevice(verified.deviceId);
+            if (!decision.allowed) {
+                debug({ module: 'auth' }, `auth:forbidden userId=${verified.userId}`);
+                return reply.code(403).send(forbiddenBody(decision));
+            }
         } catch (error) {
             return reply.code(401).send({ error: 'Authentication failed' });
         }

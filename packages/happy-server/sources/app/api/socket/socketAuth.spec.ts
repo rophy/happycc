@@ -3,10 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const verifyToken = vi.fn();
 const isDeviceActive = vi.fn();
 const sessionBelongsToUser = vi.fn();
+const authorizeDevice = vi.fn();
 vi.mock('@/utils/log', () => ({ log: vi.fn() }));
 vi.mock('@/app/auth/auth', () => ({ auth: { verifyToken: (...a: unknown[]) => verifyToken(...a) } }));
 vi.mock('@/app/auth/oidc/devices', () => ({ isDeviceActive: (...a: unknown[]) => isDeviceActive(...a) }));
 vi.mock('@/app/auth/oidc/oidcRuntime', () => ({ getOidcRuntime: () => ({ config: { maxSessionAgeSec: 3600 } }) }));
+vi.mock('@/app/auth/authz/authz', async (orig) => ({
+    ...(await orig<typeof import('@/app/auth/authz/authz')>()),
+    authorizeDevice: (...a: unknown[]) => authorizeDevice(...a),
+}));
 vi.mock('./sessionOwnership', () => ({ sessionBelongsToUser: (...a: unknown[]) => sessionBelongsToUser(...a) }));
 
 import { authenticateSocket } from './socketAuth';
@@ -18,11 +23,32 @@ function sessionSocket() {
     } as any;
 }
 
+function userSocket() {
+    return { handshake: { auth: { token: 't', clientType: 'user-scoped' }, headers: {} }, data: {} as Record<string, unknown> } as any;
+}
+
 describe('authenticateSocket', () => {
     beforeEach(() => {
         verifyToken.mockReset().mockResolvedValue({ userId: 'u1', deviceId: 'd1', expiresAt: Date.now() + 60_000 });
         isDeviceActive.mockReset().mockResolvedValue(true);
         sessionBelongsToUser.mockReset();
+        authorizeDevice.mockReset().mockResolvedValue({ allowed: true });
+    });
+
+    it('refuses a denied device with the reason in the error data', async () => {
+        authorizeDevice.mockResolvedValue({ allowed: false, reason: 'Ask IT' });
+        const next = vi.fn();
+        await authenticateSocket(userSocket(), next);
+        const error = next.mock.calls[0][0];
+        expect(error.message).toBe('forbidden');
+        expect(error.data).toEqual({ error: 'forbidden', reason: 'Ask IT' });
+    });
+
+    it('refuses when the authorization check throws, without throwing', async () => {
+        authorizeDevice.mockRejectedValue(new Error('db down'));
+        const next = vi.fn();
+        await authenticateSocket(userSocket(), next);
+        expect(next.mock.calls[0][0].message).toBe('forbidden');
     });
 
     it('rejects a session-scoped socket when the ownership check fails, without throwing', async () => {
