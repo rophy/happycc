@@ -33,22 +33,6 @@ instruction to ACP prompts.
 `unsupported flavor`. Supporting them needs the agent's own session restore (ACP `session/load`, if the agent
 offers it) wired into the resume launch, plus the compat `workstation-resume` scenario for each agent.
 
-## Policy switches for remote features
-
-The remote surface is locked down at build time today. To let each organization loosen it to its policy:
-
-- **One source: the server.** An admin sets server variables; `GET /v1/features` returns them (as it already
-  does for GitHub and push). The CLI fetches them at session start and enforces them, since the workstation is
-  where the limits apply; the app reads them to show or hide the matching screens. The app's config file cannot
-  be the source: the CLI never sees it.
-- **First switch: file editing** (the app's file editor and the session `writeFile` RPC). One CLI check
-  (`registerCommonHandlers.ts`) and the editor screen's gate; the editor code is still in the tree.
-- **No full-shell switch.** The session shell stays limited to the shared command list: no app screen runs
-  arbitrary commands, so unlocking it would only widen what a stolen app sign-in can do.
-- **Starting sessions stays off** (see [Declined](#declined)). It would bring back the daemon on every
-  workstation and its machine-wide RPCs, and move the app's `workstationOnly` checks (about 100) from build time
-  to a server value.
-
 ## Declined
 
 - **New session from the app** (including a bounded "new session in this session's folder"). happycc keeps one
@@ -56,3 +40,7 @@ The remote surface is locked down at build time today. To let each organization 
   nothing runs on the workstation that the user did not start there or approve through the agent's permission
   prompt. Asking the agent to run `happycc` elsewhere remains possible, behind that prompt, as with Claude Code
   Remote Control.
+- **Policy switches for remote features** (server settings that loosen the remote surface per organization,
+  e.g. file editing from the app). The fork already departs from upstream in many places, and no organization
+  has asked for one. If one does, a switch can go through `GET /v1/features`, which the CLI enforces and the
+  app follows. A full shell and starting sessions stay off either way.
