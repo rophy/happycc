@@ -5,14 +5,14 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-streams-adapter";
 import { Redis } from "ioredis";
 import { log } from "@/utils/log";
-import { UNAVAILABLE_REASON } from "@/app/auth/authz/authzWebhook";
-import { authorizeDevice, authzCacheTtlMs, forbiddenBody, isAuthzEnabled } from "@/app/auth/authz/authz";
+import { authzCacheTtlMs, isAuthzEnabled } from "@/app/auth/authz/authz";
 import { activityCache } from "@/app/presence/sessionCache";
 import { deviceRoom, setSocketServer } from "@/app/auth/oidc/deviceSockets";
 import { getMetricsLabelsFromSocket, redisStreamLagMsGauge, websocketConnectionsGauge, websocketEventsCounter } from "../monitoring/metrics2";
 import { usageHandler } from "./socket/usageHandler";
 import { rpcHandler } from "./socket/rpcHandler";
 import { authenticateSocket } from "./socket/socketAuth";
+import { recheckSocketAuthorization } from "./socket/socketRecheck";
 import { pingHandler } from "./socket/pingHandler";
 import { sessionUpdateHandler } from "./socket/sessionUpdateHandler";
 import { machineUpdateHandler } from "./socket/machineUpdateHandler";
@@ -79,20 +79,7 @@ export function startSocket(app: Fastify) {
 
         // Re-check authorization while the socket is open: a denial tells the client why, then disconnects.
         const authzTimer = isAuthzEnabled()
-            ? setInterval(async () => {
-                try {
-                    const decision = await authorizeDevice(socket.data.deviceId as string);
-                    if (!decision.allowed) {
-                        socket.emit('forbidden', forbiddenBody(decision));
-                        socket.disconnect(true);
-                    }
-                } catch (error) {
-                    log({ module: 'websocket', level: 'error' }, `Authorization re-check failed: ${error}`);
-                    // A failed check must never leave the socket open.
-                    socket.emit('forbidden', forbiddenBody({ allowed: false, reason: UNAVAILABLE_REASON }));
-                    socket.disconnect(true);
-                }
-            }, Math.max(authzCacheTtlMs(), 1_000))
+            ? setInterval(() => { void recheckSocketAuthorization(socket); }, Math.max(authzCacheTtlMs(), 1_000))
             : null;
 
         const userId = socket.data.userId as string;
