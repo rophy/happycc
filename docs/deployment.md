@@ -25,8 +25,36 @@ Register one confidential OIDC client (authorization code flow) for the server:
   user there does not cut off their existing sign-ins.
 - **Issuer:** must be `https` (`OIDC_ALLOW_INSECURE_ISSUER=true` is for local development only).
 
-Users are matched by issuer and subject, and their account is created on first sign-in. Who may use
-happycc is decided in the provider, for example by assigning users or groups to the client.
+Users are matched by issuer and subject, and their account is created on first sign-in. Who may sign in is decided in the provider: restrict the client to the users or groups who should use
+happycc, if your provider supports it (for example Microsoft Entra "Assignment required" or Okta
+assignments). For a decision made by your own systems, use the authorization webhook below.
+
+## Authorization
+
+Optional. Set `AUTHZ_WEBHOOK_URL` and the server asks your webhook whether a user may use the web app,
+the mobile app and `happycc-agent`, which can read every session of the account. The `happycc` CLI is
+never checked: it only acts on its own workstation.
+
+The server sends:
+
+````http
+POST <AUTHZ_WEBHOOK_URL>
+Authorization: Bearer <AUTHZ_WEBHOOK_SECRET>
+Content-Type: application/json
+
+{ "user": { "accountId": "...", "issuer": "...", "subject": "...", "email": "...", "name": "...",
+            "claims": { "groups": ["..."] } },
+  "client": { "kind": "web" | "mobile" | "agent", "deviceName": "..." } }
+````
+
+`claims` are the user's latest ID token claims (without token bookkeeping such as `exp` or `nonce`).
+Answer `200` with `{ "allowed": true }` or `{ "allowed": false, "reason": "..." }`; the reason (up to 500
+characters) is shown to the user. Decisions apply at sign-in, on every request and on open
+connections, and are cached per user and client for `AUTHZ_WEBHOOK_CACHE_TTL`, so a change takes
+effect within that time without signing in again. A denial does not sign the user out.
+
+If the webhook fails (error status, timeout, invalid answer), access is denied with "Authorization is
+unavailable. Try again later.", and the next request asks again.
 
 ## Configuration
 
@@ -62,6 +90,8 @@ happycc is decided in the provider, for example by assigning users or groups to 
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URL` | GitHub integration; off unless all three are set |
 | `METRICS_ENABLED`, `METRICS_PORT` | Prometheus metrics on a separate port (default `9090`) |
 | `APP_STORE_URL`, `PLAY_STORE_URL` | Where outdated apps are sent to update |
+| `AUTHZ_WEBHOOK_URL`, `AUTHZ_WEBHOOK_SECRET` | Authorization webhook (above); the secret is required with the URL, and the URL must be `https` unless `AUTHZ_WEBHOOK_ALLOW_INSECURE=true` |
+| `AUTHZ_WEBHOOK_CACHE_TTL`, `AUTHZ_WEBHOOK_TIMEOUT` | Decision cache (default `60s`) and webhook timeout (default `5s`) |
 
 Setting only some of the three GitHub variables is a startup error. Push notifications go through Expo's push
 service and carry no session content: a fixed title, the body "Open the session to continue." and the

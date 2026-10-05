@@ -1,6 +1,6 @@
 # Authorization Webhook — Design
 
-Status: draft for review (2026-10-05)
+Status: implemented (2026-10-05)
 Scope: an opt-in server hook that decides, per user, whether the app, web app and `happycc-agent` may
 be used. Authentication stays OIDC; this adds authorization.
 
