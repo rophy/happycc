@@ -3,6 +3,7 @@ import type { Config } from './config';
 import type { DecryptedMachine } from './api';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
 import { socketAuth, type TokenSource } from './tokenStore';
+import { ForbiddenError, forbiddenReason } from './forbidden';
 
 export type SupportedAgent = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'agy';
 
@@ -39,7 +40,8 @@ function waitForConnect(socket: Socket, timeoutMs = 10_000): Promise<void> {
         const onError = (error: Error) => {
             clearTimeout(timeout);
             socket.off('connect', onConnect);
-            reject(error);
+            const reason = forbiddenReason((error as Error & { data?: unknown }).data);
+            reject(reason !== undefined ? new ForbiddenError(reason) : error);
         };
 
         socket.once('connect', onConnect);

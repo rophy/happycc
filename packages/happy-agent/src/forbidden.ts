@@ -10,3 +10,11 @@ export function forbiddenReason(data: unknown): string | null | undefined {
 export function notAuthorizedMessage(reason: string | null): string {
     return `Not authorized: ${reason ?? 'your organization has not given you access.'}`;
 }
+
+/** The server refused this device; waiters reject with it instead of hanging. */
+export class ForbiddenError extends Error {
+    constructor(reason: string | null) {
+        super(notAuthorizedMessage(reason));
+        this.name = 'ForbiddenError';
+    }
+}

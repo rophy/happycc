@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { io, Socket } from 'socket.io-client';
 import { decodeBase64, encodeBase64, encrypt, decrypt } from './encryption';
 import type { EncryptionVariant } from './api';
-import { forbiddenReason, notAuthorizedMessage } from './forbidden';
+import { ForbiddenError, forbiddenReason } from './forbidden';
 import { LoggedOutError, socketAuth, type TokenSource } from './tokenStore';
 
 // --- Types ---
@@ -383,7 +383,7 @@ export class SessionClient extends EventEmitter {
             };
 
             const onConnectError = (error: Error) => {
-                if (!(error instanceof LoggedOutError)) return;
+                if (!(error instanceof LoggedOutError || error instanceof ForbiddenError)) return;
                 cleanup();
                 reject(error);
             };
@@ -486,7 +486,7 @@ export class SessionClient extends EventEmitter {
             };
 
             const onConnectError = (error: Error) => {
-                if (!(error instanceof LoggedOutError)) return;
+                if (!(error instanceof LoggedOutError || error instanceof ForbiddenError)) return;
                 finish(error);
             };
 
@@ -535,7 +535,7 @@ export class SessionClient extends EventEmitter {
         this.loggedOut = true;
         this.clearReconnectTimer();
         this.clearDisconnectGrace();
-        this.emit('connect_error', new Error(notAuthorizedMessage(reason)));
+        this.emit('connect_error', new ForbiddenError(reason));
         this.socket.close();
     }
 

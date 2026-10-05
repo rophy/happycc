@@ -1037,6 +1037,38 @@ describe('SessionClient', () => {
             client.close();
         });
 
+        it('rejects a pending waitForIdle promptly when the server denies the device', async () => {
+            const { ForbiddenError } = await import('./forbidden');
+            const client = new SessionClient(makeOptions({ disconnectGraceMs: 60_000 }));
+            const waitPromise = client.waitForIdle(5_000);
+
+            mockSocketInstance!.simulateServerEvent('forbidden', { error: 'forbidden', reason: 'Ask IT' });
+            mockSocketInstance!.serverDisconnect();
+
+            const start = Date.now();
+            const error = await waitPromise.catch((e) => e);
+            expect(error).toBeInstanceOf(ForbiddenError);
+            expect(error.message).toBe('Not authorized: Ask IT');
+            expect(Date.now() - start).toBeLessThan(1_000);
+            client.close();
+        });
+
+        it('rejects a pending waitForTurnCompletion promptly when the server denies the device', async () => {
+            const { ForbiddenError } = await import('./forbidden');
+            const client = new SessionClient(makeOptions({ disconnectGraceMs: 60_000 }));
+            const completion = client.waitForTurnCompletion(5_000);
+
+            mockSocketInstance!.simulateServerEvent('forbidden', { error: 'forbidden', reason: 'Ask IT' });
+            mockSocketInstance!.serverDisconnect();
+
+            const start = Date.now();
+            const error = await completion.catch((e) => e);
+            expect(error).toBeInstanceOf(ForbiddenError);
+            expect(error.message).toBe('Not authorized: Ask IT');
+            expect(Date.now() - start).toBeLessThan(1_000);
+            client.close();
+        });
+
         it('stops without reconnecting when the handshake is refused as forbidden', async () => {
             const opts = makeOptions({ reconnectBaseDelayMs: 5 });
             const client = new SessionClient(opts);
