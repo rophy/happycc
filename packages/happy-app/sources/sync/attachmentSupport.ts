@@ -1,3 +1,6 @@
+import { isRigMetadataV1, rigCanUseAttachments } from './rig';
+import type { Metadata } from './storageTypes';
+
 export type ImageAttachmentFlavor = string | null | undefined;
 
 export type ImageAttachmentSendPlan = {
@@ -9,6 +12,23 @@ export type ImageAttachmentSendPlan = {
 
 export function supportsImageAttachmentsForFlavor(flavor: ImageAttachmentFlavor): boolean {
     return !flavor || flavor === 'claude' || flavor === 'codex';
+}
+
+/**
+ * Whether the composer offers image attachments for a session. Workstation-only builds transfer no
+ * images between the app and the workstation (the CLI drops them and the server has no attachment
+ * routes), so the picker, paste and drop are all off.
+ */
+export function sessionCanUseImageAttachments(
+    metadata: Metadata | null | undefined,
+    workstationOnly: boolean,
+): boolean {
+    if (workstationOnly) {
+        return false;
+    }
+    return isRigMetadataV1(metadata)
+        ? rigCanUseAttachments(metadata)
+        : supportsImageAttachmentsForFlavor(metadata?.flavor);
 }
 
 export function getImageAttachmentSendPlan(opts: {

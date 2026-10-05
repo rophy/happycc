@@ -10,7 +10,7 @@ CLI have no default server. Building the apps is covered in [deploy-app.md](depl
 |---|---|---|
 | Postgres | yes | `DATABASE_URL` |
 | OIDC identity provider | yes | One confidential client for the server (below) |
-| Object storage (S3-compatible) | no | Uploaded images and avatars. Without `S3_HOST`, files are stored on local disk under `DATA_DIR` (default `./data`). |
+| Object storage (S3-compatible) | no | Avatars. Without `S3_HOST`, files are stored on local disk under `DATA_DIR` (default `./data`). |
 | Redis | no | Used only when `REDIS_URL` is set |
 | Push (Expo) | on by default | `PUSH_ENABLED=false` turns it off |
 
@@ -130,4 +130,5 @@ process register them, under its own session id. Workstations run no background 
 can start a session remotely. The calls the app makes into a session are limited to what its views need:
 the git commands in `packages/happy-wire/src/sessionCommands.ts` (run without a shell, in the session
 folder) and read-only file access inside that folder. Anything that changes the workstation goes
-through the agent and its permission prompts.
+through the agent and its permission prompts. Images are not transferred in either direction: the app
+cannot attach them, and images pasted on the workstation are not uploaded, so the server stores none.

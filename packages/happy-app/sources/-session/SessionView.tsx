@@ -33,7 +33,7 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
-import { supportsImageAttachmentsForFlavor } from '@/sync/attachmentSupport';
+import { sessionCanUseImageAttachments } from '@/sync/attachmentSupport';
 import { t } from '@/text';
 import { isRunningOnMac } from '@/utils/platform';
 import { useHeaderHeight, useIsLandscape, useIsTablet, useLayoutDimensions } from '@/utils/responsive';
@@ -68,7 +68,6 @@ import {
     rigCanAbort,
     rigCanBrowseFiles,
     rigCanReadFiles,
-    rigCanUseAttachments,
     rigCanUseShell,
 } from '@/sync/rig';
 import { RigActivityBar } from '@/components/RigActivityBar';
@@ -890,9 +889,7 @@ export function SessionViewLoaded({
     // Attachment availability is capability-driven by the active session. There
     // is nothing to attach to before the chat exists.
     const { selectedImages, attachImages, removeImage, clearImages, addImages } = useImagePicker();
-    const canUseAttachments = !!session && (isRigMetadataV1(session.metadata)
-        ? rigCanUseAttachments(session.metadata)
-        : supportsImageAttachmentsForFlavor(session.metadata?.flavor));
+    const canUseAttachments = !!session && sessionCanUseImageAttachments(session.metadata, workstationOnly);
     React.useEffect(() => {
         if (!canUseAttachments && selectedImages.length > 0) {
             clearImages();

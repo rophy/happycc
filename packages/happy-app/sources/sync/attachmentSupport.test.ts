@@ -3,8 +3,22 @@ import { describe, expect, it } from 'vitest';
 import {
     getImageAttachmentSendPlan,
     isAttachmentAllowedByPolicy,
+    sessionCanUseImageAttachments,
     supportsImageAttachmentsForFlavor,
 } from './attachmentSupport';
+
+describe('sessionCanUseImageAttachments', () => {
+    it('offers no attachments in workstation-only builds', () => {
+        expect(sessionCanUseImageAttachments({ flavor: 'claude' } as any, true)).toBe(false);
+        expect(sessionCanUseImageAttachments({ flavor: 'codex' } as any, true)).toBe(false);
+        expect(sessionCanUseImageAttachments(null, true)).toBe(false);
+    });
+
+    it('follows the session flavor otherwise', () => {
+        expect(sessionCanUseImageAttachments({ flavor: 'claude' } as any, false)).toBe(true);
+        expect(sessionCanUseImageAttachments({ flavor: 'gemini' } as any, false)).toBe(false);
+    });
+});
 
 describe('supportsImageAttachmentsForFlavor', () => {
     it('supports legacy sessions, Claude, and Codex', () => {
