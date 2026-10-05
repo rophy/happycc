@@ -15,7 +15,7 @@ groups, licences, training, offboarding), and change it without the user signing
 | Topic | Decision |
 |---|---|
 | Opt-in | `AUTHZ_WEBHOOK_URL` unset: behaviour unchanged, nobody is checked. |
-| Who is checked | Every device that is not `cli`: `web`, `mobile` and `loopback` (`happycc-agent`). These receive the account's root secret and can read every session. |
+| Who is checked | Every device that is not `cli`: `web`, `mobile` and `agent` (`happycc-agent`). These receive the account's root secret and can read every session. |
 | CLI | Never checked. A `cli` device holds only the account's public key, acts on its own workstation, and cannot read other sessions. Anyone who can reach the server and authenticate may run sessions. |
 | Decision | `{ allowed: boolean, reason?: string }` from the webhook. |
 | Denied | HTTP 403 `{ error: 'forbidden', reason }` (reason omitted if the webhook gave none). The device is not revoked: access resumes when the webhook allows it again. |
@@ -44,7 +44,7 @@ Content-Type: application/json
 }
 ```
 
-`client.kind` maps the device kind: `loopback` is sent as `agent`. Response: `200` with
+`client.kind` is the device kind. Response: `200` with
 `{ "allowed": true }` or `{ "allowed": false, "reason": "Ask IT for access to happycc" }`. `reason` is
 plain text, shown to the user, truncated to 500 characters.
 
@@ -55,7 +55,7 @@ plain text, shown to the user, truncated to 500 characters.
 | Sign-in exchange (`POST /v1/auth/oidc/exchange`, non-`cli` clients) | 403 with the reason; no device is created and no key is delivered. |
 | Authenticated HTTP requests (`app.authenticate`) from a non-`cli` device | 403 with the reason. |
 | Socket handshake from a non-`cli` device | Refused with an error carrying the reason. |
-| Open sockets | Re-checked when the cached decision expires (on the next event, at most every TTL); a denial disconnects them with the reason. |
+| Open sockets | Re-checked on a timer every TTL; a denial emits `forbidden` with the reason, then disconnects. |
 | Token refresh (`/v1/auth/refresh`) | Not checked: a denial is not a sign-out, so the device keeps its tokens. |
 
 The decision is looked up through one function (`authorizeDevice(device) → Decision`), backed by the
@@ -65,7 +65,8 @@ per-account cache; every enforcement point calls it.
 
 - **App and web app:** a full-screen "Not authorized" view on 403 `forbidden` (HTTP) or the socket's
   denial: the reason when given, a retry button, and sign out. Retrying re-asks the server (the cache
-  expires within the TTL). At sign-in, the denial is shown on the same view.
+  expires within the TTL). At sign-in, the denial is shown by the existing sign-in error message,
+  with the reason.
 - **`happycc-agent`:** prints `Not authorized: <reason>` and exits with a non-zero code.
 - **CLI:** unchanged.
 
@@ -84,9 +85,9 @@ an ID token. Migration adds the column.
 ## Testing
 
 - Server unit: decision cache (TTL, single flight, failures not cached), request shape, claim
-  filtering, reason truncation, fail closed on status/timeout/malformed body, `loopback` → `agent`.
+  filtering, reason truncation, fail closed on status/timeout/malformed body.
 - Server routes: exchange, an authenticated route and the socket handshake, for `cli` (never called)
-  and `web`/`mobile`/`loopback` (allowed and denied); unset URL calls nothing.
+  and `web`/`mobile`/`agent` (allowed and denied); unset URL calls nothing.
 - App: the "Not authorized" view on 403 and on socket denial; retry; sign out.
 - Agent: exits non-zero with the reason.
 - End to end: the compose stack gets a small mock webhook; the web e2e checks deny, then allow without
