@@ -16,3 +16,6 @@ users:
   - sub: carol
     email: carol@example.com
     name: Carol Example
+  - sub: erin
+    email: erin@example.com
+    name: Erin Example

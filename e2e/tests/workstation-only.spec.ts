@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { createSession, signInToShell } from './helpers';
+import { createSession, deleteSession, signIn } from './helpers';
 
 // None of these depend on what the account holds: they sign in to the app shell,
 // not to the empty home state.
 
 test.beforeEach(async ({ page }) => {
-    await signInToShell(page);
+    await signIn(page);
 });
 
 async function expectNoStartControl(page: Page): Promise<void> {
@@ -29,7 +29,11 @@ test('the home screen offers no way to start a session', async ({ page }) => {
     // Whatever the account holds now (empty or populated)...
     await expectNoStartControl(page);
     // ...and after it certainly holds a session.
-    await createSession(page);
-    await page.reload();
-    await expectNoStartControl(page);
+    const sessionId = await createSession(page);
+    try {
+        await page.reload();
+        await expectNoStartControl(page);
+    } finally {
+        await deleteSession(page, sessionId);
+    }
 });

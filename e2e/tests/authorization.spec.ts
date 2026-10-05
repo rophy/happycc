@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInToShell } from './helpers';
+import { signIn } from './helpers';
 
 const AUTHZ_MOCK = process.env.AUTHZ_MOCK_URL ?? 'http://localhost:8190';
 const CAROL = 'carol@example.com';
@@ -9,7 +9,7 @@ test.afterEach(async ({ request }) => {
 });
 
 test('a denied user sees the reason, then gets in once allowed, without signing in again', async ({ page, request }) => {
-    await signInToShell(page, 'Carol Example');
+    await signIn(page, 'Carol Example');
     await request.put(`${AUTHZ_MOCK}/deny/${CAROL}`);
     await page.reload();
     await expect(page.getByText('Not authorized')).toBeVisible({ timeout: 15_000 });

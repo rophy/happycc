@@ -46,33 +46,13 @@ export async function redeemRefreshToken(page: Page, refreshToken: string): Prom
     }, [SERVER_URL, refreshToken] as const);
 }
 
+/** Signed in, whatever the account holds: the app shell is up and credentials are stored. */
 export async function expectSignedIn(page: Page): Promise<void> {
-    await expect(page.getByText('happycc auth login').first()).toBeVisible();
-    await expect(page.getByText('Sign in', { exact: true })).toHaveCount(0);
-    const credentials = await readCredentials(page);
-    expect(credentials?.refreshToken).toBeTruthy();
-    expect(page.url()).not.toContain('#code');
-}
-
-/**
- * Signed in, whatever the account holds: the app shell is up and credentials are stored.
- * Unlike expectSignedIn it does not rely on the empty-home hint.
- */
-export async function expectSignedInShell(page: Page): Promise<void> {
     await expect(page.getByRole('heading', { name: 'Sessions' }).first()).toBeVisible();
     await expect(page.getByText('Sign in', { exact: true })).toHaveCount(0);
     const credentials = await readCredentials(page);
     expect(credentials?.refreshToken).toBeTruthy();
     expect(page.url()).not.toContain('#code');
-}
-
-/** Same sign-in flow as signIn, ending on the app shell instead of the empty home. */
-export async function signInToShell(page: Page, user = 'Alice Example'): Promise<void> {
-    await page.goto('/');
-    await page.getByText('Sign in', { exact: true }).click();
-    await page.getByRole('button', { name: new RegExp(user) }).click();
-    await page.waitForURL((url) => url.origin === new URL(WEBAPP_URL).origin && url.pathname === '/');
-    await expectSignedInShell(page);
 }
 
 /** Creates an (undecryptable) session row for the signed-in account so the home is populated. */
@@ -88,13 +68,29 @@ export async function createSession(page: Page): Promise<string> {
     }, [SERVER_URL, credentials.token] as const);
 }
 
+/** Deletes a session created by createSession, so the account is left as the test found it. */
+export async function deleteSession(page: Page, sessionId: string): Promise<void> {
+    const credentials = (await readCredentials(page))!;
+    const status = await page.evaluate(async ([url, token, id]) => {
+        const response = await fetch(`${url}/v1/sessions/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        return response.status;
+    }, [SERVER_URL, credentials.token, sessionId] as const);
+    expect(status).toBe(200);
+}
+
 export async function expectSignedOut(page: Page): Promise<void> {
     await expect(page.getByText('Sign in', { exact: true })).toBeVisible();
     expect(await readCredentials(page)).toBeNull();
 }
 
+/**
+ * The e2e suite's own user: alice is shared with the compat suite and manual use, so the e2e
+ * tests never depend on (or change) what her account holds.
+ */
+export const E2E_USER = 'Erin Example';
+
 /** Sign-in button → server → oidc-mock picker → server → /auth/callback → home. */
-export async function signIn(page: Page, user = 'Alice Example'): Promise<void> {
+export async function signIn(page: Page, user = E2E_USER): Promise<void> {
     await page.goto('/');
     await page.getByText('Sign in', { exact: true }).click();
     await page.getByRole('button', { name: new RegExp(user) }).click();

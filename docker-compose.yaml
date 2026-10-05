@@ -15,7 +15,7 @@
 #   docker compose exec -it cli happycc acp opencode     # OpenCode
 #   docker compose exec -it cli happycc acp -- pi-acp    # Pi
 #
-# Users (no password, pick in the UI): alice, bob, carol.
+# Users (no password, pick in the UI): alice, bob, carol, erin (the e2e suite signs in as erin).
 # authz-mock answers the server's authorization webhook (allow all; the e2e suite denies carol).
 # AUTH_REFRESH_REUSE_GRACE=0s in the shell disables the server's lost-response
 # retry window, so the e2e suite can prove that tabs never replay a refresh token.
