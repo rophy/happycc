@@ -1,99 +1,101 @@
-# Deployment
+# Deploying the server
 
-This document describes how to deploy the Happy backend (`packages/happy-server`) and the infrastructure it expects.
+The server (`packages/happy-server`) signs users in through your identity provider, holds their keys,
+and syncs sessions between workstations and apps. Each organization runs its own; the apps and the
+CLI have no default server. Building the apps is covered in [deploy-app.md](deploy-app.md).
 
-## Runtime overview
-- **App server:** Node.js running `tsx ./sources/main.ts` (Fastify + Socket.IO).
-- **Database:** Postgres via Prisma.
-- **Cache:** Redis (currently used for connectivity and future expansion).
-- **Object storage:** S3-compatible storage for user-uploaded assets (MinIO works).
-- **Metrics:** Optional Prometheus `/metrics` server on a separate port.
+## What it needs
 
-## Required services
-1. **Postgres**
-   - Required for all persisted data.
-   - Configure via `DATABASE_URL`.
+| Dependency | Required | Notes |
+|---|---|---|
+| Postgres | yes | `DATABASE_URL` |
+| OIDC identity provider | yes | One confidential client for the server (below) |
+| Object storage (S3-compatible) | no | Uploaded images and avatars. Without `S3_HOST`, files are stored on local disk under `DATA_DIR` (default `./data`). |
+| Redis | no | Used only when `REDIS_URL` is set |
+| Push (Expo) | on by default | `PUSH_ENABLED=false` turns it off |
 
-2. **Redis**
-   - Required by startup (`redis.ping()` is called).
-   - Configure via `REDIS_URL`.
-   - Managed by this repo: `packages/happy-server/deploy/happy-redis.yaml` (StatefulSet + redis-exporter sidecar).
+## Identity provider
 
-3. **S3-compatible storage**
-   - Used for avatars and other uploaded assets.
-   - Configure via `S3_HOST`, `S3_PORT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`, `S3_USE_SSL`.
-   - **Deployed separately** — not managed by this repo's Kubernetes manifests. In prod, the S3-compatible service (MinIO or similar) behind `S3_PUBLIC_URL` is provisioned and managed by external infrastructure. The app only consumes it via env vars: `S3_PUBLIC_URL` is set in the Deployment, and credentials come from Vault via ExternalSecret (`/handy-files`).
-   - If `S3_HOST` is unset, the server falls back to local filesystem storage (`./data/files/`).
-   - For local k8s dev, a MinIO pod is deployed via `deploy/overlays/local/minio.yaml`.
+Register one confidential OIDC client (authorization code flow) for the server:
 
-## Environment variables
+- **Redirect URI:** `<PUBLIC_URL>/v1/auth/oidc/callback`. It is the only one: the CLI, the apps and
+  `happycc-agent` all sign in through the server.
+- **Scopes:** `openid profile email offline_access` (the default, `OIDC_SCOPES`). `offline_access` lets
+  the server re-check users with the provider; without a refresh token from the provider, removing a
+  user there does not cut off their existing sign-ins.
+- **Issuer:** must be `https` (`OIDC_ALLOW_INSECURE_ISSUER=true` is for local development only).
+
+Users are matched by issuer and subject, and their account is created on first sign-in. Who may use
+happycc is decided in the provider, for example by assigning users or groups to the client.
+
+## Configuration
+
 **Required**
-- `DATABASE_URL`: Postgres connection string.
-- `HANDY_MASTER_SECRET`: master key for auth tokens and server-side encryption.
-- `REDIS_URL`: Redis connection string.
-- `S3_HOST`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`: object storage config.
 
-**Common**
-- `PORT`: API server port (default `3005`).
-- `METRICS_ENABLED`: set to `false` to disable metrics server.
-- `METRICS_PORT`: metrics server port (default `9090`).
-- `S3_PORT`: optional S3 port.
-- `S3_USE_SSL`: `true`/`false` (default `true`).
-- `APP_STORE_URL`, `PLAY_STORE_URL`: optional. `/v1/version` returns one of these as `updateUrl` when the reporting client is below the minimum version; unset means no update URL (no upstream store link).
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `HANDY_MASTER_SECRET` | Protects every user's keys and the server's tokens; at least 32 characters. Keep it secret and backed up: without it, stored content cannot be read. |
+| `PUBLIC_URL` | The server's external URL |
+| `WEBAPP_URL` | The web app's URL (sign-in returns there) |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | The identity provider client |
 
-**Optional integrations** (all off unless configured; setting only part of a group is a startup error)
-- Clients read `GET /v1/features` (authenticated) → `{ githubConnect, push }` and hide what is off.
-- GitHub connect: set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `GITHUB_REDIRECT_URL` together to register the `/v1/connect/github/*` routes. The OAuth callback returns to `WEBAPP_URL`.
-  - The GitHub App settings `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` and `GITHUB_REDIRECT_URI` only initialize webhook handling. The webhook route itself is part of the GitHub route group, so it is only registered when the three OAuth settings above are also set — setting only the App settings leaves `/v1/connect/github/webhook` returning 404.
-- Voice is removed (no ElevenLabs/LiveKit code in the server or apps). There are no `/v1/voice/*` routes, and `ELEVENLABS_*` / `VOICE_*` variables are ignored. The `VoiceConversation` table is dropped by migration `20261003000000_drop_voice_conversation`.
-- Push notifications: Expo push, on by default; `PUSH_ENABLED=false` turns it off. Pushes are content-free: a fixed title per event (`It's ready!`, `Permission request`, `Clarification needed`), the body `Open the session to continue.`, and data `{ sessionId, kind, url }`. Client-supplied text is ignored. Delivery to your own app builds needs your EAS project, APNs key and FCM credentials.
-  - CLI releases before this fork (e.g. `happy notify`) could send pushes directly to Expo using tokens from `GET /v1/push-tokens`; deploy only this fork's clients.
-- Debug logging: `DANGEROUSLY_LOG_TO_SERVER_FOR_AI_AUTO_DEBUGGING` (enables file logging + dev log endpoint).
+**Sign-in**
 
-## Session RPC isolation
-The server binds RPC registration to the session's own CLI socket. Only a session-scoped CLI socket may register RPC methods, and only methods prefixed with its own session id (`<sessionId>:<method>`); machine-scoped and app sockets cannot register at all. Session ownership is also checked when the socket connects, so a client cannot attach to a session its account does not own. A client therefore cannot register, and intercept, another session's methods. With the app's `workstationOnly` flag (see `docs/deploy-app.md`), the app has no way to start sessions, and the server refuses machine-level RPCs (no machine socket may register spawn, resume or machine-wide shell methods), so sessions are started with `happycc` on the workstation. To continue a session after its terminal closed, run `happycc resume <session-id>` on the same workstation: it reattaches the same session, history included (Claude Code and Codex sessions).
+| Variable | Default | Purpose |
+|---|---|---|
+| `MOBILE_REDIRECT_URIS` | none | Comma-separated `<scheme>://auth/callback` of your mobile app builds ([deploy-app.md](deploy-app.md)) |
+| `MOBILE_APP_NAME` | `the happycc app` | Name shown on the mobile sign-in confirmation page |
+| `AUTH_ACCESS_TOKEN_TTL` | `15m` | Lifetime of an access token |
+| `AUTH_MAX_SESSION_AGE` | `30d` | A sign-in ends this long after it started; the user signs in again |
+| `AUTH_REFRESH_REUSE_GRACE` | `60s` | Window in which a retried refresh is not treated as token theft |
 
-The app's direct file and shell RPCs bypass the agent and its permission prompts, so a session limits them to what the app's git views need. `bash` runs only the commands in the shared list `packages/happy-wire/src/sessionCommands.ts` (git status, numstat, per-file diffs, a HEAD read, reading an untracked file), each as a fixed argument list without a shell, inside the session folder; anything else is refused with "Command not allowed". `ripgrep` accepts only the listed searches, and `writeFile` and `difftastic` are refused. `readFile`, `listDirectory` and `getDirectoryTree` stay, read-only and limited to the session folder. Changing the workstation therefore goes through the agent, whose tools ask for permission as usual (the same model as Claude Code Remote Control). With `workstationOnly`, the desktop app also hides its "All files" browser and file editor.
+**Optional**
 
-## Docker image
-A production Dockerfile is provided at `Dockerfile.server`.
+| Variable | Purpose |
+|---|---|
+| `PORT` | Listen port (default `3005`) |
+| `S3_HOST`, `S3_PORT`, `S3_USE_SSL`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`, `S3_PUBLIC_URL`, `S3_REGION` | Object storage |
+| `DATA_DIR` | Local file storage when S3 is not configured |
+| `REDIS_URL` | Redis |
+| `PUSH_ENABLED` | `false` disables push notifications |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URL` | GitHub integration; off unless all three are set |
+| `METRICS_ENABLED`, `METRICS_PORT` | Prometheus metrics on a separate port (default `9090`) |
+| `APP_STORE_URL`, `PLAY_STORE_URL` | Where outdated apps are sent to update |
 
-Key notes:
-- The server defaults to port `3005` (set `PORT` explicitly in container environments).
-- The image includes FFmpeg and Python for media processing.
+Setting only some of the three GitHub variables is a startup error. Push notifications go through Expo's push
+service and carry no session content: a fixed title, the body "Open the session to continue." and the
+session id. Delivering them to your own app builds needs your EAS project, APNs key and FCM credentials.
 
-## Kubernetes manifests
-Example manifests live in `packages/happy-server/deploy`:
-- `handy.yaml`: Deployment + Service + ExternalSecrets for the server.
-- `happy-redis.yaml`: Redis StatefulSet + Service + ConfigMap.
+## Running it
 
-The deployment config expects:
-- Prometheus scraping annotations on port `9090`.
-- A secret named `handy-secrets` populated by ExternalSecrets.
-- A service mapping port `3000` to container port `3005`.
+Build the image from `Dockerfile.server`. Apply database migrations before each start or upgrade,
+then start the server:
 
-## Production deployment order
+```bash
+pnpm exec prisma migrate deploy && pnpm run start
+```
 
-The `Lab_HappyServer` TeamCity build runs Build, Push, and its private Deploy
-recipe in order. The recipe runs `prisma migrate deploy` in a one-off
-Kubernetes Job using the new image and `handy-secrets`, then applies
-`handy.yaml` and waits for the rollout. A failed migration exits before apply.
+This is what the repository's `docker-compose.yaml` does; it is a complete local example with a mock
+identity provider. Migrations must stay compatible with the release that is still running during a
+rolling update.
 
-GitHub CI continues to apply migrations to its disposable Postgres database.
-Production migrations run before the rolling update, so they must remain
-compatible with the currently running release; destructive changes require an
-expand/contract deployment.
+## Managing access
 
-## Local dev helpers
-The server package includes scripts for local infrastructure:
-- `pnpm --filter happy-server db` (Postgres in Docker)
-- `pnpm --filter happy-server redis`
-- `pnpm --filter happy-server s3` + `s3:init`
+- **Remove a user** in the identity provider. When their access token is next refreshed, the server
+  re-checks them with the provider (at most once every 15 minutes per user) and revokes all their
+  devices.
+- **Disable an account** directly: set `disabledAt` on the user's row in the `Account` table (matched by
+  `email` or `oidcSubject`). It takes effect at the device's next refresh or reconnect. There is no
+  admin console yet.
+- **Sign-ins expire** after `AUTH_MAX_SESSION_AGE`. Users sign out a device with `happycc auth logout`
+  (or `happycc-agent auth logout`), which revokes it on the server.
 
-Use `.env`/`.env.dev` to load local settings when running `pnpm --filter happy-server dev`.
+## What the app can do on a workstation
 
-## Implementation references
-- Entrypoint: `packages/happy-server/sources/main.ts`
-- Dockerfile: `Dockerfile.server`
-- Kubernetes manifests: `packages/happy-server/deploy`
-- Env usage: `packages/happy-server/sources` (`rg -n "process.env"`)
+A session's remote calls are registered by the CLI process that runs it, and the server lets only that
+process register them, under its own session id. Workstations run no background service, so nothing
+can start a session remotely. The calls the app makes into a session are limited to what its views need:
+the git commands in `packages/happy-wire/src/sessionCommands.ts` (run without a shell, in the session
+folder) and read-only file access inside that folder. Anything that changes the workstation goes
+through the agent and its permission prompts.
