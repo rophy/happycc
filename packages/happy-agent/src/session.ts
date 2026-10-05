@@ -531,6 +531,7 @@ export class SessionClient extends EventEmitter {
 
     /** The server refused this device: stop reconnecting and surface why. */
     private stopForbidden(reason: string | null): void {
+        if (this.loggedOut) return;
         this.loggedOut = true;
         this.clearReconnectTimer();
         this.clearDisconnectGrace();

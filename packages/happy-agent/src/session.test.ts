@@ -1037,6 +1037,40 @@ describe('SessionClient', () => {
             client.close();
         });
 
+        it('stops without reconnecting when the handshake is refused as forbidden', async () => {
+            const opts = makeOptions({ reconnectBaseDelayMs: 5 });
+            const client = new SessionClient(opts);
+            await new Promise((r) => setTimeout(r, 0));
+            const errors: Error[] = [];
+            client.on('connect_error', (error) => errors.push(error));
+            const calls = mockSocketInstance!.connectCalls;
+
+            const refused = Object.assign(new Error('forbidden'), { data: { error: 'forbidden', reason: 'Ask IT' } });
+            mockSocketInstance!.emit('connect_error', refused);
+            await new Promise((r) => setTimeout(r, 30));
+
+            expect(errors.map((e) => e.message)).toEqual(['Not authorized: Ask IT']);
+            expect(mockSocketInstance!.connected).toBe(false);
+            expect(mockSocketInstance!.connectCalls).toBe(calls);
+        });
+
+        it('stops without reconnecting on a forbidden event followed by a server disconnect', async () => {
+            const opts = makeOptions({ reconnectBaseDelayMs: 5 });
+            const client = new SessionClient(opts);
+            await new Promise((r) => setTimeout(r, 0));
+            const errors: Error[] = [];
+            client.on('connect_error', (error) => errors.push(error));
+            const calls = mockSocketInstance!.connectCalls;
+
+            mockSocketInstance!.simulateServerEvent('forbidden', { error: 'forbidden' });
+            mockSocketInstance!.serverDisconnect();
+            await new Promise((r) => setTimeout(r, 30));
+
+            expect(errors.map((e) => e.message)).toEqual(['Not authorized: your organization has not given you access.']);
+            expect(mockSocketInstance!.connected).toBe(false);
+            expect(mockSocketInstance!.connectCalls).toBe(calls);
+        });
+
         it('does not reconnect once the client has been closed', async () => {
             const opts = makeOptions({ reconnectBaseDelayMs: 5 });
             const client = new SessionClient(opts);

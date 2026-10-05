@@ -309,6 +309,22 @@ describe('api', () => {
             expect(mockedAxios.get).not.toHaveBeenCalled();
         });
 
+        it('reports a forbidden denial with its reason', async () => {
+            const { AxiosError } = await import('axios');
+            const err = new (AxiosError as any)('Forbidden', { response: { status: 403, data: { error: 'forbidden', reason: 'Ask IT' } } });
+            mockedAxios.get.mockRejectedValueOnce(err);
+
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('Not authorized: Ask IT');
+        });
+
+        it('keeps the generic message for a 403 without the forbidden payload', async () => {
+            const { AxiosError } = await import('axios');
+            const err = new (AxiosError as any)('Forbidden', { response: { status: 403, data: { error: 'nope' } } });
+            mockedAxios.get.mockRejectedValueOnce(err);
+
+            await expect(listSessions(config, creds, tokens)).rejects.toThrow('Forbidden:');
+        });
+
         it('throws on 404', async () => {
             const { AxiosError } = await import('axios');
             const err = new (AxiosError as any)('Not Found', { response: { status: 404 } });
