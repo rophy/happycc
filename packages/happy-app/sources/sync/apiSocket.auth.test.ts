@@ -11,6 +11,7 @@ vi.mock('./storage', () => ({ storage: { getState: () => ({ localSettings: { ver
 import { apiSocket, reconnectDelayMs } from './apiSocket';
 import { setAccessTokenProvider, staticAccessTokenProvider } from '@/auth/authFetch';
 import { LoggedOutError, type AccessTokenProvider } from '@/auth/tokenStore';
+import { clearForbidden, getForbidden, reportForbidden } from '@/auth/authorization';
 
 function fakeSocket() {
     return { on: vi.fn(), onAny: vi.fn(), disconnect: vi.fn() };
@@ -189,5 +190,21 @@ describe('apiSocket reconnect after the server gives up on the socket', () => {
         expect(reconnectDelayMs(0, 1)).toBe(1_000);
         expect(reconnectDelayMs(10, 0)).toBe(15_000);
         expect(reconnectDelayMs(10, 1)).toBe(30_000);
+    });
+});
+
+describe('apiSocket authorization', () => {
+    it('clears the not-authorized state when the socket connects again', () => {
+        setAccessTokenProvider(staticAccessTokenProvider('t', 'https://happy.test'));
+        const socket = controllableSocket();
+        mocks.io.mockReturnValue(socket);
+        apiSocket.initialize({ endpoint: 'https://happy.test' }, {} as never);
+        reportForbidden('Ask IT');
+        expect(getForbidden()).not.toBeNull();
+
+        socket.fire('connect');
+
+        expect(getForbidden()).toBeNull();
+        clearForbidden();
     });
 });

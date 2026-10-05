@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { authFetch, getAccessToken, headersToRecord } from '@/auth/authFetch';
-import { forbiddenReason, reportForbidden } from '@/auth/authorization';
+import { clearForbidden, forbiddenReason, reportForbidden } from '@/auth/authorization';
 import { LoggedOutError } from '@/auth/tokenStore';
 import { Encryption } from './encryption/encryption';
 import { storage } from './storage';
@@ -367,6 +367,8 @@ class ApiSocket {
         // Connection events
         socket.on('connect', () => {
             this.cancelReconnect();
+            // A connection means the server allows this device again.
+            clearForbidden();
             if (this.isVerboseLogging()) {
                 console.log('🔌 SyncSocket: Connected, recovered: ' + this.socket?.recovered);
                 console.log('🔌 SyncSocket: Socket ID:', this.socket?.id);
