@@ -1036,6 +1036,8 @@ export class AcpBackend implements AgentBackend {
   // Promise resolver for waitForIdle - set when waiting for response to complete
   private idleResolver: (() => void) | null = null;
   private waitingForResponse = false;
+  /** True while a session/prompt request awaits its response, i.e. during a turn. */
+  private promptInFlight = false;
 
   async sendPrompt(sessionId: SessionId, prompt: string): Promise<void> {
     // Check if prompt contains change_title instruction (via optional callback)
@@ -1074,11 +1076,21 @@ export class AcpBackend implements AgentBackend {
       };
 
       logger.debug(`[AcpBackend] Prompt request:`, JSON.stringify(promptRequest, null, 2));
-      await this.connection.prompt(promptRequest);
-      logger.debug('[AcpBackend] Prompt request sent to ACP connection');
-      
-      // Don't emit 'idle' here - it will be emitted after all message chunks are received
-      // The idle timeout in handleSessionUpdate will emit 'idle' after the last chunk
+      this.promptInFlight = true;
+      try {
+        await this.connection.prompt(promptRequest);
+      } finally {
+        this.promptInFlight = false;
+      }
+      logger.debug('[AcpBackend] Prompt completed');
+
+      // The session/prompt response ends the turn: ACP agents send it after every update of the
+      // turn. Pauses in the output and finished tool calls before it do not (see emitIdleStatus).
+      if (this.idleTimeout) {
+        clearTimeout(this.idleTimeout);
+        this.idleTimeout = null;
+      }
+      this.emitIdleStatus();
 
     } catch (error) {
       logger.debug('[AcpBackend] Error sending prompt:', error);
@@ -1229,7 +1241,13 @@ export class AcpBackend implements AgentBackend {
    * Helper to emit idle status and resolve any waiting promises
    */
   private emitIdleStatus(): void {
+    if (this.promptInFlight) {
+      // A silence or a finished tool call mid-turn is not the end of the turn; the prompt response is.
+      logger.debug('[AcpBackend] Prompt still in flight, not emitting idle');
+      return;
+    }
     this.emit({ type: 'status', status: 'idle' });
+    this.waitingForResponse = false;
     // Resolve any waiting promises
     if (this.idleResolver) {
       logger.debug('[AcpBackend] Resolving idle waiter');
