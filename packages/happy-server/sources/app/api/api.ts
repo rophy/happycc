@@ -24,7 +24,6 @@ import { userRoutes } from "./routes/userRoutes";
 import { feedRoutes } from "./routes/feedRoutes";
 import { kvRoutes } from "./routes/kvRoutes";
 import { v3SessionRoutes } from "./routes/v3SessionRoutes";
-import { attachmentRoutes } from "./routes/attachmentRoutes";
 import { projectRoutes } from "./routes/projectRoutes";
 import { integrationRoutes } from "./routes/integrationRoutes";
 import { describeFeatures, loadFeaturesConfig } from "@/app/features/featuresConfig";
@@ -57,7 +56,7 @@ export async function startApi(opts: StartApiOptions = {}) {
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
     });
 
-    // Required for local-mode attachment uploads (PUT /v1/sessions/:id/attachments/:file).
+    // Required for local-mode avatar uploads (PUT .../avatar/:file).
     // Fastify v5 rejects unknown media types with 415 before reaching the handler.
     app.addContentTypeParser(
         'application/octet-stream',
@@ -124,7 +123,6 @@ export async function startApi(opts: StartApiOptions = {}) {
     feedRoutes(typed);
     kvRoutes(typed);
     v3SessionRoutes(typed);
-    attachmentRoutes(typed);
     projectRoutes(typed);
 
     // Static webapp (self-host mode)
