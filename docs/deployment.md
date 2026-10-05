@@ -25,7 +25,8 @@ Register one confidential OIDC client (authorization code flow) for the server:
   user there does not cut off their existing sign-ins.
 - **Issuer:** must be `https` (`OIDC_ALLOW_INSECURE_ISSUER=true` is for local development only).
 
-Users are matched by issuer and subject, and their account is created on first sign-in. Who may sign in is decided in the provider: restrict the client to the users or groups who should use
+Users are matched by issuer and subject, and their account is created on first sign-in. Who may
+sign in is decided in the provider: restrict the client to the users or groups who should use
 happycc, if your provider supports it (for example Microsoft Entra "Assignment required" or Okta
 assignments). For a decision made by your own systems, use the authorization webhook below.
 
@@ -51,7 +52,8 @@ Content-Type: application/json
 Answer `200` with `{ "allowed": true }` or `{ "allowed": false, "reason": "..." }`; the reason (up to 500
 characters) is shown to the user. Decisions apply at sign-in, on every request and on open
 connections, and are cached per user and client for `AUTHZ_WEBHOOK_CACHE_TTL`, so a change takes
-effect within that time without signing in again. A denial does not sign the user out.
+effect within that time without signing in again. For already-open connections it takes up to about
+twice that time: the re-check runs every TTL against a cache that also lives for a TTL. A denial does not sign the user out.
 
 If the webhook fails (error status, timeout, invalid answer), access is denied with "Authorization is
 unavailable. Try again later.", and the next request asks again.
