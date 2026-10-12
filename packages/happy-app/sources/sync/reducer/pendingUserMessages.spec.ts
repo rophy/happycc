@@ -460,4 +460,60 @@ describe('participants and turns', () => {
         expect(updated.id).toBe(row.id);
         expect(updated.kind === 'tool-call' && updated.turn).toBe('turn-a');
     });
+
+});
+
+describe('a phone clock that runs ahead of the server', () => {
+    // The phone stamps a message when it is sent; the agent's reply carries
+    // the workstation's time. With the phone 5 s ahead, the message would
+    // sort below the reply it caused until the app is restarted.
+    const PHONE_SENT_AT = 15_000;
+    const SERVER_RECEIVED_AT = 10_000;
+    const REPLY_AT = 11_000;
+
+    function order(messages: Message[]) {
+        return [...messages].sort((a, b) => messageSortKey(a) - messageSortKey(b)).map((m) => m.kind);
+    }
+
+    it('re-dates the message to the server time from the send ack', () => {
+        const state = createReducer();
+        const [sent] = reducer(state, [optimistic('local-1', 'hi', PHONE_SENT_AT)]).messages;
+        const [reply] = reducer(state, [agentText('reply-1', 'hello', REPLY_AT)]).messages;
+
+        const updated = registerUserMessageServerIds(state, [{ serverId: 'server-1', localId: 'local-1', createdAt: SERVER_RECEIVED_AT }]);
+
+        expect(updated).toHaveLength(1);
+        expect(updated[0]).toMatchObject({ id: sent.id, createdAt: SERVER_RECEIVED_AT });
+        expect(order([updated[0], reply])).toEqual(['user-text', 'agent-text']);
+    });
+
+    it('re-dates the message to the server time from the socket echo', () => {
+        const state = createReducer();
+        reducer(state, [optimistic('local-1', 'hi', PHONE_SENT_AT)]);
+        const [reply] = reducer(state, [agentText('reply-1', 'hello', REPLY_AT)]).messages;
+
+        const result = reducer(state, [echo('server-1', 'local-1', 'hi', SERVER_RECEIVED_AT)]);
+        const [updated] = userMessages(result.messages);
+
+        expect(updated).toMatchObject({ createdAt: SERVER_RECEIVED_AT });
+        expect(order([updated, reply])).toEqual(['user-text', 'agent-text']);
+    });
+
+    it('takes the time of the first server copy only', () => {
+        const state = createReducer();
+        reducer(state, [optimistic('local-1', 'hi', PHONE_SENT_AT)]);
+        registerUserMessageServerIds(state, [{ serverId: 'server-1', localId: 'local-1', createdAt: SERVER_RECEIVED_AT }]);
+        const result = reducer(state, [echo('server-2', 'local-1', 'hi', SERVER_RECEIVED_AT + 500)]);
+
+        expect(result.messages).toHaveLength(0);
+    });
+
+    it('leaves a held message pinned below everything until it is accepted', () => {
+        const state = createReducer();
+        const [held] = reducer(state, [optimistic('local-1', 'hi', PHONE_SENT_AT)], null, HOLD).messages;
+        registerUserMessageServerIds(state, [{ serverId: 'server-1', localId: 'local-1', createdAt: SERVER_RECEIVED_AT }]);
+        const [message] = userMessages(reducer(state, [echo('server-1', 'local-1', 'hi', SERVER_RECEIVED_AT)], null, HOLD).messages);
+
+        expect(message === undefined || messageSortKey(message) === messageSortKey(held)).toBe(true);
+    });
 });

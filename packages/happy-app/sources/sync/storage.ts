@@ -312,7 +312,7 @@ interface StorageState {
     applyLoaded: () => void;
     applyReady: () => void;
     applyMessages: (sessionId: string, messages: NormalizedMessage[], source?: 'sync' | 'preload') => { changed: string[], settledMessageIds: string[], hasReadyEvent: boolean, enteredPlanMode: boolean };
-    applyUserMessageServerIds: (sessionId: string, pairs: readonly { serverId: string; localId: string }[]) => void;
+    applyUserMessageServerIds: (sessionId: string, pairs: readonly { serverId: string; localId: string; createdAt?: number }[]) => void;
     applyMessagesLoaded: (sessionId: string) => void;
     applyOlderMessagesPagination: (sessionId: string, info: { hasMore: boolean }) => void;
     applyOlderMessagesLoading: (sessionId: string, isLoading: boolean) => void;
@@ -915,7 +915,7 @@ export const storage = create<StorageState>()((set, get) => {
 
             return { changed: Array.from(changed), settledMessageIds, hasReadyEvent, enteredPlanMode };
         },
-        applyUserMessageServerIds: (sessionId: string, pairs: readonly { serverId: string; localId: string }[]) => set((state) => {
+        applyUserMessageServerIds: (sessionId: string, pairs: readonly { serverId: string; localId: string; createdAt?: number }[]) => set((state) => {
             if (pairs.length === 0) {
                 return state;
             }

@@ -2040,7 +2040,7 @@ class Sync {
                 // Join our local rows even if the socket echo is delayed or lost.
                 const userLocalIds = new Set(batch.filter((message) => message.kind === 'user').map((message) => message.localId));
                 const serverIdPairs = data.messages.flatMap((message) =>
-                    message.localId && userLocalIds.has(message.localId) ? [{ serverId: message.id, localId: message.localId }] : []);
+                    message.localId && userLocalIds.has(message.localId) ? [{ serverId: message.id, localId: message.localId, createdAt: message.createdAt }] : []);
                 if (serverIdPairs.length > 0) {
                     storage.getState().applyUserMessageServerIds(sessionId, serverIdPairs);
                 }

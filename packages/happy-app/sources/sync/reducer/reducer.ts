@@ -329,18 +329,36 @@ function settleUserMessage(state: ReducerState, internalId: string, receipt: { c
 /**
  * Records that the message the app knows by `internalId` is the one the server
  * knows by `serverId`, and settles it right away when its acceptance receipt
- * got here first. Returns true when the message settled and must be re-emitted.
+ * got here first. The message also takes the server's time: it was stamped by
+ * this device's clock, while replies carry the workstation's, and a clock that
+ * runs ahead would sort it below its own reply. Returns true when the message
+ * changed and must be re-emitted.
  */
-function joinUserMessageServerId(state: ReducerState, serverId: string, internalId: string): boolean {
+function joinUserMessageServerId(state: ReducerState, serverId: string, internalId: string, serverCreatedAt?: number): boolean {
     if (!state.messageIds.has(serverId)) {
         state.messageIds.set(serverId, internalId);
     }
+    const message = state.messages.get(internalId);
+    // Only the optimistic copy carries this device's time; once the server's
+    // copy has dated it, later copies are duplicates. A held message keeps its
+    // pin at the bottom until it is accepted.
+    const redated = serverCreatedAt !== undefined && message !== undefined && !message.pending
+        && message.realID === message.localId;
+    if (redated) {
+        message.createdAt = serverCreatedAt;
+        message.realID = serverId;
+    }
     const receipt = state.pendingReceipts.get(serverId);
     if (receipt === undefined) {
-        return false;
+        return redated;
     }
     state.pendingReceipts.delete(serverId);
-    return settleUserMessage(state, internalId, receipt);
+    return settleUserMessage(state, internalId, receipt) || redated;
+}
+
+/** The server's time for a copy of an own message, or undefined for the optimistic copy itself. */
+function serverTime(msg: NormalizedMessage): number | undefined {
+    return msg.id !== msg.localId ? msg.createdAt : undefined;
 }
 
 /**
@@ -352,7 +370,7 @@ function joinUserMessageServerId(state: ReducerState, serverId: string, internal
  */
 export function registerUserMessageServerIds(
     state: ReducerState,
-    pairs: readonly { serverId: string; localId: string }[],
+    pairs: readonly { serverId: string; localId: string; createdAt?: number }[],
 ): Message[] {
     const settled: Message[] = [];
     for (const pair of pairs) {
@@ -363,7 +381,7 @@ export function registerUserMessageServerIds(
             state.unmatchedAckServerIds.set(pair.localId, pair.serverId);
             continue;
         }
-        if (joinUserMessageServerId(state, pair.serverId, internalId)) {
+        if (joinUserMessageServerId(state, pair.serverId, internalId, pair.createdAt)) {
             const message = state.messages.get(internalId);
             const converted = message ? convertReducerMessageToMessage(message, state) : null;
             if (converted) {
@@ -419,7 +437,7 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
             // this too, through registerUserMessageServerIds; whichever runs first
             // wins and the other is a no-op.)
             const internalId = state.localIds.get(msg.localId)!;
-            if (joinUserMessageServerId(state, msg.id, internalId)) {
+            if (joinUserMessageServerId(state, msg.id, internalId, serverTime(msg))) {
                 changed.add(internalId);
                 settledIds.add(internalId);
             }
@@ -829,7 +847,7 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                 // past Phase 0.5's guard — localIds is not written until here —
                 // so this dedupe is its only stop. Record the join it carries.
                 const internalId = state.localIds.get(msg.localId)!;
-                if (joinUserMessageServerId(state, msg.id, internalId)) {
+                if (joinUserMessageServerId(state, msg.id, internalId, serverTime(msg))) {
                     changed.add(internalId);
                     settledIds.add(internalId);
                 }
