@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Happy Corporate Coder</title>
+<meta name="description" content="Run Claude Code or Codex on your workstation and control it from your phone, through a server and sign-in your organization hosts. A fork of Happy Coder.">
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --text: #1c1c1a;
+  --muted: #5f5f5a;
+  --line: #e4e3df;
+  --accent: #1f6f5c;
+  --accent-soft: #e6f1ee;
+  --code-bg: #f1f0ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413;
+    --surface: #1c1c1a;
+    --text: #ecebe6;
+    --muted: #a3a29b;
+    --line: #2e2e2b;
+    --accent: #6cc4ab;
+    --accent-soft: #1d2e29;
+    --code-bg: #252522;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
+a { color: var(--accent); }
+h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; margin: 48px 0 12px; }
+p { margin: 0 0 14px; }
+.lead { font-size: 1.15rem; color: var(--muted); margin-bottom: 24px; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.links a {
+  display: inline-block; padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface);
+  text-decoration: none; color: var(--text); font-weight: 500;
+}
+.links a.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 18px 20px; margin: 16px 0;
+}
+.origin { background: var(--accent-soft); border-color: transparent; }
+.stats { display: flex; flex-wrap: wrap; gap: 24px; margin: 8px 0 4px; }
+.stats div { min-width: 90px; }
+.stats b { display: block; font-size: 1.4rem; }
+.stats span { color: var(--muted); font-size: 0.9rem; }
+ul { padding-left: 20px; margin: 0 0 14px; }
+li { margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+.scroll { overflow-x: auto; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 14px; }
+pre code { background: none; padding: 0; }
+.where { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+.where div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.where b { display: block; margin-bottom: 4px; }
+.where span { color: var(--muted); font-size: 0.92rem; }
+@media (max-width: 600px) { .where { grid-template-columns: 1fr; } }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Happy Corporate Coder</h1>
+<p class="lead">Run Claude Code or Codex on your workstation and control it from your phone, through a server and sign-in that your organization hosts.</p>
+<div class="links">
+  <a class="primary" href="https://github.com/rophy/happycc">Source on GitHub</a>
+  <a href="https://github.com/rophy/happycc/blob/main/docs/deployment.md">Deploy the server</a>
+  <a href="https://www.npmjs.com/package/@happycc/cli">@happycc/cli on npm</a>
+</div>
+
+<h2>Built on Happy Coder</h2>
+<div class="card origin">
+  <p>happycc is a fork of <a href="https://github.com/slopus/happy">Happy Coder</a> (slopus/happy), an open-source mobile client for Claude Code and Codex. The CLI, the mobile and web app, and the relay server come from that project.</p>
+  <div class="stats">
+    <div><b>24k+</b><span>GitHub stars</span></div>
+    <div><b>2k+</b><span>forks</span></div>
+    <div><b>70+</b><span>contributors</span></div>
+    <div><b>MIT</b><span>license</span></div>
+  </div>
+  <p style="margin:12px 0 0">Upstream now puts its work into a new desktop app and its own agent runtime (<a href="https://happy.engineering/">happy.engineering</a>). happycc keeps the original model: the vendor's own agent runs on your workstation, and your phone is the remote.</p>
+</div>
+
+<h2>What it does</h2>
+<ul>
+  <li>Start <code>happycc</code> in a terminal where you would start <code>claude</code>. The session also shows in the app.</li>
+  <li>From your phone or browser, read the conversation, send messages, answer permission prompts and stop the agent.</li>
+  <li>Claude Code, Codex and Agent Client Protocol agents run as their vendors built them, with their own tools and permission checks.</li>
+</ul>
+
+<h2>What is different for organizations</h2>
+<div class="scroll">
+<table>
+  <tr><th>Area</th><th>happycc</th></tr>
+  <tr><td>Sign-in</td><td>Your OIDC identity provider. No QR pairing. An optional authorization webhook decides which users may use the app, the web app and the agent tool.</td></tr>
+  <tr><td>Hosting</td><td>You run the server and build the apps. Nothing calls upstream's servers. The CLI and the apps have no default server.</td></tr>
+  <tr><td>Keys</td><td>The server holds the encryption keys (server-managed, not end-to-end). Your organization can read stored content, as it can with its other systems.</td></tr>
+  <tr><td>Sessions</td><td>Workstation only. The background daemon is off, so the app cannot start sessions or run anything the user did not start at the workstation.</td></tr>
+  <tr><td>Remote control</td><td>The app cannot raise a session's permission mode. It can run only a fixed list of commands, and it cannot write files or send attachments. The server checks that each session's RPC belongs to its own socket and account.</td></tr>
+  <tr><td>Sandbox</td><td>With the sandbox on, Claude Code runs inside it whether the session is driven from the terminal or from the app.</td></tr>
+  <tr><td>Third parties</td><td>Voice, GitHub, analytics and push are off unless you configure them. Push notifications carry no session content.</td></tr>
+</table>
+</div>
+
+<h2>What runs where</h2>
+<div class="card">
+<div class="where">
+  <div><b>Workstation</b><span><code>happycc</code> runs the agent. Your code stays here.</span></div>
+  <div><b>Your server</b><span>OIDC sign-in, keys, sessions, relay, optional authorization webhook.</span></div>
+  <div><b>Phone or browser</b><span>The app. No shell, no files, no new sessions.</span></div>
+</div>
+<p style="margin:0">The agent and your code stay on the workstation. The server stores sessions and passes messages between the workstation and the app. The app sends only messages, answers to permission prompts, stop, and commands from the fixed list.</p>
+</div>
+
+<h2>Get started</h2>
+<p><b>Operators:</b> <a href="https://github.com/rophy/happycc/blob/main/docs/deployment.md">deploy the server</a>, then <a href="https://github.com/rophy/happycc/blob/main/docs/deploy-app.md">build the apps</a> for your internal app store.</p>
+<p><b>Developers:</b></p>
+<pre><code>npm install -g @happycc/cli
+happycc</code></pre>
+
+<h2>Status</h2>
+<ul>
+  <li>Early releases (0.x). Read the <a href="https://github.com/rophy/happycc/blob/main/docs/happycc-roadmap.md">roadmap</a> for planned and declined work.</li>
+  <li>Fixes that also apply upstream are listed in <a href="https://github.com/rophy/happycc/blob/main/docs/upstream-fixes.md">upstream-fixes.md</a> and offered back.</li>
+  <li>Report problems in <a href="https://github.com/rophy/happycc/issues">GitHub issues</a>.</li>
+</ul>
+
+<footer>
+  MIT licensed, as upstream. Not affiliated with Happy Engineering, Anthropic or OpenAI.
+</footer>
+
+</main>
+</body>
+</html>
